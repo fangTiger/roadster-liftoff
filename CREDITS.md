@@ -13,7 +13,8 @@
 
 | 文件 | 素材 | 来源 | 授权 |
 | --- | --- | --- | --- |
-| `public/assets/hdri/goegap_road_2k.hdr` | Goegap Road | [Poly Haven](https://polyhaven.com/a/goegap_road) | CC0 |
+| `public/assets/hdri/goegap_road_2k.hdr` | Goegap Road（光照与反射用 2K HDR） | [Poly Haven](https://polyhaven.com/a/goegap_road) | CC0 |
+| `public/assets/hdri/goegap_bg_8k.jpg`、`goegap_front_16k.jpg` | Goegap Road 16K HDR 经 ACES（曝光 0.85）色调映射后，导出 8K 全景背景与前方 16K 精度高清块 | [Poly Haven](https://polyhaven.com/a/goegap_road) | CC0 |
 | `public/assets/tex/asphalt_02_*.webp` | Asphalt 02（转为 1K WebP） | [Poly Haven](https://polyhaven.com/a/asphalt_02) | CC0 |
 | `public/assets/tex/dry_ground_rocks_*.webp` | Dry Ground Rocks（转为 1K WebP） | [Poly Haven](https://polyhaven.com/a/dry_ground_rocks) | CC0 |
 | `public/assets/props/didelta_spinosa.glb` | Didelta Spinosa 灌木（网格精简到约 5%，meshopt 压缩） | [Poly Haven](https://polyhaven.com/a/didelta_spinosa) | CC0 |
