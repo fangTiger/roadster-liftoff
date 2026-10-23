@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>离地 LIFTOFF</title>
+<style>
+:root{--glass:rgba(14,16,22,.42);--line:rgba(255,255,255,.14);--txt:#f4f6fa;--dim:rgba(244,246,250,.6);--acc:#ff5a3c;--cy:#7fe3ff}
+html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:-apple-system,"PingFang SC","SF Pro Display",sans-serif;color:var(--txt)}
+canvas{display:block}
+.g{position:fixed;background:var(--glass);backdrop-filter:blur(14px) saturate(150%);-webkit-backdrop-filter:blur(14px) saturate(150%);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+#brand{left:18px;top:16px;padding:10px 18px 10px 12px;display:flex;gap:12px;align-items:center}
+#brand .logo{width:38px;height:38px;border-radius:10px;background:linear-gradient(140deg,#ff6a3d,#c3122f);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px}
+#brand b{font-size:18px;letter-spacing:3px;display:block}#brand small{font-size:11.5px;color:var(--dim)}
+#cams{left:50%;top:16px;transform:translateX(-50%);padding:6px;display:flex;gap:4px}
+#cams span{padding:7px 14px;font-size:13.5px;border-radius:10px;color:var(--dim)}
+#cams span.on{background:linear-gradient(180deg,#ff8a5c,#ff4d3a);color:#fff;font-weight:600}
+#tools{right:18px;top:16px;padding:9px 16px;display:flex;gap:20px;font-size:16px;color:var(--dim)}
+#launch{left:50%;top:86px;transform:translateX(-50%);padding:10px 22px;text-align:center}
+#launch small{display:block;font-size:11px;letter-spacing:2px;color:var(--dim)}
+#launch b{font:700 34px "SF Pro Display",-apple-system,sans-serif;letter-spacing:1px}#launch b i{font-style:normal;font-size:16px;color:var(--dim);margin-left:4px}
+#gauge{left:18px;bottom:16px;padding:16px 20px;display:flex;gap:22px;align-items:center}
+#gauge svg{width:112px;height:112px}
+#gauge .rows{font-size:13px;color:var(--dim);display:grid;grid-template-columns:auto auto;gap:6px 22px}
+#gauge .rows b{color:var(--txt);font-weight:600;text-align:right}
+#fuel{display:inline-block;width:70px;height:6px;border-radius:3px;background:rgba(255,255,255,.15);vertical-align:middle;margin-right:6px;position:relative}
+#fuel i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:linear-gradient(90deg,#3fb6ff,#9ff0ff)}
+#bag{right:18px;bottom:16px;padding:14px 18px;width:250px}
+#bag .top{display:flex;justify-content:space-between;align-items:flex-end}
+#bag .n{font-size:28px;color:var(--cy);font-weight:600}#bag .n small{font-size:13px;color:var(--dim);margin-left:6px;font-weight:400}
+#bag .ach{text-align:right;font-size:12px;color:var(--dim)}#bag .ach b{display:block;color:var(--txt);font-size:15px}
+#bag .time{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:13px}
+#bag .bar{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.18);position:relative}
+#bag .bar i{position:absolute;left:0;top:0;bottom:0;width:72%;border-radius:2px;background:linear-gradient(90deg,#ff9a5c,#ffd2a0)}
+#keys{left:50%;bottom:16px;transform:translateX(-50%);padding:8px 14px;display:flex;gap:14px;font-size:12.5px;color:var(--dim);white-space:nowrap}
+kbd{display:inline-block;min-width:18px;padding:1px 5px;margin-right:4px;border-radius:5px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.1);color:var(--txt);font:600 11px -apple-system,sans-serif;text-align:center}
+#credit{right:18px;bottom:150px;padding:7px 12px;display:flex;align-items:center;gap:9px;font-size:12px;color:var(--dim)}
+#credit .dot{width:8px;height:8px;border-radius:50%;background:var(--cy);box-shadow:0 0 8px var(--cy)}#credit b{color:var(--txt);font-weight:600}
+#toast{right:18px;top:78px;padding:10px 16px 10px 12px;display:flex;gap:12px;align-items:center}
+#toast .ic{width:34px;height:34px;border-radius:9px;background:linear-gradient(140deg,#7fe3ff,#2f7cff);display:flex;align-items:center;justify-content:center;font-size:17px}
+#toast b{display:block;font-size:14.5px}#toast small{font-size:12px;color:var(--dim)}
+.speed{position:fixed;inset:0;pointer-events:none;background:repeating-conic-gradient(from 0deg at 50% 52%,rgba(255,255,255,.0) 0deg,rgba(255,255,255,.0) 2.6deg,rgba(255,255,255,.07) 2.8deg,rgba(255,255,255,0) 3deg);-webkit-mask:radial-gradient(ellipse at 50% 52%,transparent 38%,#000 75%);mask:radial-gradient(ellipse at 50% 52%,transparent 38%,#000 75%)}
+</style></head><body>
+<div class="speed" id="speed"></div>
+<div class="g" id="brand"><span class="logo">⟁</span><div><b>离地 LIFTOFF</b><small>推进器超跑 · 实时 3D</small></div></div>
+<div class="g" id="cams"><span data-v="road">追随</span><span data-v="lift">低角跟拍</span><span data-v="space">电影运镜</span><span>驾驶舱</span><span>自由环绕</span></div>
+<div class="g" id="tools"><span>◎</span><span>♪</span><span>⛶</span><span>⚙</span><span>?</span></div>
+<div class="g" id="launch"><small id="lt">0 – 100 KM/H</small><b id="lv">0.82<i>s</i></b></div>
+<div class="g" id="toast"><span class="ic">✦</span><div><b id="tt">0.8 秒俱乐部</b><small id="ts">0–100 km/h 用时不到 0.9 秒</small></div></div>
+<div class="g" id="gauge">
+  <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="6" stroke-dasharray="198 66" transform="rotate(135 50 50)" stroke-linecap="round"/>
+  <circle cx="50" cy="50" r="42" fill="none" stroke="url(#gr)" stroke-width="6" stroke-dasharray="168 96" transform="rotate(135 50 50)" stroke-linecap="round"/>
+  <defs><linearGradient id="gr"><stop offset="0" stop-color="#ffb35c"/><stop offset="1" stop-color="#ff3d3a"/></linearGradient></defs>
+  <text x="50" y="53" text-anchor="middle" fill="#f4f6fa" font-size="26" font-weight="700" font-family="-apple-system" id="spd">312</text>
+  <text x="50" y="68" text-anchor="middle" fill="rgba(244,246,250,.6)" font-size="9" font-family="-apple-system">KM/H</text></svg>
+  <div class="rows"><span>推进剂</span><b><span id="fuel"><i style="width:74%"></i></span>74%</b><span>高度</span><b id="alt">0 m</b><span>里程</span><b>12.6 km</b><span>镜头</span><b id="camname">追随</b></div>
+</div>
+<div class="g" id="keys"><span><kbd>W</kbd>加速</span><span><kbd>S</kbd>刹车</span><span><kbd>A</kbd><kbd>D</kbd>转向</span><span><kbd>空格</kbd>推进器</span><span>按住<kbd>空格</kbd>冲出大气层</span><span><kbd>C</kbd>镜头</span><span><kbd>H</kbd>喇叭</span></div>
+<div class="g" id="credit"><span class="dot"></span>Built with <b>Arc Studio</b> + <b>Claude Code</b></div>
+<div class="g" id="bag"><div class="top"><div class="n">3<small>次离地</small></div><div class="ach">成就<b>4 / 18</b></div></div>
+<div class="time"><span>☀</span><div class="bar"><i></i></div><span id="clock">18:42</span></div></div>
+<script type="module" src="/src/main.js"></script>
+</body></html>
