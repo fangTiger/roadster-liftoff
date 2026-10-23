@@ -5,7 +5,7 @@ import { createEngine } from './engine.js';
 import { createDesert } from './desert.js';
 import { createCar } from './car.js';
 import { createVehicle, KMH } from './vehicle.js';
-import { createChaseCamera } from './chaseCamera.js';
+import { createCameraRig } from './cameraRig.js';
 import { createHUD } from './hud.js';
 import { createInput } from './input.js';
 import { createSpace } from './space.js';
@@ -25,7 +25,7 @@ const { scene, camera, renderer } = engine;
 const desert = await createDesert(scene, renderer);
 const car = await createCar(); scene.add(car.root);
 const vehicle = createVehicle({ roadX: desert.ROAD_X, roadHalf: desert.ROAD_HALF });
-const cam = createChaseCamera(camera);
+const rig = createCameraRig(camera, renderer.domElement);
 const hud = createHUD();
 const input = createInput();
 const space = await createSpace(scene, renderer);
@@ -117,7 +117,7 @@ function driveFrame(dt, inp) {
   // 世界滚动、阴影跟随、镜头、后期
   blob.position.x = s.x; blob.rotation.z = s.yaw; blob.scale.setScalar(1 + s.y * .06); blob.material.opacity = Math.max(0, 1 - s.y / 12);
   desert.advance(dz); desert.follow(car.root.position); desert.setAltitude(s.y);
-  cam.update(dt, car.root, s);
+  rig.updateDrive(dt, car, s);
   flight.checkAscent(dt, inp);
 }
 
@@ -128,6 +128,7 @@ function frame(dt, inp) {
   else {
     blob.visible = false;
     flight.update(dt, inp, clock.t);
+    rig.updateFlight(dt, car);
     for (const w of car.wheels) w.spin.rotation.x -= s.v / w.radius * dt;
     updateDust(dt, 0);
   }
@@ -139,6 +140,7 @@ function frame(dt, inp) {
 
 if (CAPTURE) {
   window.__frame = (dt, inp) => frame(dt, { throttle: false, brake: false, left: false, right: false, ...inp });
+  window.__cam = m => rig.setMode(m);
   frame(1 / 30, {});
   document.title = 'ready';
 } else {
