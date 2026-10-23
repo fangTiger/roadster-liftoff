@@ -11,7 +11,9 @@ npm install
 npm run dev
 ```
 
-开发阶段可用 `?view=road|chase|lift|space` 切换验证镜头。
+- 游戏：打开首页即可，W 加速、S 刹车、A/D 转向。
+- 效果验证镜头：`/?still=road|chase|lift|space`。
+- 录制演示视频：先 `npm run dev -- --host 127.0.0.1 --port 8932`，再 `node scripts/record.mjs recordings/frames 'http://127.0.0.1:8932/?capture' 18`，最后 `python3 scripts/encode.py recordings/frames recordings/demo.mp4`。
 
 ## 分工
 

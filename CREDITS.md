@@ -14,6 +14,11 @@
 | 文件 | 素材 | 来源 | 授权 |
 | --- | --- | --- | --- |
 | `public/assets/hdri/goegap_road_2k.hdr` | Goegap Road | [Poly Haven](https://polyhaven.com/a/goegap_road) | CC0 |
+| `public/assets/tex/asphalt_02_*.webp` | Asphalt 02（转为 1K WebP） | [Poly Haven](https://polyhaven.com/a/asphalt_02) | CC0 |
+| `public/assets/tex/dry_ground_rocks_*.webp` | Dry Ground Rocks（转为 1K WebP） | [Poly Haven](https://polyhaven.com/a/dry_ground_rocks) | CC0 |
+| `public/assets/props/didelta_spinosa.glb` | Didelta Spinosa 灌木（网格精简到约 5%，meshopt 压缩） | [Poly Haven](https://polyhaven.com/a/didelta_spinosa) | CC0 |
+| `public/assets/props/boulder_01.glb` | Boulder 01 石头（网格精简，meshopt 压缩） | [Poly Haven](https://polyhaven.com/a/boulder_01) | CC0 |
+| `public/assets/props/dead_quiver_trunk.glb` | Dead Quiver Trunk 枯树干（meshopt 压缩） | [Poly Haven](https://polyhaven.com/a/dead_quiver_trunk) | CC0 |
 | `public/assets/earth/bm_surface_8k.jpg`、`bm_patch_eastasia.jpg` | Blue Marble Next Generation（2004 年 7 月，地形与海底地形版，21600×10800），缩放为 8K 全球图并裁出东亚高清块 | [NASA Earth Observatory](https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-topography-bathymetry) | NASA 影像，公有领域 |
 | `public/assets/earth/earth_bump_roughness_clouds_4096.jpg`、`earth_night_4096.jpg` | 云层、夜间灯光贴图 | [three.js 示例贴图](https://github.com/mrdoob/three.js/tree/dev/examples/textures/planets)，源自 NASA 公开影像 | 见 three.js 仓库说明；NASA 影像为公有领域 |
 

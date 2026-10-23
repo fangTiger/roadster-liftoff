@@ -29,6 +29,8 @@ canvas{display:block}
 #bag .bar{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.18);position:relative}
 #bag .bar i{position:absolute;left:0;top:0;bottom:0;width:72%;border-radius:2px;background:linear-gradient(90deg,#ff9a5c,#ffd2a0)}
 #keys{left:50%;bottom:16px;transform:translateX(-50%);padding:8px 14px;display:flex;gap:14px;font-size:12.5px;color:var(--dim);white-space:nowrap}
+@media (max-width:1480px){#keys{gap:10px;font-size:12px;padding:7px 12px}#keys span:nth-child(n+6){display:none}}
+@media (max-width:1180px){#keys{display:none}}
 kbd{display:inline-block;min-width:18px;padding:1px 5px;margin-right:4px;border-radius:5px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.1);color:var(--txt);font:600 11px -apple-system,sans-serif;text-align:center}
 #credit{right:18px;bottom:150px;padding:7px 12px;display:flex;align-items:center;gap:9px;font-size:12px;color:var(--dim)}
 #credit .dot{width:8px;height:8px;border-radius:50%;background:var(--cy);box-shadow:0 0 8px var(--cy)}#credit b{color:var(--txt);font-weight:600}
@@ -41,19 +43,19 @@ kbd{display:inline-block;min-width:18px;padding:1px 5px;margin-right:4px;border-
 <div class="g" id="brand"><span class="logo">⟁</span><div><b>离地 LIFTOFF</b><small>推进器超跑 · 实时 3D</small></div></div>
 <div class="g" id="cams"><span data-v="road">追随</span><span data-v="lift">低角跟拍</span><span data-v="space">电影运镜</span><span>驾驶舱</span><span>自由环绕</span></div>
 <div class="g" id="tools"><span>◎</span><span>♪</span><span>⛶</span><span>⚙</span><span>?</span></div>
-<div class="g" id="launch"><small id="lt">0 – 100 KM/H</small><b id="lv">0.82<i>s</i></b></div>
+<div class="g" id="launch"><small id="lt">0 – 100 KM/H</small><b id="lv">0.00<i>s</i></b></div>
 <div class="g" id="toast"><span class="ic">✦</span><div><b id="tt">0.8 秒俱乐部</b><small id="ts">0–100 km/h 用时不到 0.9 秒</small></div></div>
 <div class="g" id="gauge">
   <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="6" stroke-dasharray="198 66" transform="rotate(135 50 50)" stroke-linecap="round"/>
-  <circle cx="50" cy="50" r="42" fill="none" stroke="url(#gr)" stroke-width="6" stroke-dasharray="168 96" transform="rotate(135 50 50)" stroke-linecap="round"/>
+  <circle cx="50" cy="50" r="42" fill="none" stroke="url(#gr)" stroke-width="6" stroke-dasharray="0 264" transform="rotate(135 50 50)" stroke-linecap="round"/>
   <defs><linearGradient id="gr"><stop offset="0" stop-color="#ffb35c"/><stop offset="1" stop-color="#ff3d3a"/></linearGradient></defs>
-  <text x="50" y="53" text-anchor="middle" fill="#f4f6fa" font-size="26" font-weight="700" font-family="-apple-system" id="spd">312</text>
+  <text x="50" y="53" text-anchor="middle" fill="#f4f6fa" font-size="26" font-weight="700" font-family="-apple-system" id="spd">0</text>
   <text x="50" y="68" text-anchor="middle" fill="rgba(244,246,250,.6)" font-size="9" font-family="-apple-system">KM/H</text></svg>
-  <div class="rows"><span>推进剂</span><b><span id="fuel"><i style="width:74%"></i></span>74%</b><span>高度</span><b id="alt">0 m</b><span>里程</span><b>12.6 km</b><span>镜头</span><b id="camname">追随</b></div>
+  <div class="rows"><span>推进剂</span><b><span id="fuel"><i style="width:74%"></i></span>74%</b><span>高度</span><b id="alt">0 m</b><span>里程</span><b id="dist">0.0 km</b><span>镜头</span><b id="camname">追随</b></div>
 </div>
 <div class="g" id="keys"><span><kbd>W</kbd>加速</span><span><kbd>S</kbd>刹车</span><span><kbd>A</kbd><kbd>D</kbd>转向</span><span><kbd>空格</kbd>推进器</span><span>按住<kbd>空格</kbd>冲出大气层</span><span><kbd>C</kbd>镜头</span><span><kbd>H</kbd>喇叭</span></div>
 <div class="g" id="credit"><span class="dot"></span>Built with <b>Arc Studio</b> + <b>Claude Code</b></div>
-<div class="g" id="bag"><div class="top"><div class="n">3<small>次离地</small></div><div class="ach">成就<b>4 / 18</b></div></div>
+<div class="g" id="bag"><div class="top"><div class="n">0<small>次离地</small></div><div class="ach">成就<b>0 / 18</b></div></div>
 <div class="time"><span>☀</span><div class="bar"><i></i></div><span id="clock">18:42</span></div></div>
 <script type="module" src="/src/main.js"></script>
 </body></html>
