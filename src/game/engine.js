@@ -36,6 +36,12 @@ export function createEngine({ pixelRatio } = {}) {
   const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 4 });
   const composer = new EffectComposer(renderer, rt);
   composer.addPass(new RenderPass(scene, camera));
+  // 数值净化：把 NaN/Inf 和极端高亮钳制住，否则泛光会把单个坏像素扩散成大块白光
+  composer.addPass(new ShaderPass({ uniforms: { tDiffuse: { value: null } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
+    fragmentShader: `uniform sampler2D tDiffuse; varying vec2 vUv;
+      void main(){ vec4 c=texture2D(tDiffuse,vUv); bvec3 bad=bvec3(!(c.r==c.r)||c.r>6e4,!(c.g==c.g)||c.g>6e4,!(c.b==c.b)||c.b>6e4);
+        if(any(bad)) c.rgb=vec3(0.); gl_FragColor=vec4(min(c.rgb,vec3(48.)),1.); }` }));
   const bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), .35, .4, .95); composer.addPass(bloom);
   composer.addPass(new OutputPass());
   const blur = new ShaderPass(SpeedBlurShader); composer.addPass(blur);
