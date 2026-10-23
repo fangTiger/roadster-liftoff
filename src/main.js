@@ -35,7 +35,7 @@ const V = (x, y, z) => new THREE.Vector3(x, y, z);
 // 模型经 meshopt 压缩，加载器需要挂解码器
 const gltfLoader = () => new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 
-// —— 车：加载、归一化尺寸、车头朝 -Z、黑白涂装、去标 ——
+// —— 车：加载、归一化尺寸、车头朝 -Z、黑白涂装 ——
 async function loadRoadster() {
   const gltf = await gltfLoader().loadAsync('/assets/models/roadster-2020.glb');
   const car = gltf.scene; car.updateMatrixWorld(true);
@@ -57,7 +57,6 @@ async function loadRoadster() {
     if (nm === 'car_main_paint') { o.material = new THREE.MeshPhysicalMaterial({ color: '#f4f4f2', metalness: 0, roughness: .22, clearcoat: 1, clearcoatRoughness: .02 }); }
     if (/Glass_Tint_max|Glass_mid_tint/.test(nm)) { o.material = new THREE.MeshPhysicalMaterial({ color: '#050608', metalness: .2, roughness: .02, clearcoat: 1, transparent: true, opacity: .93 }); }
     if (nm === 'calipers') o.material = new THREE.MeshStandardMaterial({ color: '#c9c9c9', metalness: .8, roughness: .35 });
-    if (nm === 'chrome' && Math.max(sz.x, sz.y, sz.z) < .35) o.visible = false;      // 车标
     if (/headlights|Glass_Clear/.test(nm)) { if (o.material.emissive) { o.material = o.material.clone(); o.material.emissive = new THREE.Color('#eaf3ff'); o.material.emissiveIntensity = 1.2; } }
     if (/rear_lights/.test(nm)) { o.material = o.material.clone(); o.material.emissive = new THREE.Color('#ff1020'); o.material.emissiveIntensity = 3; }
   });
@@ -117,43 +116,71 @@ async function main() {
     const sv = []; for (let i = 0; i < 7000; i++) { const v = V(rr() - .5, rr() - .5, rr() - .5).normalize().multiplyScalar(15000); sv.push(v.x, v.y, v.z); }
     const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(sv, 3));
     scene.add(new THREE.Points(sg, new THREE.PointsMaterial({ color: '#ffffff', size: 1.5, sizeAttenuation: false, transparent: true, opacity: .85 })));
-    const sunDir = V(-.55, .4, -.75).normalize();
-    const sun = new THREE.DirectionalLight('#fff6ea', 4); sun.position.copy(sunDir).multiplyScalar(60); sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096); sun.shadow.bias = -.0002;
-    Object.assign(sun.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6, near: 1, far: 200 }); scene.add(sun, sun.target);
-    scene.add(new THREE.HemisphereLight('#6a8fd8', '#0a0c14', .35));
-    const R = 6400, EC = V(1900, -R - 420, 2400);
-  // 地球：片元着色器实时生成大陆、海面高光、云层与晨昏线（近看不糊）
-  const GL3 = `
-  float h3(vec3 p){p=fract(p*.3183099+.1);p*=17.;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
-  float n3(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.-2.*f);return mix(mix(mix(h3(i),h3(i+vec3(1,0,0)),f.x),mix(h3(i+vec3(0,1,0)),h3(i+vec3(1,1,0)),f.x),f.y),mix(mix(h3(i+vec3(0,0,1)),h3(i+vec3(1,0,1)),f.x),mix(h3(i+vec3(0,1,1)),h3(i+vec3(1,1,1)),f.x),f.y),f.z);}
-  float fb(vec3 p){float s=0.,a=.5;for(int i=0;i<7;i++){s+=a*n3(p);p=p*2.03+vec3(1.7,9.2,3.1);a*=.5;}return s;}`;
-  const tl = new THREE.TextureLoader(); const day = await tl.loadAsync('/assets/earth/earth_day_4096.jpg'), brc = await tl.loadAsync('/assets/earth/earth_bump_roughness_clouds_4096.jpg'), night = await tl.loadAsync('/assets/earth/earth_night_4096.jpg');
-  day.colorSpace = night.colorSpace = THREE.SRGBColorSpace; [day, brc, night].forEach(x => x.anisotropy = 16);
-  const earth = new THREE.Mesh(new THREE.SphereGeometry(R, 256, 160), new THREE.ShaderMaterial({ uniforms: { sd: { value: sunDir }, day: { value: day }, brc: { value: brc }, night: { value: night } },
-    vertexShader: 'varying vec2 vUv; varying vec3 vN, vW; void main(){ vUv=uv; vN=normalize(mat3(modelMatrix)*normal); vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }',
-    fragmentShader: `uniform vec3 sd; uniform sampler2D day, brc, night; varying vec2 vUv; varying vec3 vN, vW;
-      void main(){
-        vec3 N=normalize(vN), Vd=normalize(cameraPosition-vW); float nd=dot(N,sd), dif=max(nd,0.);
-        vec3 c=texture2D(day,vUv).rgb; vec4 b=texture2D(brc,vUv); float cl=smoothstep(.15,.9,b.b), ocean=1.-smoothstep(.2,.5,b.g);
-        vec3 col=c*dif*1.5;
-        col+=pow(max(dot(reflect(-sd,N),Vd),0.),80.)*ocean*(1.-cl)*vec3(1.,.92,.8)*1.4;
-        col=mix(col,vec3(1.)*(dif*1.45+.01),cl*.92);
-        col+=texture2D(night,vUv).rgb*vec3(1.,.8,.55)*smoothstep(.05,-.2,nd)*(1.-cl)*1.6;
-        col+=vec3(.9,.4,.15)*smoothstep(-.2,0.,nd)*smoothstep(.2,0.,nd)*.18;
-        float rim=pow(1.-max(dot(N,Vd),0.),3.); col+=vec3(.25,.5,1.)*rim*smoothstep(-.2,.3,nd)*1.3;
-        gl_FragColor=vec4(col,1.);
-        #include <colorspace_fragment>
-      }` }));
-  earth.position.copy(EC); earth.rotation.set(.35, 3.6, .1); scene.add(earth);
-  const atm = new THREE.Mesh(new THREE.SphereGeometry(R * 1.025, 160, 120), new THREE.ShaderMaterial({ transparent: true, depthWrite: false, side: THREE.BackSide, blending: THREE.AdditiveBlending, uniforms: { sd: { value: sunDir } },
-    vertexShader: 'varying vec3 vN, vW; void main(){ vN=normalize(mat3(modelMatrix)*normal); vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }',
-    fragmentShader: 'uniform vec3 sd; varying vec3 vN, vW; void main(){ vec3 v=normalize(cameraPosition-vW); float rim=pow(1.-abs(dot(vN,v)),4.); float day=clamp(dot(-vN,sd)*.8+.45,0.,1.); gl_FragColor=vec4(vec3(.3,.55,1.)*rim*day*1.6,1.); }' }));
-  atm.position.copy(EC); scene.add(atm);
-    // 车的反射环境：用地球 + 星空的简易环境
-    const pm = new THREE.PMREMGenerator(renderer); const envS = new THREE.Scene(); envS.background = new THREE.Color('#020308');
-    const eb = new THREE.Mesh(new THREE.SphereGeometry(50, 32, 16, 0, Math.PI * 2, Math.PI * .55, Math.PI * .45), new THREE.MeshBasicMaterial({ color: '#2a5a9a', side: THREE.BackSide })); envS.add(eb);
-    const sb = new THREE.Mesh(new THREE.SphereGeometry(4, 16, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(30, 28, 25) })); sb.position.copy(sunDir).multiplyScalar(45); envS.add(sb);
-    scene.environment = pm.fromScene(envS, .02).texture;
+    // 光照：太阳硬光 + 地球反照的蓝色补光，背光面接近全黑（真实太空光照）
+    const sunDir = V(-.62, .34, -.71).normalize();
+    const sun = new THREE.DirectionalLight('#fff8ef', 5.2); sun.position.copy(sunDir).multiplyScalar(60); sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096); sun.shadow.bias = -.0002;
+    Object.assign(sun.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8, near: 1, far: 200 }); scene.add(sun, sun.target);
+    const R = 6400, RA = R * 1.028, EC = V(2600, -R - 900, 3400);
+    const earthshine = new THREE.DirectionalLight('#6f9cff', .7); earthshine.position.copy(EC).normalize().multiplyScalar(60); scene.add(earthshine);
+    scene.add(new THREE.AmbientLight('#1a2030', .25));
+    // 地球：NASA Blue Marble（公有领域）8K 全球 + 东亚 21600 级高清补丁 + 柔和云层（三通道贴图的 B 通道）+ 夜景灯光
+    const tl = new THREE.TextureLoader();
+    const [surf, patch, clouds, night] = await Promise.all(['bm_surface_8k.jpg', 'bm_patch_eastasia.jpg', 'earth_bump_roughness_clouds_4096.jpg', 'earth_night_4096.jpg'].map(f => tl.loadAsync('/assets/earth/' + f)));
+    surf.colorSpace = patch.colorSpace = night.colorSpace = THREE.SRGBColorSpace;
+    [surf, patch, clouds, night].forEach(x => { x.anisotropy = renderer.capabilities.getMaxAnisotropy(); });
+    const earth = new THREE.Mesh(new THREE.SphereGeometry(R, 320, 200), new THREE.ShaderMaterial({
+      uniforms: { sd: { value: sunDir }, surf: { value: surf }, hdp: { value: patch }, clouds: { value: clouds }, night: { value: night }, pb: { value: new THREE.Vector4(70, 150, 0, 55) } },
+      vertexShader: 'varying vec2 vUv; varying vec3 vN, vW; void main(){ vUv=uv; vN=normalize(mat3(modelMatrix)*normal); vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }',
+      fragmentShader: `uniform vec3 sd; uniform sampler2D surf, hdp, clouds, night; uniform vec4 pb; varying vec2 vUv; varying vec3 vN, vW;
+        void main(){
+          float lon=vUv.x*360.-180., lat=(vUv.y-.5)*180.;
+          vec3 c=texture2D(surf,vUv).rgb;
+          vec2 pu=vec2((lon-pb.x)/(pb.y-pb.x),(lat-pb.z)/(pb.w-pb.z));
+          if(pu.x>0.&&pu.x<1.&&pu.y>0.&&pu.y<1.){ float e=min(min(pu.x,1.-pu.x),min(pu.y,1.-pu.y)); c=mix(c,texture2D(hdp,pu).rgb,smoothstep(0.,.04,e)); }
+          float cl=smoothstep(.12,.95,texture2D(clouds,vUv).b)*.9;
+          vec3 N=normalize(vN), Vd=normalize(cameraPosition-vW); float nd=dot(N,sd), dif=max(nd,0.);
+          float ocean=smoothstep(.02,.12,c.b-c.r)*(1.-smoothstep(.22,.38,max(c.r,c.g)));
+          vec3 col=c*dif*1.7;
+          col+=pow(max(dot(reflect(-sd,N),Vd),0.),140.)*ocean*(1.-cl)*vec3(1.,.93,.82)*2.2;
+          col=mix(col,vec3(.97,.98,1.)*(dif*1.55+.004),cl);
+          col+=texture2D(night,vUv).rgb*vec3(1.,.78,.5)*smoothstep(.04,-.18,nd)*(1.-cl*.8)*1.2;
+          float mu=max(dot(N,Vd),0.), haze=pow(1.-mu,2.4);
+          col=mix(col,vec3(.32,.58,1.)*(dif*1.2+.03),haze*.55*smoothstep(-.3,.25,nd));
+          col+=vec3(1.,.42,.14)*smoothstep(-.18,0.,nd)*smoothstep(.18,0.,nd)*.22;
+          col=col*vec3(.92,.96,1.)+vec3(.0,.01,.03)*dif;
+          gl_FragColor=vec4(col,1.);
+          #include <colorspace_fragment>
+        }` }));
+    // 让东亚（东经 115°、北纬 32°）朝向镜头前方，且北方大致朝上
+    const ll = (lo, la) => { const ph = (lo + 180) / 360 * Math.PI * 2, th = (90 - la) * Math.PI / 180; return V(-Math.cos(ph) * Math.sin(th), Math.cos(th), Math.sin(ph) * Math.sin(th)); };
+    const camP = V(-6.4, 1.9, -8.2), look = V(2.4, -.2, 2.6).sub(camP).normalize();
+    const target = camP.clone().add(look.multiplyScalar(5200)).sub(EC).normalize();
+    const q1 = new THREE.Quaternion().setFromUnitVectors(ll(124, 24), target);
+    const n1 = V(0, 1, 0).applyQuaternion(q1).projectOnPlane(target).normalize(), up = V(0, 1, 0).projectOnPlane(target).normalize();
+    const ang = Math.atan2(V().crossVectors(n1, up).dot(target), n1.dot(up));
+    earth.quaternion.copy(new THREE.Quaternion().setFromAxisAngle(target, ang).multiply(q1));
+    earth.position.copy(EC); scene.add(earth);
+    // 大气层：按视线掠过大气的最低高度计算散射亮度，地平线处蓝白、晨昏处偏橙
+    const atm = new THREE.Mesh(new THREE.SphereGeometry(RA, 200, 140), new THREE.ShaderMaterial({ transparent: true, depthWrite: false, side: THREE.BackSide, blending: THREE.AdditiveBlending,
+      uniforms: { sd: { value: sunDir }, ec: { value: EC }, r0: { value: R }, r1: { value: RA } },
+      vertexShader: 'varying vec3 vW; void main(){ vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }',
+      fragmentShader: `uniform vec3 sd, ec; uniform float r0, r1; varying vec3 vW;
+        void main(){
+          vec3 rd=normalize(vW-cameraPosition), oc=ec-cameraPosition; float tc=dot(oc,rd); vec3 P=cameraPosition+rd*tc; float h=length(P-ec);
+          if(h<r0) discard;
+          float alt=(h-r0)/(r1-r0); float dens=exp(-alt*5.5)*(1.-smoothstep(.85,1.,alt));
+          vec3 n=normalize(P-ec); float l=dot(n,sd); float lit=smoothstep(-.28,.3,l);
+          vec3 col=mix(vec3(1.,.45,.16),vec3(.3,.56,1.),smoothstep(-.05,.35,l));
+          col=mix(col,vec3(.85,.93,1.),exp(-alt*14.)*.5);
+          gl_FragColor=vec4(col*dens*lit*1.9,1.);
+        }` }));
+    atm.position.copy(EC); scene.add(atm);
+    // 车的反射环境：缩比地球 + 太阳，让车漆倒映出蓝色地球
+    const pm = new THREE.PMREMGenerator(renderer); const envS = new THREE.Scene(); envS.background = new THREE.Color('#000');
+    const k = 60 / EC.length(); const eRep = new THREE.Mesh(new THREE.SphereGeometry(R * k, 64, 48), new THREE.MeshBasicMaterial({ map: surf, color: new THREE.Color(.75, .82, 1) }));
+    eRep.quaternion.copy(earth.quaternion); eRep.position.copy(EC).multiplyScalar(k); envS.add(eRep);
+    const sb = new THREE.Mesh(new THREE.SphereGeometry(2.5, 16, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(40, 38, 34) })); sb.position.copy(sunDir).multiplyScalar(55); envS.add(sb);
+    scene.environment = pm.fromScene(envS, .01).texture; scene.environmentIntensity = .8;
     car = await loadRoadster(); scene.add(car); car.rotation.set(.04, car.rotation.y - .15, .08);
     // —— 2008 年的老前辈（CC-BY，the_86_guy）+ 驾驶座上的太空人 ——
     const og = await gltfLoader().loadAsync('/assets/models/roadster-2008.glb');
@@ -165,7 +192,6 @@ async function main() {
     let hl = V(), hn = 0; inner.traverse(o => { if (o.isMesh && /Projector_lights|Headllight_case/.test(o.material.name)) { hl.add(new THREE.Box3().setFromObject(o).getCenter(V())); hn++; } });
     if (hn && hl.divideScalar(hn).z > 0) inner.rotation.y += Math.PI;
     inner.traverse(o => { if (!o.isMesh) return; o.castShadow = o.receiveShadow = true; const nm = o.material.name;
-      if (/Tesla_logo|Tesla_text|Symbol/.test(nm)) o.visible = false;
       if (nm === 'Paint') o.material = new THREE.MeshPhysicalMaterial({ color: '#8c0a12', metalness: .2, roughness: .3, clearcoat: 1, clearcoatRoughness: .04 }); });
     inner.updateMatrixWorld(true); const ib = new THREE.Box3().setFromObject(inner);
     // 太空人：白色宇航服、头盔、深色面罩；左臂搭在车门上，右手握方向盘
