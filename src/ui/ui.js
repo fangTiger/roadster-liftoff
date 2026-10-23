@@ -1,6 +1,6 @@
 // 独立界面外壳：只管理交互与设置，不接管游戏循环。
 const STORE = 'liftoff.ui.v1';
-const PRESETS = ['低', '中', '高', '极致'];
+import { QUALITY_PRESETS as PRESETS, getDefaultPreset } from '../mobile/perf.js';
 const CONTROLS = [
   ['W', '加速'], ['S', '刹车 / 再入'], ['A / D', '转向'], ['空格', '推进器（按住冲上太空）'],
   ['C', '切换镜头'], ['M', '静音'], ['H', '喇叭'], ['P / Esc', '暂停'],
@@ -9,7 +9,7 @@ const CONTROLS = [
 const controlsHTML = () => `<dl class="ui-controls">${CONTROLS.map(([key, text]) => `<div><dt><kbd>${key}</kbd></dt><dd>${text}</dd></div>`).join('')}</dl>`;
 
 export function createUI({ engine, audio = null, onStart = () => {}, onPauseChange = () => {}, onQualityChange = () => {} }) {
-  const settings = { quality: '高', volume: .8, muted: audio?.muted ?? false, shake: true, hints: true };
+  const settings = { quality: getDefaultPreset(), volume: .8, muted: audio?.muted ?? false, shake: true, hints: true };
   try {
     const saved = JSON.parse(localStorage.getItem(STORE));
     if (PRESETS.includes(saved?.quality)) settings.quality = saved.quality;
@@ -67,6 +67,8 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
   }
   function persist() { try { localStorage.setItem(STORE, JSON.stringify(settings)); } catch { /* 存储不可用时保留当前会话设置。 */ } }
   function applyQuality() {
+    // "自动"档交给游戏侧的自适应画质（src/mobile/perf.js）处理
+    if (settings.quality === '自动') { onQualityChange('自动'); return; }
     const ratio = settings.quality === '高' ? Math.min(devicePixelRatio || 1, 1.5) : settings.quality === '极致' ? Math.min(devicePixelRatio || 1, 2) : 1;
     engine.renderer.setPixelRatio(ratio);
     if (engine.renderer.shadowMap) engine.renderer.shadowMap.enabled = settings.quality !== '低';
