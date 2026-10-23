@@ -8,6 +8,9 @@ import { createVehicle, KMH } from './vehicle.js';
 import { createChaseCamera } from './chaseCamera.js';
 import { createHUD } from './hud.js';
 import { createInput } from './input.js';
+import { createSpace } from './space.js';
+import { createClouds } from './clouds.js';
+import { createFlight } from './flight.js';
 
 const CAPTURE = /capture/.test(location.search);
 const DBG = new URLSearchParams(location.search).get('dbg') || '';   // 排查用：noflame / nodust / nobloom / noblur
@@ -22,6 +25,9 @@ const vehicle = createVehicle({ roadX: desert.ROAD_X, roadHalf: desert.ROAD_HALF
 const cam = createChaseCamera(camera);
 const hud = createHUD();
 const input = createInput();
+const space = await createSpace(scene, renderer);
+const clouds = createClouds(scene);
+const flight = createFlight({ scene, camera, desert, space, clouds, car, vehicle, hud, flash: document.getElementById('flash'), music: null });
 
 // 扬尘：起步烧胎或开上路肩时从后轮扬起
 const dustTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); const r = g.createRadialGradient(64, 64, 0, 64, 64, 64); r.addColorStop(0, 'rgba(150,125,95,.55)'); r.addColorStop(1, 'rgba(150,125,95,0)'); g.fillStyle = r; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); })();
@@ -52,8 +58,8 @@ blob.rotation.x = -Math.PI / 2; blob.position.y = .02; blob.renderOrder = 3; sce
 
 const clock = { t: 0 };
 const rear = car.wheels.filter(w => !w.front);
-function frame(dt, inp) {
-  clock.t += dt;
+// 公路驾驶：车辆物理、车身姿态、推进器、扬尘、世界滚动与追随镜头
+function driveFrame(dt, inp) {
   const s = vehicle.state;
   const dz = vehicle.step(dt, inp);
   // 车身：位置、朝向、加速抬头/刹车点头、转弯侧倾
@@ -82,7 +88,21 @@ function frame(dt, inp) {
   blob.position.x = s.x; blob.rotation.z = s.yaw; blob.scale.setScalar(1 + s.y * .06); blob.material.opacity = Math.max(0, 1 - s.y / 12);
   desert.advance(dz); desert.follow(car.root.position); desert.setAltitude(s.y);
   cam.update(dt, car.root, s);
-  engine.blur.uniforms.strength.value = THREE.MathUtils.clamp((s.v * KMH - 120) / 280, 0, 1) * .055;
+  flight.checkAscent(dt, inp);
+}
+
+function frame(dt, inp) {
+  clock.t += dt;
+  const s = vehicle.state;
+  if (flight.state.mode === 'drive') { blob.visible = true; driveFrame(dt, inp); }
+  else {
+    blob.visible = false;
+    flight.update(dt, inp, clock.t);
+    for (const w of car.wheels) w.spin.rotation.x -= s.v / w.radius * dt;
+    updateDust(dt, 0);
+  }
+  const orbit = flight.state.mode === 'orbit';
+  engine.blur.uniforms.strength.value = orbit ? 0 : THREE.MathUtils.clamp((s.v * KMH - 120) / 280, 0, 1) * .055;
   hud.update(s);
   engine.render();
 }

@@ -23,6 +23,16 @@
 | `public/assets/earth/bm_surface_8k.jpg`、`bm_patch_eastasia.jpg` | Blue Marble Next Generation（2004 年 7 月，地形与海底地形版，21600×10800），缩放为 8K 全球图并裁出东亚高清块 | [NASA Earth Observatory](https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-topography-bathymetry) | NASA 影像，公有领域 |
 | `public/assets/earth/earth_bump_roughness_clouds_4096.jpg`、`earth_night_4096.jpg` | 云层、夜间灯光贴图 | [three.js 示例贴图](https://github.com/mrdoob/three.js/tree/dev/examples/textures/planets)，源自 NASA 公开影像 | 见 three.js 仓库说明；NASA 影像为公有领域 |
 
+## 音乐
+
+| 文件 | 曲目 | 作者 | 来源 | 授权 |
+| --- | --- | --- | --- | --- |
+| `public/assets/music/road-80s-synthwave.mp3` | 80S Synthwave（公路驾驶） | AtlasAudio | [Pixabay](https://pixabay.com/music/synthwave-80s-synthwave-617535/) | [Pixabay Content License](https://pixabay.com/service/license-summary/) |
+| `public/assets/music/space-cosmos.mp3` | Cosmos（起飞到太空） | The_Mountain | [Pixabay](https://pixabay.com/music/ambient-cosmos-587577/) | Pixabay Content License |
+| `public/assets/music/oldfriend-reflected-light.mp3` | Reflected Light（与老前辈同框） | SergePavkinMusic | [Pixabay](https://pixabay.com/music/beautiful-plays-reflected-light-147979/) | Pixabay Content License |
+
+Pixabay Content License 允许免费商用、无需署名；此处署名以示感谢。
+
 ## 开源库
 
 | 库 | 授权 |

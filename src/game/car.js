@@ -77,5 +77,37 @@ export async function createCar() {
   const setThrust = thrusterSet([-.5, -.17, .17, .5].map(x => [x, .38, 2.2]), Math.PI / 2, [[.065, 1.4, '#9fdcff'], [.03, .55, '#ffffff']]);
   const setLift = thrusterSet([[-.72, .16, -1.45], [.72, .16, -1.45], [-.72, .16, 1.3], [.72, .16, 1.3]], Math.PI, [[.1, 2.6, '#9fdcff'], [.045, 1.0, '#ffffff']]);
   setThrust(0, 0); setLift(0, 0);
-  return { root, chassis, wheels, setThrust, setLift };
+  // 再入等离子：包裹全车的椭球，菲涅尔边缘发光，车头最亮
+  const plasma = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    uniforms: { k: { value: 0 }, t: { value: 0 } },
+    vertexShader: 'varying vec3 vN, vV, vP; void main(){ vP=position; vN=normalize(normalMatrix*normal); vec4 mv=modelViewMatrix*vec4(position,1.); vV=normalize(-mv.xyz); gl_Position=projectionMatrix*mv; }',
+    fragmentShader: `uniform float k, t; varying vec3 vN, vV, vP;
+      void main(){
+        float f=pow(clamp(1.-abs(dot(normalize(vN),normalize(vV))),1e-4,1.),2.2);
+        float front=smoothstep(.1,-1.,vP.z);                       // 车头（-Z）更亮，车尾几乎透明
+        float flick=.8+.2*sin(t*70.+vP.z*12.)*sin(t*41.+vP.x*9.);
+        vec3 col=mix(vec3(1.,.35,.08),vec3(1.,.85,.6),front*.6);
+        gl_FragColor=vec4(clamp(col*f*front*front*flick*k*3.,0.,8.),1.);
+      }`,
+  }));
+  plasma.scale.set(1.35, .9, 2.7); plasma.position.set(0, .62, -.3); plasma.visible = false; chassis.add(plasma);
+  // 尾迹：从车身两侧向后拖出的长条火焰
+  const trail = new THREE.Mesh(new THREE.ConeGeometry(.95, 7, 32, 1, true), new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, uniforms: { k: { value: 0 }, t: { value: 0 } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
+    fragmentShader: `uniform float k, t; varying vec2 vUv;
+      void main(){ float along=clamp(vUv.y,0.,1.);                       // 1 在车身处，0 在尾端
+        float n=.75+.25*sin(vUv.x*40.+t*30.)*sin(vUv.x*17.-t*23.+vUv.y*9.);
+        vec3 col=mix(vec3(1.,.3,.05),vec3(1.,.8,.5),pow(along,3.));
+        float edge=sin(vUv.x*6.2832*3.)*.5+.5;                         // 沿圆周明暗相间，像一缕缕火舌
+        gl_FragColor=vec4(clamp(col*pow(along,3.)*n*(.35+.65*edge)*k*.55,0.,6.),1.); }`,
+  }));
+  trail.rotation.x = -Math.PI / 2; trail.position.set(0, .62, 1.2 + 3.5); trail.visible = false; chassis.add(trail);
+  // 尾迹在多数镜头下像探照灯光柱，暂不显示，只保留包裹车头的等离子火光
+  const setPlasma = (k, t) => { for (const m of [plasma]) { m.visible = k > .01; m.material.uniforms.k.value = k; m.material.uniforms.t.value = t; } };
+  // 车灯亮度：太空纯黑背景里大灯泛光过强，需要压低
+  const lamps = []; model.traverse(o => { if (o.isMesh && /headlights|Glass_Clear/.test(o.material.name) && o.material.emissive) lamps.push(o.material); });
+  const setHeadlights = k => { for (const m of lamps) m.emissiveIntensity = 1.2 * k; };
+  return { root, chassis, wheels, setThrust, setLift, setPlasma, setHeadlights };
 }

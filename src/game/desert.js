@@ -53,10 +53,13 @@ async function createSkyMaterial(renderer) {
 }
 
 export async function createDesert(scene, renderer) {
+  // 沙漠里的所有物体都挂在 root 下，飞上太空时整组隐藏
+  const root = new THREE.Group(); const sceneRef = scene; scene = root; sceneRef.add(root);
   const { hdr, sunDir } = await loadHDR('/assets/hdri/goegap_road_2k.hdr');
   sunDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), ROT);
-  scene.environment = hdr; scene.environmentRotation.y = ROT;
-  scene.fog = new THREE.FogExp2('#c4b293', .0011);     // 远景薄雾，让铺设的地面融进照片
+  sceneRef.environment = hdr; sceneRef.environmentRotation.y = ROT;
+  const fog = new THREE.FogExp2('#c4b293', .0011);    // 远景薄雾，让铺设的地面融进照片
+  sceneRef.fog = fog;
   // 背景：光照/反射用 2K HDR；画面背景用自己做过 ACES 色调映射的 8K 全景 + 前方 16K 高清块
   const sky = new GroundedSkybox(hdr, 1.6, 1200, 256); sky.position.y = 1.59; sky.rotation.y = ROT;
   sky.material = await createSkyMaterial(renderer); scene.add(sky);
@@ -138,5 +141,7 @@ export async function createDesert(scene, renderer) {
   const groundMats = [road.material, ...shoulders.map(m => m.material)];
   function setAltitude(y) { const k = Math.max(0, 1 - y / 6); for (const m of groundMats) m.opacity = k; road.visible = shoulder.visible = k > .01; }
   function follow(carPos) { sun.target.position.copy(carPos); sun.position.copy(carPos).addScaledVector(sunDir, 60); catcher.position.x = carPos.x; catcher.position.z = carPos.z; }
-  return { advance, follow, setAltitude, sunDir, ROAD_X, ROAD_HALF };
+  // 显示/隐藏整个沙漠：同时切换环境光照贴图与雾
+  function setVisible(on) { root.visible = on; sceneRef.fog = on ? fog : null; if (on) { sceneRef.environment = hdr; sceneRef.environmentRotation.y = ROT; sceneRef.background = null; } }
+  return { root, advance, follow, setAltitude, setVisible, fog, sunDir, ROAD_X, ROAD_HALF };
 }

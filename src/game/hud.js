@@ -6,7 +6,7 @@ const ARC = 198;                           // 速度表弧长（与 SVG 的 dash
 
 export function createHUD() {
   const arc = document.querySelector('#gauge circle:nth-of-type(2)');
-  let toastTimer = 0, shownClub = false, shownLift = false, shownHigh = false;
+  let toastTimer = 0, shownClub = false, shownLift = false, shownHigh = false, override = null;
   function toast(title, sub, ms = 3200) {
     $('tt').textContent = title; $('ts').textContent = sub;
     const el = $('toast'); el.style.opacity = 1; el.style.transform = 'translateY(0)';
@@ -19,6 +19,7 @@ export function createHUD() {
 
   function update(s) {
     const kmh = s.v * KMH;
+    if (override) { $('spd').textContent = override.spd; $('alt').textContent = override.alt; $('speed').style.opacity = 0; return; }
     $('spd').textContent = Math.round(kmh);
     arc.setAttribute('stroke-dasharray', `${(Math.min(kmh, 400) / 400 * ARC).toFixed(1)} 264`);
     $('dist').textContent = (s.dist / 1000).toFixed(1) + ' km';
@@ -26,12 +27,14 @@ export function createHUD() {
     $('fuelbar').style.width = (s.fuel * 100).toFixed(0) + '%'; $('fuelpct').textContent = (s.fuel * 100).toFixed(0) + '%';
     $('hops').textContent = s.hops;
     if (s.airborne && !shownLift) { shownLift = true; toast('第一次起飞', '底部四个推进器同时点燃'); }
-    if (s.y > 10 && !shownHigh) { shownHigh = true; toast('离地 10 米', '推进剂满格时长按空格，冲出大气层（即将开放）'); }
+    if (s.y > 10 && !shownHigh) { shownHigh = true; toast('离地 10 米', '继续按住空格，冲出大气层！'); }
     const L = s.launch;
     $('lv').innerHTML = (L.timing ? L.t : (L.last ?? 0)).toFixed(2) + '<i>s</i>';
     $('launch').style.opacity = L.timing || L.last != null ? 1 : .55;
     $('speed').style.opacity = Math.max(0, Math.min(1, (kmh - 90) / 220));
     if (L.last != null && L.last < .9 && !shownClub) { shownClub = true; toast('0.8 秒俱乐部', `0–100 km/h 用时 ${L.last.toFixed(2)} 秒`); }
   }
-  return { update, toast };
+  // 飞行导演接管时，用覆盖值显示轨道高度/速度
+  const setOverride = o => { override = o; };
+  return { update, toast, setOverride };
 }
