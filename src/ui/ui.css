@@ -47,7 +47,7 @@
 #liftoff-ui .ui-footnote{color:var(--dim);font-size:11px;text-align:center;margin:22px 0 0;line-height:1.6}
 #liftoff-ui fieldset{margin:0 0 16px;padding:0;border:0;min-width:0}
 #liftoff-ui legend{font-size:13px;margin-bottom:12px}
-#liftoff-ui .ui-quality{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+#liftoff-ui .ui-quality{display:grid;grid-template-columns:repeat(auto-fit,minmax(56px,1fr));gap:8px}
 #liftoff-ui .ui-quality button{padding:10px 4px}
 #liftoff-ui .ui-setting{display:flex;align-items:center;justify-content:space-between;min-height:58px;gap:20px;border-bottom:1px solid var(--line);font-size:13px;position:relative;cursor:pointer}
 #liftoff-ui .ui-volume{flex-direction:column;align-items:stretch;gap:14px;padding:8px 0 18px;cursor:default}

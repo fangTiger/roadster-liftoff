@@ -16,14 +16,33 @@ import { createCloudSea } from './cloudsea.js';
 import { createAudio } from '../audio/audio.js';
 import { createAchievements } from '../achievements/achievements.js';
 import { createUI } from '../ui/ui.js';
+import { createTouch } from '../mobile/touch.js';
+import { createPerf, QUALITY_PRESETS, getDefaultPreset } from '../mobile/perf.js';
 
 const CAPTURE = /capture/.test(location.search);
 const DBG = new URLSearchParams(location.search).get('dbg') || '';   // 排查用：noflame / nodust / nobloom / noblur
 const engine = createEngine(CAPTURE ? { pixelRatio: 1 } : {});
 // 音频与界面外壳先创建：加载期间显示进度，点击开始时在同一个手势里解锁音频
 const audio = CAPTURE ? null : createAudio({ urls: { road: '/assets/music/road-80s-synthwave.mp3', space: '/assets/music/space-cosmos.mp3', oldfriend: '/assets/music/oldfriend-reflected-light.mp3' } });
-let started = CAPTURE;
-const ui = CAPTURE ? null : createUI({ engine, audio, onStart() { started = true; hud.toast('按 W 起步', '0–100 km/h 只要 0.8 秒，A / D 转向，S 刹车', 4500); } });
+// 画质档位：手动档由界面直接应用；"自动"档以用户上一次的手动档为上限，由 perf 模块自适应降档
+let mobilePreset = getDefaultPreset(), mobileCeiling = '高', perf = null;
+function setMobilePreset(preset) {
+  if (!QUALITY_PRESETS.includes(preset)) return;
+  mobilePreset = preset;
+  if (preset !== '自动') mobileCeiling = preset;
+  const base = preset === '自动' ? mobileCeiling : preset;
+  const ratio = base === '极致' ? Math.min(devicePixelRatio || 1, 2) : base === '高' ? Math.min(devicePixelRatio || 1, 1.5) : 1;
+  engine.renderer.setPixelRatio(ratio); engine.composer.setPixelRatio(ratio); engine.composer.setSize(innerWidth, innerHeight);
+  engine.renderer.shadowMap.enabled = base !== '低'; engine.bloom.enabled = base !== '低';
+  perf?.refresh();
+}
+let started = CAPTURE, touch = null;
+const ui = CAPTURE ? null : createUI({ engine, audio, onQualityChange: setMobilePreset, onStart() {
+  started = true;
+  if (touch?.active) hud.toast('按住加速起步', '左侧拖动转向 · 按住推进器升空', 4500);
+  else hud.toast('按 W 起步', '0–100 km/h 只要 0.8 秒，A / D 转向，S 刹车', 4500);
+} });
+if (ui) setMobilePreset(ui.quality);
 ui?.showLoading(.05, '加载沙漠全景…');
 if (DBG.includes('nobloom')) engine.bloom.enabled = false;
 if (DBG.includes('noblur')) engine.blur.enabled = false;
@@ -38,6 +57,8 @@ const rig = createCameraRig(camera, renderer.domElement);
 rig.onChange(m => ach?.report('camera', { mode: m }));
 const hud = createHUD();
 const input = createInput();
+touch = CAPTURE ? null : createTouch({ input, onCamera: () => rig.cycle() });
+perf = CAPTURE ? null : createPerf({ engine, getPreset: () => mobilePreset, setPreset: setMobilePreset });
 const space = await createSpace(scene, renderer);
 const clouds = createClouds(scene);
 const sky = await createSkyDome(scene, renderer);
@@ -173,9 +194,12 @@ if (CAPTURE) {
   engine.render(); ui.showLoading(1, '准备起飞…'); ui.hideLoading();
   let last = performance.now();
   renderer.setAnimationLoop(now => {
-    const dt = Math.min(.05, (now - last) / 1000); last = now;
-    if (!started || ui.paused) { engine.render(); return; }      // 开始前与暂停时只渲染画面
+    const elapsed = (now - last) / 1000; last = now;
+    const playing = started && !ui.paused && !document.hidden;
+    touch?.setEnabled(playing);
+    if (!playing) { perf?.reset(); engine.render(); return; }    // 开始前与暂停时只渲染画面
+    perf?.update(elapsed);
     rig.shake = ui.shakeEnabled;
-    frame(dt, input.state());
+    frame(Math.min(.05, elapsed), input.state());
   });
 }
