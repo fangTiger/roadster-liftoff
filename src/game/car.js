@@ -62,16 +62,20 @@ export async function createCar() {
     if (m.material.name === 'calipers') { if (w.front) w.steer.attach(m); } else w.spin.attach(m);
   }
 
-  // 尾部 4 个推进器
-  const flames = [];
-  for (const x of [-.5, -.17, .17, .5]) {
-    const g = new THREE.Group(); g.position.set(x, .38, 2.2); g.rotation.x = Math.PI / 2; chassis.add(g);
-    for (const [r, len, col] of [[.065, 1.4, '#9fdcff'], [.03, .55, '#ffffff']]) {
-      const m = flameMaterial(col); const f = new THREE.Mesh(new THREE.ConeGeometry(r, len, 20, 1, true), m);
-      f.position.y = len / 2; f.userData.len = len; g.add(f); flames.push(f);
+  // 推进器：尾部 4 个（加速）+ 车底四角 4 个（离地），火焰沿喷口局部 +Y 方向伸出
+  function thrusterSet(spots, rotX, sizes) {
+    const flames = [];
+    for (const [x, y, z] of spots) {
+      const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.x = rotX; chassis.add(g);
+      for (const [r, len, col] of sizes) {
+        const f = new THREE.Mesh(new THREE.ConeGeometry(r, len, 20, 1, true), flameMaterial(col));
+        f.position.y = len / 2; f.userData.len = len; g.add(f); flames.push(f);
+      }
     }
+    return (k, t) => { for (const f of flames) { f.material.uniforms.k.value = k; f.material.uniforms.t.value = t; const s = .4 + .6 * k; f.scale.set(1, s, 1); f.position.y = f.userData.len * s / 2; f.visible = k > .01; } };
   }
-  const setThrust = (k, t) => { for (const f of flames) { f.material.uniforms.k.value = k; f.material.uniforms.t.value = t; f.scale.set(1, .4 + .6 * k, 1); f.position.y = f.userData.len * (.4 + .6 * k) / 2; f.visible = k > .01; } };
-  setThrust(0, 0);
-  return { root, chassis, wheels, setThrust };
+  const setThrust = thrusterSet([-.5, -.17, .17, .5].map(x => [x, .38, 2.2]), Math.PI / 2, [[.065, 1.4, '#9fdcff'], [.03, .55, '#ffffff']]);
+  const setLift = thrusterSet([[-.72, .16, -1.45], [.72, .16, -1.45], [-.72, .16, 1.3], [.72, .16, 1.3]], Math.PI, [[.1, 2.6, '#9fdcff'], [.045, 1.0, '#ffffff']]);
+  setThrust(0, 0); setLift(0, 0);
+  return { root, chassis, wheels, setThrust, setLift };
 }

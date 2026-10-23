@@ -6,7 +6,12 @@ const out = process.argv[2] || 'recordings/frames', url = process.argv[3] || 'ht
 fs.mkdirSync(out, { recursive: true });
 const FPS = 30, W = 1280, H = 720;
 // 时间轴：[开始秒, 结束秒, 按键]
-const plan = [[1, 12.5, 'throttle'], [6.5, 7.4, 'left'], [7.9, 9.0, 'right'], [10.2, 11.4, 'right'], [11.9, 12.8, 'left'], [13.5, 16.5, 'brake']];
+const PLANS = {
+  drive: [[1, 12.5, 'throttle'], [6.5, 7.4, 'left'], [7.9, 9.0, 'right'], [10.2, 11.4, 'right'], [11.9, 12.8, 'left'], [13.5, 16.5, 'brake']],
+  // 起步后短跳两次，再长按推进器升到二十多米，滑翔落地
+  hop: [[1, 17, 'throttle'], [4.5, 4.9, 'jet'], [7.6, 8.3, 'jet'], [10.5, 12.0, 'jet'], [12.4, 13.2, 'left']],
+};
+const plan = PLANS[process.env.PLAN || 'drive'];
 // 默认用本机 Chrome 的新版无头模式走 GPU（Metal）；SOFT=1 时退回 SwiftShader 软件渲染（很慢）
 const b = process.env.SOFT === '1'
   ? await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] })
