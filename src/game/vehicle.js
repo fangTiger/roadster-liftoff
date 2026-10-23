@@ -6,14 +6,20 @@ const P_SPEC = A_LAUNCH * 27.78;  // 恒功率段：a = P / v，100 km/h 后衔�
 const V_MAX = 111;                // 极速约 400 km/h
 const DRAG = P_SPEC / V_MAX ** 3; // 风阻系数，使极速处功率与阻力平衡
 const BRAKE = 14, ROLL = .35;
+// 离地：底部推进器提供向上推力，推进剂有限、落地回充
+// 普通跳跃限高约 12 米：全景照片投影的地面只在低空成立，冲上太空由第三段的爬升流程接管
+const G = 9.81, LIFT = 21, FUEL_BURN = .16, FUEL_REGEN = .09, ALT_CAP = 10;
+
+const THREE_clamp = x => Math.max(0, Math.min(1, x));
 
 export function createVehicle({ roadX, roadHalf }) {
   const s = {
     v: 0, a: 0, x: roadX + 1.8, yaw: 0, steer: 0, dist: 0, wheelAngle: 0, offroad: 0,
+    y: 0, vy: 0, fuel: 1, lift: 0, airborne: false, airTime: 0, hops: 0, landing: 0, maxAlt: 0,
     launch: { timing: false, t: 0, best: null, last: null },
   };
   function step(dt, input) {
-    const { throttle, brake, left, right } = input;
+    const { throttle, brake, left, right, jet } = input;
     // 0–100 计时：从静止踩下油门开始（要在本帧加速之前判断）
     const L = s.launch;
     if (throttle && s.v < .5 && !L.timing) { L.timing = true; L.t = 0; }
@@ -22,7 +28,7 @@ export function createVehicle({ roadX, roadHalf }) {
     if (throttle) a += Math.min(A_LAUNCH, P_SPEC / Math.max(s.v, 1));
     if (brake) a -= s.v > .5 ? BRAKE : 0;
     const edge = Math.abs(s.x - roadX) - roadHalf;            // 驶出路面后进入碎石路肩
-    s.offroad = Math.max(0, Math.min(1, edge / 1.5));
+    s.offroad = s.y > .2 ? 0 : Math.max(0, Math.min(1, edge / 1.5));
     a -= s.offroad * (2 + .02 * s.v * s.v);
     s.v = Math.max(0, s.v + a * dt); s.a = a;
     if (!throttle && !brake && s.v < .3) s.v = 0;
@@ -37,6 +43,23 @@ export function createVehicle({ roadX, roadHalf }) {
     s.x -= Math.sin(s.yaw) * s.v * dt;
     const lim = roadHalf + 7;
     if (Math.abs(s.x - roadX) > lim) { s.x = roadX + Math.sign(s.x - roadX) * lim; s.yaw *= .5; }
+    // 垂直：按住空格且有推进剂时点火，接近高度上限推力衰减；着地时记录冲击用于回弹与震动
+    const firing = jet && s.fuel > 0;
+    s.lift += ((firing ? 1 : 0) - s.lift) * Math.min(1, dt * 10);
+    // 推力：低空全力；接近限高时按位置与速度收推力，平稳悬停而不是冲过头
+    const hover = G + 4 * (ALT_CAP - s.y) - 2.6 * s.vy;
+    const lift = s.lift * Math.max(0, Math.min(LIFT, s.y < ALT_CAP * .45 ? LIFT : hover));
+    s.vy += (lift - G) * dt;
+    if (firing) s.fuel = Math.max(0, s.fuel - FUEL_BURN * dt);
+    s.y += s.vy * dt;
+    s.landing = Math.max(0, s.landing - dt * 2.5);
+    if (s.y <= 0) {
+      if (s.airborne && s.vy < -1) s.landing = Math.min(1, -s.vy / 14);
+      s.y = 0; s.vy = Math.max(0, s.vy);
+      if (s.airborne) { s.airborne = false; s.airTime = 0; }
+      if (!firing) s.fuel = Math.min(1, s.fuel + FUEL_REGEN * dt);
+    } else if (s.y > .05 && !s.airborne) { s.airborne = true; s.hops++; }
+    if (s.airborne) { s.airTime += dt; s.maxAlt = Math.max(s.maxAlt, s.y); }
     const dz = Math.cos(s.yaw) * s.v * dt; s.dist += dz;
     return dz;
   }

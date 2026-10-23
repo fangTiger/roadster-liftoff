@@ -134,6 +134,9 @@ export async function createDesert(scene, renderer) {
   placeProps();
 
   // 太阳与阴影相机跟随车
+  // 离地越高，铺设的路面越透明：高处只看照片地面，避免两套透视对不上
+  const groundMats = [road.material, ...shoulders.map(m => m.material)];
+  function setAltitude(y) { const k = Math.max(0, 1 - y / 6); for (const m of groundMats) m.opacity = k; road.visible = shoulder.visible = k > .01; }
   function follow(carPos) { sun.target.position.copy(carPos); sun.position.copy(carPos).addScaledVector(sunDir, 60); catcher.position.x = carPos.x; catcher.position.z = carPos.z; }
-  return { advance, follow, sunDir, ROAD_X, ROAD_HALF };
+  return { advance, follow, setAltitude, sunDir, ROAD_X, ROAD_HALF };
 }
