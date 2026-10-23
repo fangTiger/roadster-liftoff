@@ -21,12 +21,45 @@ function fadeTexture() {
   const t = new THREE.CanvasTexture(c); return t;
 }
 
+// 背景材质：JPG 已按 ACES（曝光 0.85）映射过，后期链还会再做一次色调映射，
+// 所以这里先做 ACES 逆运算还原成线性亮度，最终画面颜色与 JPG 一致
+const HI_RECT = new THREE.Vector4(.24164, .65833, 1 - .61108, 1 - .27771);   // 前方高清块在全景 UV 中的范围 (u0, u1, v0, v1)
+async function createSkyMaterial(renderer) {
+  const loader = new THREE.TextureLoader();
+  const [bg, hi] = await Promise.all(['goegap_bg_8k.jpg', 'goegap_front_16k.jpg'].map(f => loader.loadAsync('/assets/hdri/' + f)));
+  for (const tx of [bg, hi]) { tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = renderer.capabilities.getMaxAnisotropy(); }
+  hi.wrapS = hi.wrapT = THREE.ClampToEdgeWrapping;
+  const cols = cs => new THREE.Matrix3().set(cs[0][0], cs[1][0], cs[2][0], cs[0][1], cs[1][1], cs[2][1], cs[0][2], cs[1][2], cs[2][2]);
+  const invIn = cols([[.59719, .07600, .02840], [.35458, .90834, .13383], [.04823, .01566, .83777]]).invert();
+  const invOut = cols([[1.60475, -.10208, -.00327], [-.53108, 1.10813, -.07276], [-.07367, -.00605, 1.07602]]).invert();
+  return new THREE.ShaderMaterial({
+    depthWrite: false, fog: false,
+    uniforms: { bg: { value: bg }, hi: { value: hi }, rect: { value: HI_RECT }, invIn: { value: invIn }, invOut: { value: invOut }, exposure: { value: renderer.toneMappingExposure } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
+    fragmentShader: `uniform sampler2D bg, hi; uniform vec4 rect; uniform mat3 invIn, invOut; uniform float exposure; varying vec2 vUv;
+      vec3 invACES(vec3 c){
+        vec3 y=clamp(invOut*c,0.,.995);
+        vec3 A=1.-.983729*y, B=.0245786-.4329510*y, C=-(.000090537+.238081*y);
+        vec3 v=(-B+sqrt(max(B*B-4.*A*C,0.)))/(2.*A);
+        return max(invIn*v,0.)/(exposure/.6);
+      }
+      void main(){
+        vec3 c=texture2D(bg,vUv).rgb;
+        vec2 p=vec2((vUv.x-rect.x)/(rect.y-rect.x),(vUv.y-rect.z)/(rect.w-rect.z));
+        if(p.x>0.&&p.x<1.&&p.y>0.&&p.y<1.){ float e=min(min(p.x,1.-p.x),min(p.y,1.-p.y)); c=mix(c,texture2D(hi,p).rgb,smoothstep(0.,.03,e)); }
+        gl_FragColor=vec4(min(invACES(c),vec3(40.)),1.);
+      }`,
+  });
+}
+
 export async function createDesert(scene, renderer) {
   const { hdr, sunDir } = await loadHDR('/assets/hdri/goegap_road_2k.hdr');
   sunDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), ROT);
   scene.environment = hdr; scene.environmentRotation.y = ROT;
   scene.fog = new THREE.FogExp2('#c4b293', .0011);     // 远景薄雾，让铺设的地面融进照片
-  const sky = new GroundedSkybox(hdr, 1.6, 1200); sky.position.y = 1.59; sky.rotation.y = ROT; sky.material.fog = false; scene.add(sky);
+  // 背景：光照/反射用 2K HDR；画面背景用自己做过 ACES 色调映射的 8K 全景 + 前方 16K 高清块
+  const sky = new GroundedSkybox(hdr, 1.6, 1200, 256); sky.position.y = 1.59; sky.rotation.y = ROT;
+  sky.material = await createSkyMaterial(renderer); scene.add(sky);
 
   const sun = new THREE.DirectionalLight('#fff0dc', 3.2);
   sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -.0002; sun.shadow.normalBias = .02;
@@ -37,11 +70,11 @@ export async function createDesert(scene, renderer) {
   const fade = fadeTexture();
   const L = 900;                         // 平面纵向覆盖 [-820, +80]，远端渐隐到地平线
   const asphalt = await loadPBR('/assets/tex/asphalt_02', [2, L / 4]);
-  const gravel = await loadPBR('/assets/tex/dry_ground_rocks', [1.5, 300 / 4]);
+  const gravel = await loadPBR('/assets/tex/dry_ground_rocks', [1.5, 140 / 4]);
   const road = new THREE.Mesh(new THREE.PlaneGeometry(ROAD_HALF * 2, L), new THREE.MeshStandardMaterial({ ...asphalt, color: '#b9b4ad', roughness: 1, alphaMap: fade, transparent: true, depthWrite: false }));
   road.rotation.x = -Math.PI / 2; road.position.set(ROAD_X, .012, 80 - L / 2); road.receiveShadow = true; road.renderOrder = 2;
   // 路肩：只在路面两侧各铺 6 米的窄条，向外渐隐，让车旁的地面也跟着流动；更远处交给照片里的真实地面
-  const LS = 300, SW = 6;
+  const LS = 140, SW = 6;
   const edgeFade = flip => { const c = document.createElement('canvas'); c.width = 64; c.height = 256; const g = c.getContext('2d');
     const h = g.createLinearGradient(0, 0, 64, 0); h.addColorStop(flip ? 1 : 0, 'rgba(255,255,255,0)'); h.addColorStop(flip ? 0 : 1, 'rgba(255,255,255,.85)');
     g.fillStyle = h; g.fillRect(0, 0, 64, 256);
