@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LIFTOFF · 声音实验室</title>
+<style>
+:root{color-scheme:dark;--bg:#101315;--panel:#191e21;--line:#343c40;--text:#f0eee7;--dim:#a2adae;--accent:#ff704d;--sky:#8bd7df;--radius:12px}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}main{max-width:1160px;margin:auto;padding:44px 28px}header{display:flex;justify-content:space-between;gap:24px;align-items:center;padding-bottom:26px;border-bottom:1px solid var(--line)}h1{font-size:42px;letter-spacing:.2em;line-height:1.15;margin:0}h1 small{display:block;font-size:12px;letter-spacing:.28em;color:var(--accent);margin-top:14px}h2{font-size:15px;margin:0 0 20px;font-weight:600}h2 span{font:12px monospace;color:var(--dim);margin-right:10px}p{color:var(--dim);text-wrap:pretty}button,select{font:inherit;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--text);padding:10px 16px;cursor:pointer}button:hover,select:hover{border-color:var(--sky)}button:active{transform:translateY(1px)}button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--sky);outline-offset:4px}button:disabled{opacity:.35;cursor:not-allowed}button[aria-pressed=true],.primary{background:var(--accent);border-color:var(--accent);color:var(--bg)}.toolbar,.buttons{display:flex;flex-wrap:wrap;gap:9px}.toolbar{justify-content:flex-end}.status{font:12px monospace;color:var(--sky);margin-top:12px;text-align:right}.hero{position:relative;overflow:hidden;border-bottom:1px solid var(--line);padding:32px 0;display:flex;align-items:center;gap:40px}.speed{font:72px/1 monospace;letter-spacing:-.07em;min-width:150px}.speed small{display:block;font:11px/2 monospace;color:var(--dim);letter-spacing:.2em}.telemetry{flex:1;min-width:0}.strip{height:34px;display:flex;align-items:center;gap:4px;overflow:hidden}.strip i{display:block;flex:1;min-width:3px;background:var(--sky);height:var(--h);opacity:.6;transform:scaleY(.08);transition:transform .12s}.hint{font-size:12px;margin:9px 0 0}.grid{display:grid;grid-template-columns:1.25fr 1fr;gap:22px;margin-top:26px}.panel{background:var(--panel);padding:24px;border:1px solid var(--line);border-radius:var(--radius)}.sliders{display:grid;grid-template-columns:1fr 1fr;gap:21px 24px}.control label{display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-bottom:8px}.control output{color:var(--sky);font:12px monospace}input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;margin:0}input[type=checkbox]{accent-color:var(--accent)}.row{display:flex;gap:14px;align-items:center;justify-content:space-between;margin:22px 0}.row label{font-size:13px}.stack{display:grid;gap:22px}.events{display:grid;grid-template-columns:1fr 1fr;gap:9px}.events button{text-align:left;font-size:13px}.events small{display:block;color:var(--dim);font:10px monospace;letter-spacing:.08em;margin-top:3px}.events button:last-child{grid-column:1/-1}.modes{width:100%}.log{margin:20px 0 0;padding:12px 0 0;border-top:1px solid var(--line);font:12px/1.7 monospace;min-height:54px;color:var(--dim);white-space:pre-wrap;overflow-wrap:anywhere}.footer{font-size:12px;display:flex;justify-content:space-between;margin-top:22px;color:var(--dim);gap:20px}.badge{border:1px solid var(--line);padding:2px 8px;border-radius:4px;color:var(--sky)}@media(max-width:760px){main{padding:28px 18px}.grid{grid-template-columns:1fr}header{align-items:flex-start}h1{font-size:27px}.toolbar{max-width:180px}button{padding:9px 12px}.panel{padding:20px}.hero{gap:20px}.speed{font-size:56px;min-width:115px}.sliders{gap:20px 16px}.footer{flex-direction:column;gap:5px}}@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+<header><div><h1>LIFTOFF<small>声音实验室 / AUDIO LAB</small></h1></div><div><div class="toolbar"><button id="unlock" class="primary">解锁音频</button><button id="mute" aria-pressed="false">静音</button></div><div id="status" class="status" role="status">等待首次手势</div></div></header>
+<section class="hero" aria-label="模拟遥测"><div class="speed"><span id="speedDisplay">0</span><small>KM / H</small></div><div class="telemetry"><div class="strip" id="strip" aria-hidden="true"></div><p class="hint">沙漠公路 → 推进爬升 → 太空相会 → 等离子再入</p><p class="hint">下方光带显示模拟速度与推力，并非实时音频电平。</p></div></section>
+<div class="grid">
+<section class="panel"><h2><span>01</span>车辆与飞行遥测</h2><div class="sliders" id="sliders"></div><div class="row"><label for="mode">飞行模式</label><select id="mode"><option value="drive">公路驾驶 · Drive</option><option value="ascent">推进爬升 · Ascent</option><option value="orbit">轨道漂浮 · Orbit</option><option value="reentry">炽热再入 · Reentry</option></select></div><div class="row"><label><input type="checkbox" id="jet"> 喷射推进器 jet</label><span class="badge" id="modeBadge">DRIVE</span></div><p class="hint">模式控制音色，音乐由右侧单独切换。爬升时提高高度可听到混响与高通展开。</p></section>
+<div class="stack">
+<section class="panel"><h2><span>02</span>音乐导航</h2><div class="buttons" id="cues"><button data-cue="road">公路</button><button data-cue="space">太空</button><button data-cue="oldfriend">老朋友 · 单次</button></div><p class="hint">2.5 秒等功率交叉淡化 · 老朋友播放结束自动返回太空</p><div class="control"><label for="volume">主音量 <output id="volumeValue">80%</output></label><input id="volume" type="range" min="0" max="1" step=".01" value=".8"></div></section>
+<section class="panel"><h2><span>03</span>瞬时事件</h2><div class="events"><button data-event="launch">起步冲刺<small>LAUNCH / 0–100</small></button><button data-event="land">重落地<small>LAND / IMPACT</small></button><button data-event="whiteout">穿透云层<small>WHITEOUT / CLOUDS</small></button><button data-event="achievement">达成成就<small>ACHIEVEMENT / CHIME</small></button><button data-event="horn">鸣笛<small>HORN / DUAL TONE</small></button></div><p class="hint">落地音量使用左侧落地冲击值；该值为 0 时落地音效静音。</p><div id="log" class="log" role="status">尚未解锁。音乐和音效均不会自动播放。</div></section>
+</div></div>
+<div class="footer"><span>原生 WEB AUDIO / 零依赖 / 无需构建</span><span>音乐流式加载 · 耳机可感受轨道缓慢声像移动</span></div>
+</main>
+<script type="module">
+import { createAudio } from './audio.js';
+
+// 所有演示状态均由控制件驱动，不改动游戏本身。
+const state = { mode: 'drive', speedKmh: 0, throttle: 0, brake: 0, jet: false, lift: 0, altitude: 0, offroad: 0, landing: 0.7, plasma: 0 };
+const audio = createAudio({ urls: {
+  road: '/assets/music/road-80s-synthwave.mp3',
+  space: '/assets/music/space-cosmos.mp3',
+  oldfriend: '/assets/music/oldfriend-reflected-light.mp3',
+} });
+const $ = id => document.getElementById(id);
+const log = message => { $('log').textContent = message; };
+let unlocked = false;
+let cueGeneration = 0;
+const controls = [
+  ['speedKmh', '车速', 0, 400, 1, 'km/h'],
+  ['altitude', '高度', 0, 120000, 100, 'm'],
+  ['throttle', '油门', 0, 1, .01, ''],
+  ['brake', '制动', 0, 1, .01, ''],
+  ['lift', '推进器功率', 0, 1, .01, ''],
+  ['offroad', '越野碎石', 0, 1, .01, ''],
+  ['landing', '落地冲击', 0, 1, .01, ''],
+  ['plasma', '等离子体', 0, 1, .01, ''],
+];
+for (const [key, title, min, max, step, unit] of controls) {
+  const box = document.createElement('div'); box.className = 'control';
+  box.innerHTML = `<label for="${key}">${title}<output id="${key}Value"></output></label><input id="${key}" type="range" min="${min}" max="${max}" step="${step}" value="${state[key]}">`;
+  $('sliders').append(box);
+  const refresh = () => {
+    state[key] = Number($(key).value);
+    $(`${key}Value`).textContent = unit ? `${state[key].toLocaleString()} ${unit}` : state[key].toFixed(2);
+    $('speedDisplay').textContent = Math.round(state.speedKmh);
+  };
+  $(key).addEventListener('input', refresh); refresh();
+}
+for (let i = 0; i < 48; i++) {
+  const bar = document.createElement('i'); bar.style.setProperty('--h', `${8 + Math.sin(i * .9) ** 2 * 26}px`); $('strip').append(bar);
+}
+function syncMute() { $('mute').setAttribute('aria-pressed', String(audio.muted)); $('mute').textContent = audio.muted ? '取消静音' : '静音'; }
+syncMute();
+// 工厂自行读取持久化状态；演示页只为同步音量滑块而读取同一键。
+try {
+  const saved = JSON.parse(localStorage.getItem('liftoff.audio.v1'));
+  if (Number.isFinite(saved?.volume)) $('volume').value = Math.max(0, Math.min(1, saved.volume));
+} catch { /* 隐私模式中忽略存储异常。 */ }
+$('volumeValue').textContent = `${Math.round(Number($('volume').value) * 100)}%`;
+$('volume').addEventListener('input', () => { audio.setVolume(Number($('volume').value)); $('volumeValue').textContent = `${Math.round(Number($('volume').value) * 100)}%`; });
+$('mute').onclick = () => { audio.toggleMuted(); syncMute(); };
+$('unlock').onclick = async () => {
+  $('unlock').disabled = true; $('status').textContent = '正在激活流式音乐…';
+  try {
+    await audio.unlock(); unlocked = true;
+    $('status').textContent = '音频已解锁'; $('unlock').textContent = '恢复音频';
+    log('音频就绪。首次播放公路；可随时恢复被浏览器挂起的音频。');
+  } catch (error) { $('status').textContent = '未能激活 · 可重试'; log(error.message); }
+  finally { $('unlock').disabled = false; }
+};
+$('mode').onchange = () => { state.mode = $('mode').value; $('modeBadge').textContent = state.mode.toUpperCase(); };
+$('jet').onchange = () => { state.jet = $('jet').checked; };
+for (const button of document.querySelectorAll('[data-cue]')) {
+  button.onclick = async () => {
+    if (!unlocked) { log('请先点击“解锁音频”。'); return; }
+    const generation = ++cueGeneration;
+    const changed = await audio.cue(button.dataset.cue);
+    if (generation !== cueGeneration) return;
+    log(changed ? `正在切换：${button.textContent}（2.5 秒）。老朋友结束后自动返回太空。` : '当前音乐未改变；播放失败时请检查控制台和网络。');
+  };
+}
+for (const button of document.querySelectorAll('[data-event]')) {
+  button.onclick = () => {
+    if (!unlocked) { log('请先点击“解锁音频”。'); return; }
+    audio.update(0, state); audio.event(button.dataset.event); log(`已触发：${button.dataset.event}`);
+  };
+}
+let previous = performance.now();
+function frame(now) {
+  audio.update(Math.min((now - previous) / 1000, .1), state); previous = now;
+  const activity = Math.max(state.speedKmh / 400, state.lift, state.plasma, state.jet ? .7 : 0);
+  for (const bar of $('strip').children) bar.style.transform = `scaleY(${.08 + activity * .92})`;
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

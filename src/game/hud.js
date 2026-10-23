@@ -19,7 +19,14 @@ export function createHUD() {
 
   function update(s) {
     const kmh = s.v * KMH;
-    if (override) { $('spd').textContent = override.spd; $('alt').textContent = override.alt; $('speed').style.opacity = 0; return; }
+    if (override) {
+      $('spd').textContent = override.spd; $('alt').textContent = override.alt; $('speed').style.opacity = 0;
+      $('fuelbar').style.width = (s.fuel * 100).toFixed(0) + '%'; $('fuelpct').textContent = (s.fuel * 100).toFixed(0) + '%';
+      $('fuelbar').style.background = s.fuel < .15 ? 'linear-gradient(90deg,#ff5a3c,#ffb35c)' : '';
+      if (override.label) { $('lt').textContent = override.label; $('lv').innerHTML = override.value.replace(/ (km|m)$/, '<i>$1</i>'); $('launch').style.opacity = 1; }
+      return;
+    }
+    $('lt').textContent = '0 – 100 KM/H';
     $('spd').textContent = Math.round(kmh);
     arc.setAttribute('stroke-dasharray', `${(Math.min(kmh, 400) / 400 * ARC).toFixed(1)} 264`);
     $('dist').textContent = (s.dist / 1000).toFixed(1) + ' km';

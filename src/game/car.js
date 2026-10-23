@@ -109,5 +109,23 @@ export async function createCar() {
   // 车灯亮度：太空纯黑背景里大灯泛光过强，需要压低
   const lamps = []; model.traverse(o => { if (o.isMesh && /headlights|Glass_Clear/.test(o.material.name) && o.material.emissive) lamps.push(o.material); });
   const setHeadlights = k => { for (const m of lamps) m.emissiveIntensity = 1.2 * k; };
-  return { root, chassis, wheels, setThrust, setLift, setPlasma, setHeadlights };
+  // 音爆蒸汽锥：突破音障瞬间，车身中段向后张开的一圈白色雾锥
+  const vapor = new THREE.Mesh(new THREE.ConeGeometry(2.1, 4.2, 64, 8, true), new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, side: THREE.DoubleSide, uniforms: { k: { value: 0 }, t: { value: 0 } },
+    vertexShader: 'varying vec2 vUv; varying vec3 vN, vV; void main(){ vUv=uv; vN=normalize(normalMatrix*normal); vec4 mv=modelViewMatrix*vec4(position,1.); vV=normalize(-mv.xyz); gl_Position=projectionMatrix*mv; }',
+    fragmentShader: `uniform float k, t; varying vec2 vUv; varying vec3 vN, vV;
+      float h(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+      float n(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.-2.*f); return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y); }
+      void main(){
+        float along=clamp(vUv.y,0.,1.);                              // 1 在锥尖（车头一侧），0 在开口
+        float band=smoothstep(.15,.55,along)*smoothstep(1.,.7,along); // 雾集中在锥面中段
+        float wisp=n(vec2(vUv.x*40.,vUv.y*6.-t*4.))*.6+n(vec2(vUv.x*90.,vUv.y*14.+t*3.))*.4;
+        float rim=1.-abs(dot(normalize(vN),normalize(vV)));
+        float a=band*smoothstep(.35,.8,wisp)*(.35+.65*rim)*k;
+        gl_FragColor=vec4(vec3(.96,.97,1.),clamp(a*.85,0.,1.));
+      }`,
+  }));
+  vapor.rotation.x = -Math.PI / 2; vapor.position.set(0, .62, .6);   // 锥尖朝车头（-Z），开口向后 vapor.visible = false; chassis.add(vapor);
+  const setVapor = (k, t) => { vapor.visible = k > .01; vapor.material.uniforms.k.value = k; vapor.material.uniforms.t.value = t; vapor.scale.setScalar(.85 + .3 * k); };
+  return { root, chassis, wheels, setThrust, setLift, setPlasma, setHeadlights, setVapor };
 }

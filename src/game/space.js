@@ -83,17 +83,13 @@ async function createOldFriend() {
 export async function createSpace(scene, renderer) {
   const group = new THREE.Group(); group.visible = false; scene.add(group);
   const sunDir = V(-.62, .34, -.71).normalize();
-  // 星空
-  let sd = 9; const rr = () => (sd = sd * 16807 % 2147483647) / 2147483647;
-  const sv = []; for (let i = 0; i < 9000; i++) { const v = V(rr() - .5, rr() - .5, rr() - .5).normalize().multiplyScalar(18000); sv.push(v.x, v.y, v.z); }
-  const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(sv, 3));
-  const stars = new THREE.Points(sg, new THREE.PointsMaterial({ color: '#ffffff', size: 1.5, sizeAttenuation: false, transparent: true, opacity: .85, fog: false }));
-  group.add(stars);
+  // 星空改由天空穹顶（NASA 星图）负责
   // 灯光：太阳硬光 + 地球反照蓝光 + 极弱环境光
   const sun = new THREE.DirectionalLight('#fff8ef', 5.2); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -.0002;
   Object.assign(sun.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10, near: 1, far: 200 }); group.add(sun, sun.target);
   const earthshine = new THREE.DirectionalLight('#6f9cff', .7); group.add(earthshine, earthshine.target);
   group.add(new THREE.AmbientLight('#1a2030', .25));
+  const skyLight = new THREE.HemisphereLight('#9cc0ea', '#4a5a6a', 0); group.add(skyLight);
   // 地球与大气
   const tl = new THREE.TextureLoader();
   const [surf, patch, clouds, night] = await Promise.all(['bm_surface_8k.jpg', 'bm_patch_eastasia.jpg', 'earth_bump_roughness_clouds_4096.jpg', 'earth_night_4096.jpg'].map(f => tl.loadAsync('/assets/earth/' + f)));
@@ -120,13 +116,12 @@ export async function createSpace(scene, renderer) {
   const oldFriend = await createOldFriend(); oldFriend.visible = false; group.add(oldFriend);
 
   // h：车所在高度（地表以上，场景单位）；地球中心放在车下方并略微靠前，地平线弯曲随高度变化
-  function place(carPos, h, forward = V(0, 0, -1)) {
-    center.copy(carPos).add(V(0, -EARTH_R - h, 0)).addScaledVector(forward, h * .9);
+  function place(carPos, h, forward = V(0, 0, -1), lead = .9) {
+    center.copy(carPos).add(V(0, -EARTH_R - h, 0)).addScaledVector(forward, h * lead);
     earth.position.copy(center); atm.position.copy(center);
     sun.target.position.copy(carPos); sun.position.copy(carPos).addScaledVector(sunDir, 60);
     earthshine.target.position.copy(carPos); earthshine.position.copy(carPos).addScaledVector(V().subVectors(center, carPos).normalize(), 60);
-    stars.position.copy(carPos);
   }
-  function setFade(k) { earth.material.uniforms.fade.value = k; atm.material.uniforms.fade.value = k; stars.material.opacity = .85 * k; }
-  return { group, earth, atm, sunDir, oldFriend, place, aimEarth, bakeEnv, setFade, center };
+  function setFade(k) { earth.material.uniforms.fade.value = k; atm.material.uniforms.fade.value = k; }
+  return { group, earth, atm, sunDir, oldFriend, place, aimEarth, bakeEnv, setFade, center, sun, skyLight };
 }

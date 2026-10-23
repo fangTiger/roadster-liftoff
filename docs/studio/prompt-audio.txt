@@ -1,0 +1,38 @@
+Build a self-contained, dependency-free Web Audio module for a browser 3D driving game called "LIFTOFF" (a thruster Roadster that drives a desert highway, hops on thrusters, blasts into orbit, meets the 2018 Starman Roadster, and re-enters). Plain ES modules, no npm packages, no build step required. Code comments in Chinese.
+
+FILES
+- src/audio/audio.js  (the module)
+- src/audio/demo.html (a test page with buttons and sliders that drives every feature)
+- README-audio.md     (API + how to integrate, in Chinese)
+
+API (exact)
+export function createAudio({ urls }) where urls = { road, space, oldfriend } are MP3 URLs. Returns:
+- unlock(): call on the first user gesture; creates/resumes the AudioContext, starts streaming (use <audio> elements + MediaElementAudioSourceNode so 3-7 MB files start instantly and loop seamlessly), starts the "road" track.
+- cue(name): 'road' | 'space' | 'oldfriend'. Equal-power crossfade over 2.5 s. Calling the current cue again is a no-op. 'oldfriend' plays once then automatically returns to 'space'.
+- update(dt, s): called every frame with s = { mode: 'drive'|'ascent'|'orbit'|'reentry', speedKmh, throttle, brake, jet, lift (0..1 thruster power), altitude (m), offroad (0..1), landing (0..1 impact pulse), plasma (0..1) }.
+- event(name): one-shots: 'launch' (0-100 km/h start, punchy whoosh), 'land' (heavy suspension thump scaled by s.landing), 'whiteout' (airy rising swoosh when punching through clouds), 'achievement' (soft bright chime), 'horn'.
+- setMuted(bool), toggleMuted(), setVolume(0..1), get muted. Persist mute/volume in localStorage (wrapped in try/catch).
+
+MUSIC BUS (dynamic mix, all parameter changes smoothed with setTargetAtTime, never zipper noise)
+- Road track: low-pass filter opens from 2.5 kHz at standstill to fully open (20 kHz) at 250 km/h; +2 dB gentle presence boost above 200 km/h.
+- Ducking: while thrusters fire (lift > 0.1 or jet), music ducks -6 dB with 80 ms attack / 600 ms release.
+- Ascent: as altitude rises, high-pass the music up to 180 Hz and raise a convolution reverb send (generate the impulse response procedurally: 4 s exponentially decaying stereo noise) so the mix "opens up" into space.
+- Orbit: reverb send stays high, overall music -3 dB, slow stereo auto-pan (0.05 Hz) for weightlessness.
+- Reentry: as plasma rises, add band-limited rumble and duck music -8 dB; after landing, reverb returns to dry over 3 s.
+- Master: DynamicsCompressor as a soft limiter before destination.
+
+SOUND EFFECTS (synthesized, no samples)
+- Electric motor: two detuned oscillators (sawtooth + sine) through a band-pass, pitch follows speed (80 Hz at 0 km/h to 900 Hz at 400 km/h), louder with throttle, slight inverter-whine harmonics. Silent in orbit.
+- Tire/road: filtered noise whose level follows speed; gravel crunch layer driven by offroad.
+- Wind: pink-ish noise through a low-pass, level and cutoff rise with speed; strong during ascent, absent in orbit.
+- Thrusters: dense hiss (white noise, high-pass 1.5 kHz) + low roar (brown noise, low-pass 300 Hz), level = max(lift, throttle-thrust), random flutter.
+- Plasma: deep rumble + crackle (sparse noise bursts) driven by plasma.
+- All SFX go through their own bus with its own gain, so music and SFX can be balanced.
+
+QUALITY BAR
+- No clicks or pops on start/stop/crossfade (always ramp gains).
+- CPU-light: reuse noise buffers, no per-frame node creation except short one-shots that self-disconnect.
+- Works in Chrome, Safari and Firefox; handles the autoplay policy (nothing plays before unlock()).
+- The demo page must let me: unlock, switch cues, drag speed/altitude/lift/offroad/plasma sliders, trigger every event, mute.
+
+Do not deploy anything, do not create keys or .env files. Reply with the file list and anything you could not do.

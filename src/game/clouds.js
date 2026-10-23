@@ -26,11 +26,11 @@ function cloudTexture() {
 export function createClouds(parent) {
   const group = new THREE.Group(); group.visible = false; parent.add(group);
   const tex = cloudTexture();
-  const base = 170, top = 250;                 // 云层高度范围（场景单位）
-  for (let i = 0; i < 220; i++) {
+  const base = 450, top = 900;                 // 云层高度范围（场景单位）
+  for (let i = 0; i < 360; i++) {
     const m = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, fog: false, color: new THREE.Color().setHSL(.08, .15, .86 + rnd() * .14), opacity: .78 });
-    const s = new THREE.Sprite(m); const sc = 40 + rnd() * 90;
-    s.position.set((rnd() - .5) * 420, base + Math.pow(rnd(), .8) * (top - base), (rnd() - .5) * 420); s.scale.set(sc * 1.6, sc, 1); s.material.rotation = rnd() * 6.28;
+    const s = new THREE.Sprite(m); const sc = 70 + rnd() * 160;
+    s.position.set((rnd() - .5) * 700, base + Math.pow(rnd(), .8) * (top - base), (rnd() - .5) * 420); s.scale.set(sc * 1.6, sc, 1); s.material.rotation = rnd() * 6.28;
     group.add(s);
   }
   // 云层跟随车的水平位置，只在穿云时显示
