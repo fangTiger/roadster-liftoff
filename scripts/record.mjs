@@ -13,6 +13,8 @@ const PLANS = {
   // 冲上太空：起步后长按空格升到悬停高度再继续按住 → 冲出大气层 → 轨道巡航与老前辈相遇 → 按 S 再入返回
   space: [[1, 9, 'throttle'], [4, 8.5, 'jet'], [41, 41.5, 'brake'], [50, 56, 'throttle']],
   // 玩家操控的爬升：起步 → 悬停后一直按住空格 → 中途 W 加力 → 卡门线入轨 → 轨道上遇见老前辈 → 按 S 再入
+  // 五个机位轮流展示
+  cams: [[0, 0, 'cam:low'], [1, 20, 'throttle'], [5, 0, 'cam:cine'], [17, 0, 'cam:cockpit'], [22, 0, 'cam:free'], [22, 23, 'jet'], [26, 34, 'jet'], [30, 0, 'cam:cockpit']],
   climb: [[1, 7, 'throttle'], [4, 33, 'jet'], [17, 23, 'throttle'], [52, 52.5, 'brake'], [61, 66, 'throttle']],
 };
 const plan = PLANS[process.env.PLAN || 'drive'];
@@ -26,7 +28,9 @@ await p.goto(url); await p.waitForFunction(() => document.title === 'ready', nul
 const t0 = Date.now();
 for (let i = 0; i < secs * FPS; i++) {
   const t = i / FPS, inp = {};
-  for (const [a, z, k] of plan) if (t >= a && t < z) inp[k] = true;
+  for (const [a, z, k] of plan) if (t >= a && t < z && !k.startsWith('cam:')) inp[k] = true;
+  // 时间轴里的 'cam:xxx' 条目在开始那一刻切换机位
+  for (const [a0, , k] of plan) if (k.startsWith('cam:') && Math.abs(t - a0) < .5 / FPS) await p.evaluate(m => window.__cam(m), k.slice(4));
   await p.evaluate(([inp]) => window.__frame(1 / 30, inp), [inp]);
   await p.screenshot({ path: `${out}/f${String(i).padStart(5, '0')}.jpg`, type: 'jpeg', quality: 90 });
   if (i % 60 === 0) console.log(`帧 ${i}/${secs * FPS}，已用 ${((Date.now() - t0) / 1000).toFixed(0)} 秒`);
