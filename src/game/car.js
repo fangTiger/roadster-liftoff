@@ -51,7 +51,7 @@ export async function createCar() {
   const meshes = []; model.traverse(o => o.isMesh && meshes.push(o));
   const wheels = WHEELS.map(w => {
     const center = model.localToWorld(w.c.clone());
-    const steer = new THREE.Group(); steer.position.copy(center); root.add(steer);
+    const steer = new THREE.Group(); steer.position.copy(center); chassis.add(steer);   // 挂在车身下，随俯仰与侧倾一起转
     const spin = new THREE.Group(); steer.add(spin); root.updateMatrixWorld(true);
     return { ...w, center, steer, spin, radius: w.c.y + model.position.y };
   });
