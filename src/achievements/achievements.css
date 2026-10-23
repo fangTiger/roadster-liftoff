@@ -36,7 +36,7 @@
 
 #ach-toast {
   position:   fixed;
-  top:        96px;           /* 86px 顶栏 + 10px 间距，不遮挡主 HUD */
+  top:        182px;          /* 放在 0–100 计时框（86–170px）下方，不遮挡主 HUD */
   left:       50%;
   transform:  translateX(-50%) translateY(-120%);
   z-index:    9999;
