@@ -14,25 +14,37 @@ import { createFlight } from './flight.js';
 import { createSkyDome } from './skydome.js';
 import { createCloudSea } from './cloudsea.js';
 import { createAudio } from '../audio/audio.js';
+import { createAchievements } from '../achievements/achievements.js';
+import { createUI } from '../ui/ui.js';
 
 const CAPTURE = /capture/.test(location.search);
 const DBG = new URLSearchParams(location.search).get('dbg') || '';   // 排查用：noflame / nodust / nobloom / noblur
 const engine = createEngine(CAPTURE ? { pixelRatio: 1 } : {});
+// 音频与界面外壳先创建：加载期间显示进度，点击开始时在同一个手势里解锁音频
+const audio = CAPTURE ? null : createAudio({ urls: { road: '/assets/music/road-80s-synthwave.mp3', space: '/assets/music/space-cosmos.mp3', oldfriend: '/assets/music/oldfriend-reflected-light.mp3' } });
+let started = CAPTURE;
+const ui = CAPTURE ? null : createUI({ engine, audio, onStart() { started = true; hud.toast('按 W 起步', '0–100 km/h 只要 0.8 秒，A / D 转向，S 刹车', 4500); } });
+ui?.showLoading(.05, '加载沙漠全景…');
 if (DBG.includes('nobloom')) engine.bloom.enabled = false;
 if (DBG.includes('noblur')) engine.blur.enabled = false;
 const { scene, camera, renderer } = engine;
 
 const desert = await createDesert(scene, renderer);
+ui?.showLoading(.35, '加载推进器超跑…');
 const car = await createCar(); scene.add(car.root);
+ui?.showLoading(.5, '加载地球与星空…');
 const vehicle = createVehicle({ roadX: desert.ROAD_X, roadHalf: desert.ROAD_HALF });
 const rig = createCameraRig(camera, renderer.domElement);
+rig.onChange(m => ach?.report('camera', { mode: m }));
 const hud = createHUD();
 const input = createInput();
 const space = await createSpace(scene, renderer);
 const clouds = createClouds(scene);
 const sky = await createSkyDome(scene, renderer);
+ui?.showLoading(.85, '准备起飞…');
 const cloudSea = createCloudSea(space.group);
-const flight = createFlight({ scene, camera, desert, space, clouds, cloudSea, sky, car, vehicle, hud, flash: document.getElementById('flash'), music: null, engine });
+const ach = createAchievements();
+const flight = createFlight({ scene, camera, desert, space, clouds, cloudSea, sky, car, vehicle, hud, flash: document.getElementById('flash'), music: null, engine, onEvent: (e, d) => ach.report(e, d) });
 
 // 扬尘：起步烧胎或开上路肩时从后轮扬起
 const dustTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); const r = g.createRadialGradient(64, 64, 0, 64, 64, 64); r.addColorStop(0, 'rgba(150,125,95,.55)'); r.addColorStop(1, 'rgba(150,125,95,0)'); g.fillStyle = r; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); })();
@@ -62,17 +74,14 @@ const blob = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 5.2), new THREE.MeshBas
 blob.rotation.x = -Math.PI / 2; blob.position.y = .02; blob.renderOrder = 3; scene.add(blob);
 
 // 音频：录制模式下不创建；首次按键或点击时解锁（浏览器自动播放规则）
-const audio = CAPTURE ? null : createAudio({ urls: { road: '/assets/music/road-80s-synthwave.mp3', space: '/assets/music/space-cosmos.mp3', oldfriend: '/assets/music/oldfriend-reflected-light.mp3' } });
 flight.setMusic(audio);
 if (audio) {
-  const unlock = () => { audio.unlock().catch(e => console.warn('音频解锁失败', e)); removeEventListener('keydown', unlock); removeEventListener('pointerdown', unlock); };
-  addEventListener('keydown', unlock); addEventListener('pointerdown', unlock);
-  addEventListener('keydown', e => { if (e.code === 'KeyM') audio.toggleMuted(); if (e.code === 'KeyH') audio.event('horn'); });
+  addEventListener('keydown', e => { if (e.code === 'KeyM') audio.toggleMuted(); if (e.code === 'KeyH') { audio.event('horn'); ach.report('horn'); } });
   const note = document.querySelector('#tools span:nth-child(2)'); note.style.cursor = 'pointer'; note.style.pointerEvents = 'auto';
   note.parentElement.style.pointerEvents = 'auto';
   const paint = () => { note.style.opacity = audio.muted ? .35 : 1; };
   note.addEventListener('click', () => { audio.toggleMuted(); paint(); }); paint();
-  const toast = hud.toast; hud.toast = (...a) => { audio.event('achievement'); return toast(...a); };
+  ach.onUnlock(() => audio.event('achievement'));        // 成就解锁时播放提示音
 }
 const aud = { landing: 0, flash: 0, timing: false };
 function updateAudio(dt, inp) {
@@ -84,6 +93,19 @@ function updateAudio(dt, inp) {
   if (s.launch.timing && !aud.timing) audio.event('launch');
   if (f.flash > .6 && aud.flash <= .6) audio.event('whiteout');
   aud.landing = s.landing; aud.timing = s.launch.timing; aud.flash = f.flash;
+}
+
+// 成就：离散事件在状态跳变时上报，阈值类每帧交给 update
+const achPrev = { timing: false, last: null, air: false, hover: false, landing: 0 };
+function updateAchievements() {
+  const s = vehicle.state, f = flight.state, p = achPrev;
+  if (s.launch.timing && !p.timing) ach.report('drive_start');
+  if (s.launch.last != null && s.launch.last !== p.last) ach.report('launch_time', { seconds: s.launch.last });
+  if (s.airborne && !p.air) ach.report('airborne');
+  if (s.y > 9.5 && !p.hover) ach.report('hover10');
+  if (s.landing > .3 && p.landing <= .3) ach.report('land');
+  Object.assign(p, { timing: s.launch.timing, last: s.launch.last, air: s.airborne, hover: s.y > 9.5, landing: s.landing });
+  ach.update({ speedKmh: s.v * KMH, distanceKm: s.dist / 1000, offroad: s.offroad, hops: s.hops, altitudeM: f.mode === 'drive' ? s.y : f.alt, mode: f.mode });
 }
 
 const clock = { t: 0 };
@@ -135,6 +157,7 @@ function frame(dt, inp) {
   if (flight.state.mode === 'drive') engine.blur.uniforms.strength.value = THREE.MathUtils.clamp((s.v * KMH - 120) / 280, 0, 1) * .055;
   hud.update(s);
   updateAudio(dt, inp);
+  updateAchievements();
   engine.render();
 }
 
@@ -144,7 +167,15 @@ if (CAPTURE) {
   frame(1 / 30, {});
   document.title = 'ready';
 } else {
-  hud.toast('按 W 起步', '0–100 km/h 只要 0.8 秒，A / D 转向，S 刹车', 4500);
+  // 截图成就：K 键或 ◎ 图标
+  addEventListener('keydown', e => { if (e.code === 'KeyK' && started) ach.report('screenshot'); });
+  document.querySelector('#tools span:nth-child(1)')?.addEventListener('click', () => ach.report('screenshot'));
+  engine.render(); ui.showLoading(1, '准备起飞…'); ui.hideLoading();
   let last = performance.now();
-  renderer.setAnimationLoop(now => { const dt = Math.min(.05, (now - last) / 1000); last = now; frame(dt, input.state()); });
+  renderer.setAnimationLoop(now => {
+    const dt = Math.min(.05, (now - last) / 1000); last = now;
+    if (!started || ui.paused) { engine.render(); return; }      // 开始前与暂停时只渲染画面
+    rig.shake = ui.shakeEnabled;
+    frame(dt, input.state());
+  });
 }
