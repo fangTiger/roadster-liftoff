@@ -11,6 +11,9 @@ import { createInput } from './input.js';
 import { createSpace } from './space.js';
 import { createClouds } from './clouds.js';
 import { createFlight } from './flight.js';
+import { createSkyDome } from './skydome.js';
+import { createCloudSea } from './cloudsea.js';
+import { createAudio } from '../audio/audio.js';
 
 const CAPTURE = /capture/.test(location.search);
 const DBG = new URLSearchParams(location.search).get('dbg') || '';   // 排查用：noflame / nodust / nobloom / noblur
@@ -27,7 +30,9 @@ const hud = createHUD();
 const input = createInput();
 const space = await createSpace(scene, renderer);
 const clouds = createClouds(scene);
-const flight = createFlight({ scene, camera, desert, space, clouds, car, vehicle, hud, flash: document.getElementById('flash'), music: null });
+const sky = await createSkyDome(scene, renderer);
+const cloudSea = createCloudSea(space.group);
+const flight = createFlight({ scene, camera, desert, space, clouds, cloudSea, sky, car, vehicle, hud, flash: document.getElementById('flash'), music: null, engine });
 
 // 扬尘：起步烧胎或开上路肩时从后轮扬起
 const dustTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); const r = g.createRadialGradient(64, 64, 0, 64, 64, 64); r.addColorStop(0, 'rgba(150,125,95,.55)'); r.addColorStop(1, 'rgba(150,125,95,0)'); g.fillStyle = r; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); })();
@@ -55,6 +60,31 @@ function updateDust(dt, dz) {
 // 车底接触阴影：贴地的柔和暗斑，离地越高越淡、越大
 const blob = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 5.2), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, map: (() => { const c = document.createElement('canvas'); c.width = 128; c.height = 256; const g = c.getContext('2d'); g.setTransform(1, 0, 0, 2, 0, 0); const r = g.createRadialGradient(64, 64, 8, 64, 64, 64); r.addColorStop(0, 'rgba(0,0,0,.75)'); r.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = r; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); })() }));
 blob.rotation.x = -Math.PI / 2; blob.position.y = .02; blob.renderOrder = 3; scene.add(blob);
+
+// 音频：录制模式下不创建；首次按键或点击时解锁（浏览器自动播放规则）
+const audio = CAPTURE ? null : createAudio({ urls: { road: '/assets/music/road-80s-synthwave.mp3', space: '/assets/music/space-cosmos.mp3', oldfriend: '/assets/music/oldfriend-reflected-light.mp3' } });
+flight.setMusic(audio);
+if (audio) {
+  const unlock = () => { audio.unlock().catch(e => console.warn('音频解锁失败', e)); removeEventListener('keydown', unlock); removeEventListener('pointerdown', unlock); };
+  addEventListener('keydown', unlock); addEventListener('pointerdown', unlock);
+  addEventListener('keydown', e => { if (e.code === 'KeyM') audio.toggleMuted(); if (e.code === 'KeyH') audio.event('horn'); });
+  const note = document.querySelector('#tools span:nth-child(2)'); note.style.cursor = 'pointer'; note.style.pointerEvents = 'auto';
+  note.parentElement.style.pointerEvents = 'auto';
+  const paint = () => { note.style.opacity = audio.muted ? .35 : 1; };
+  note.addEventListener('click', () => { audio.toggleMuted(); paint(); }); paint();
+  const toast = hud.toast; hud.toast = (...a) => { audio.event('achievement'); return toast(...a); };
+}
+const aud = { landing: 0, flash: 0, timing: false };
+function updateAudio(dt, inp) {
+  if (!audio) return;
+  const s = vehicle.state, f = flight.state, drive = f.mode === 'drive';
+  audio.update(dt, { mode: drive ? 'drive' : f.mode, speedKmh: s.v * KMH, throttle: !!inp.throttle, brake: !!inp.brake, jet: !!inp.jet,
+    lift: drive ? s.lift : (f.mode === 'ascent' && inp.jet ? 1 : 0), altitude: drive ? s.y : f.alt, offroad: s.offroad, landing: s.landing, plasma: f.plasma });
+  if (s.landing > .3 && aud.landing <= .3) audio.event('land');
+  if (s.launch.timing && !aud.timing) audio.event('launch');
+  if (f.flash > .6 && aud.flash <= .6) audio.event('whiteout');
+  aud.landing = s.landing; aud.timing = s.launch.timing; aud.flash = f.flash;
+}
 
 const clock = { t: 0 };
 const rear = car.wheels.filter(w => !w.front);
@@ -101,9 +131,9 @@ function frame(dt, inp) {
     for (const w of car.wheels) w.spin.rotation.x -= s.v / w.radius * dt;
     updateDust(dt, 0);
   }
-  const orbit = flight.state.mode === 'orbit';
-  engine.blur.uniforms.strength.value = orbit ? 0 : THREE.MathUtils.clamp((s.v * KMH - 120) / 280, 0, 1) * .055;
+  if (flight.state.mode === 'drive') engine.blur.uniforms.strength.value = THREE.MathUtils.clamp((s.v * KMH - 120) / 280, 0, 1) * .055;
   hud.update(s);
+  updateAudio(dt, inp);
   engine.render();
 }
 

@@ -23,6 +23,12 @@
 | `public/assets/earth/bm_surface_8k.jpg`、`bm_patch_eastasia.jpg` | Blue Marble Next Generation（2004 年 7 月，地形与海底地形版，21600×10800），缩放为 8K 全球图并裁出东亚高清块 | [NASA Earth Observatory](https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-topography-bathymetry) | NASA 影像，公有领域 |
 | `public/assets/earth/earth_bump_roughness_clouds_4096.jpg`、`earth_night_4096.jpg` | 云层、夜间灯光贴图 | [three.js 示例贴图](https://github.com/mrdoob/three.js/tree/dev/examples/textures/planets)，源自 NASA 公开影像 | 见 three.js 仓库说明；NASA 影像为公有领域 |
 
+## 星空
+
+| 文件 | 素材 | 来源 | 授权 |
+| --- | --- | --- | --- |
+| `public/assets/sky/stars_8k.jpg` | Deep Star Maps 2020（Hipparcos-2、Tycho-2、Gaia DR2 星表与银河），16K EXR 线性亮度 ×4 后转 8K sRGB | [NASA/Goddard Space Flight Center Scientific Visualization Studio](https://svs.gsfc.nasa.gov/4851) | NASA 影像，公有领域（致谢 NASA/GSFC SVS） |
+
 ## 音乐
 
 | 文件 | 曲目 | 作者 | 来源 | 授权 |

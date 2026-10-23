@@ -12,6 +12,8 @@ const PLANS = {
   hop: [[1, 17, 'throttle'], [4.5, 4.9, 'jet'], [7.6, 8.3, 'jet'], [10.5, 12.0, 'jet'], [12.4, 13.2, 'left']],
   // 冲上太空：起步后长按空格升到悬停高度再继续按住 → 冲出大气层 → 轨道巡航与老前辈相遇 → 按 S 再入返回
   space: [[1, 9, 'throttle'], [4, 8.5, 'jet'], [41, 41.5, 'brake'], [50, 56, 'throttle']],
+  // 玩家操控的爬升：起步 → 悬停后一直按住空格 → 中途 W 加力 → 卡门线入轨 → 轨道上遇见老前辈 → 按 S 再入
+  climb: [[1, 7, 'throttle'], [4, 33, 'jet'], [17, 23, 'throttle'], [52, 52.5, 'brake'], [61, 66, 'throttle']],
 };
 const plan = PLANS[process.env.PLAN || 'drive'];
 // 默认用本机 Chrome 的新版无头模式走 GPU（Metal）；SOFT=1 时退回 SwiftShader 软件渲染（很慢）
