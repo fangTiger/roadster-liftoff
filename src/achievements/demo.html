@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>离地 LIFTOFF — 成就系统演示</title>
+  <style>
+    /* ── 基础重置与字体 ─────────────────────────────────────────────────────── */
+    :root {
+      --glass: rgba(14, 16, 22, .52);
+      --line:  rgba(255, 255, 255, .14);
+      --txt:   #f4f6fa;
+      --dim:   rgba(244, 246, 250, .6);
+      --acc:   #ff5a3c;
+      --cy:    #7fe3ff;
+      --gold:  #ffd27a;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html, body {
+      margin: 0; height: 100%; overflow-x: hidden;
+      background: #080a10;
+      font-family: -apple-system, "PingFang SC", "SF Pro Display", sans-serif;
+      color: var(--txt);
+    }
+
+    /* 背景星空（纯 CSS，不依赖图片） */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 30% 20%, rgba(50, 80, 160, .25) 0%, transparent 55%),
+        radial-gradient(ellipse at 75% 70%, rgba(120, 40, 80, .20) 0%, transparent 50%),
+        radial-gradient(ellipse at 60% 10%, rgba(30, 60, 140, .18) 0%, transparent 40%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── 磨砂玻璃（主页面 .g 兼容） ──────────────────────────────────────────── */
+    .g {
+      background:              var(--glass);
+      backdrop-filter:         blur(14px) saturate(150%);
+      -webkit-backdrop-filter: blur(14px) saturate(150%);
+      border:                  1px solid var(--line);
+      border-radius:           16px;
+      box-shadow:              0 8px 30px rgba(0, 0, 0, .25);
+    }
+
+    /* ── 顶部品牌栏（复刻 index.html） ───────────────────────────────────────── */
+    #brand {
+      position: fixed; left: 18px; top: 16px;
+      padding: 10px 18px 10px 12px;
+      display: flex; gap: 12px; align-items: center;
+      z-index: 100;
+    }
+    #brand .logo {
+      width: 38px; height: 38px; border-radius: 10px;
+      background: linear-gradient(140deg, #ff6a3d, #c3122f);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 18px;
+    }
+    #brand b   { font-size: 18px; letter-spacing: 3px; display: block; }
+    #brand small { font-size: 11.5px; color: var(--dim); }
+
+    /* ── #bag（复刻 index.html，点击打开面板） ──────────────────────────────── */
+    #bag {
+      position: fixed; right: 18px; bottom: 16px;
+      padding: 14px 18px; width: 250px; z-index: 100;
+      cursor: pointer; pointer-events: auto;
+      user-select: none;
+    }
+    #bag .top  { display: flex; justify-content: space-between; align-items: flex-end; }
+    #bag .n    { font-size: 28px; color: var(--cy); font-weight: 600; }
+    #bag .n small { font-size: 13px; color: var(--dim); margin-left: 6px; font-weight: 400; }
+    #bag .ach  { text-align: right; font-size: 12px; color: var(--dim); }
+    #bag .ach b { display: block; color: var(--txt); font-size: 15px; }
+
+    /* ── 主内容区 ─────────────────────────────────────────────────────────────── */
+    main {
+      position: relative; z-index: 1;
+      max-width: 860px; margin: 0 auto;
+      padding: 100px 20px 120px;
+    }
+
+    h1 {
+      font-size: 22px; font-weight: 800; letter-spacing: 2px;
+      margin: 0 0 6px;
+      background: linear-gradient(90deg, #ff8a5c, #ff4d3a);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .subtitle { font-size: 13px; color: var(--dim); margin-bottom: 32px; }
+
+    /* 分组标题 */
+    .group-title {
+      font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+      color: var(--dim); margin: 24px 0 10px;
+      padding-left: 2px;
+    }
+
+    /* 按钮网格 */
+    .btn-grid {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    /* 通用事件按钮 */
+    .btn {
+      padding: 8px 16px; font-size: 13px; font-weight: 600;
+      border-radius: 10px; border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--txt); cursor: pointer;
+      transition: background .15s, transform .1s;
+      font-family: inherit;
+    }
+    .btn:hover  { background: rgba(255, 255, 255, 0.14); }
+    .btn:active { transform: scale(.96); }
+
+    /* 特殊颜色 */
+    .btn-acc {
+      background: linear-gradient(135deg, rgba(255,138,92,.25), rgba(255,77,58,.25));
+      border-color: rgba(255, 100, 60, 0.4);
+    }
+    .btn-acc:hover {
+      background: linear-gradient(135deg, rgba(255,138,92,.4), rgba(255,77,58,.4));
+    }
+    .btn-cy {
+      background: rgba(127, 227, 255, 0.1);
+      border-color: rgba(127, 227, 255, 0.3);
+      color: var(--cy);
+    }
+    .btn-cy:hover { background: rgba(127, 227, 255, 0.18); }
+    .btn-gold {
+      background: rgba(255, 210, 122, 0.1);
+      border-color: rgba(255, 210, 122, 0.35);
+      color: var(--gold);
+    }
+    .btn-gold:hover { background: rgba(255, 210, 122, 0.18); }
+    .btn-danger {
+      background: rgba(255, 60, 60, 0.1);
+      border-color: rgba(255, 60, 60, 0.3);
+      color: #ff8080;
+    }
+    .btn-danger:hover { background: rgba(255, 60, 60, 0.2); }
+
+    /* update() 状态旋钮 */
+    .slider-row {
+      display: flex; align-items: center; gap: 12px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 14px;
+      flex-wrap: wrap;
+    }
+    .slider-row label { font-size: 12.5px; color: var(--dim); min-width: 90px; }
+    .slider-row input[type=range] {
+      flex: 1; min-width: 100px;
+      accent-color: var(--acc);
+    }
+    .slider-row .val {
+      font-size: 13px; font-weight: 600;
+      min-width: 60px; text-align: right;
+    }
+
+    /* 控制台日志区 */
+    #log {
+      background: rgba(0, 0, 0, .45);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-size: 12px;
+      font-family: "SF Mono", "Fira Code", monospace;
+      color: var(--dim);
+      max-height: 180px;
+      overflow-y: auto;
+      margin-top: 24px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    #log .log-entry       { display: block; margin-bottom: 3px; }
+    #log .log-entry.unlock { color: var(--gold); }
+    #log .log-entry.info   { color: var(--cy); }
+    #log .log-entry.reset  { color: #ff8080; }
+  </style>
+</head>
+<body>
+
+<!-- 顶部品牌栏 -->
+<div class="g" id="brand">
+  <span class="logo">⟁</span>
+  <div><b>离地 LIFTOFF</b><small>成就系统演示</small></div>
+</div>
+
+<!-- 右下角成就徽章（可点击打开面板） -->
+<div class="g" id="bag">
+  <div class="top">
+    <div class="n"><span id="hops">0</span><small>次离地</small></div>
+    <div class="ach">成就<b>0 / 18</b></div>
+  </div>
+</div>
+
+<!-- 主内容 -->
+<main>
+  <h1>🏆 成就系统演示</h1>
+  <p class="subtitle">点击按钮触发游戏事件，右下角徽章可点击打开全部成就面板。</p>
+
+  <!-- 分组：驾驶事件 -->
+  <div class="group-title">驾驶事件</div>
+  <div class="btn-grid">
+    <button class="btn btn-acc" data-event="drive_start">▶ 点火 (drive_start)</button>
+    <button class="btn" data-event="launch_time" data-fast="true">⚡ 0.82s 破百 (launch_time &lt; 0.9s)</button>
+    <button class="btn" data-event="launch_time" data-fast="false">🐢 1.5s 破百 (不触发)</button>
+    <button class="btn" data-event="horn">📯 鸣笛 (horn)</button>
+    <button class="btn" data-event="screenshot">📷 截图 (screenshot)</button>
+  </div>
+
+  <!-- 分组：推进器事件 -->
+  <div class="group-title">推进器 / 飞行事件</div>
+  <div class="btn-grid">
+    <button class="btn btn-cy" data-event="airborne">🚀 离地 (airborne)</button>
+    <button class="btn btn-cy" data-event="hover10">🪂 悬停 10m (hover10)</button>
+    <button class="btn btn-cy" data-event="land">⬇ 落地 (land)</button>
+    <button class="btn btn-cy" data-event="boom">💥 音爆 (boom)</button>
+    <button class="btn btn-cy" data-event="clouds">☁ 穿云 (clouds)</button>
+    <button class="btn btn-cy" data-event="stratosphere">🌤 平流层 (stratosphere)</button>
+    <button class="btn btn-cy" data-event="karman">🛸 卡门线 (karman)</button>
+    <button class="btn btn-cy" data-event="orbit">🌏 进入轨道 (orbit)</button>
+    <button class="btn btn-cy" data-event="meet">🚗 遇见老前辈 (meet)</button>
+    <button class="btn btn-cy" data-event="reentry_home">🏠 安全返航 (reentry_home)</button>
+    <button class="btn btn-cy" data-event="ascent_abort_fuel">💨 燃料耗尽中止 (fuelEmpty: true)</button>
+    <button class="btn" data-event="ascent_abort_nofuel">↩ 主动中止 (fuelEmpty: false)</button>
+  </div>
+
+  <!-- 分组：镜头切换 -->
+  <div class="group-title">镜头机位（5 个全试遍解锁"导演"）</div>
+  <div class="btn-grid">
+    <button class="btn btn-gold" data-event="camera_chase">🎥 追随 (chase)</button>
+    <button class="btn btn-gold" data-event="camera_low">🎥 低角 (low)</button>
+    <button class="btn btn-gold" data-event="camera_cine">🎥 电影 (cine)</button>
+    <button class="btn btn-gold" data-event="camera_cockpit">🎥 驾驶舱 (cockpit)</button>
+    <button class="btn btn-gold" data-event="camera_free">🎥 自由 (free)</button>
+  </div>
+
+  <!-- 分组：update() 帧状态 -->
+  <div class="group-title">update() 帧状态（拖动后点击"推送一帧"）</div>
+  <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:10px;">
+    <!-- 速度 -->
+    <div class="slider-row">
+      <label>时速 km/h</label>
+      <input type="range" id="sl-speed" min="0" max="420" value="0" step="1">
+      <span class="val" id="vl-speed">0</span>
+    </div>
+    <!-- 里程 -->
+    <div class="slider-row">
+      <label>本局里程 km</label>
+      <input type="range" id="sl-dist" min="0" max="15" value="0" step="0.1">
+      <span class="val" id="vl-dist">0.0</span>
+    </div>
+    <!-- 越野率 -->
+    <div class="slider-row">
+      <label>越野率 (0–1)</label>
+      <input type="range" id="sl-offroad" min="0" max="1" value="0" step="0.01">
+      <span class="val" id="vl-offroad">0.00</span>
+    </div>
+    <!-- 离地次数 -->
+    <div class="slider-row">
+      <label>离地次数 (hops)</label>
+      <input type="range" id="sl-hops" min="0" max="10" value="0" step="1">
+      <span class="val" id="vl-hops">0</span>
+    </div>
+    <!-- 高度 -->
+    <div class="slider-row">
+      <label>高度 m</label>
+      <input type="range" id="sl-alt" min="0" max="110000" value="0" step="100">
+      <span class="val" id="vl-alt">0</span>
+    </div>
+  </div>
+  <div class="btn-grid">
+    <button class="btn btn-acc" id="btn-push-frame">📡 推送一帧 (update)</button>
+  </div>
+
+  <!-- 分组：工具 -->
+  <div class="group-title">工具</div>
+  <div class="btn-grid">
+    <button class="btn btn-gold" id="btn-open-panel">🏆 打开成就面板</button>
+    <button class="btn" id="btn-list">📋 list() → 控制台</button>
+    <button class="btn btn-danger" id="btn-reset">🗑 重置所有成就</button>
+  </div>
+
+  <!-- 日志区域 -->
+  <div id="log"><span class="log-entry info">// 成就日志输出</span></div>
+</main>
+
+<script type="module">
+  // 引入成就模块
+  import { createAchievements } from './achievements.js';
+
+  // 创建实例，使用演示专用的 storageKey 避免污染正式存档
+  const ach = createAchievements({ storageKey: 'liftoff.achievements.demo' });
+
+  // 注册解锁回调
+  ach.onUnlock(({ id, name, desc, date }) => {
+    log(`🏅 解锁！[${id}] ${name}  (${date})`, 'unlock');
+  });
+
+  // 初始更新 #hops（演示页面的离地计数）
+  let demoHops = 0;
+
+  // ── 日志工具 ──────────────────────────────────────────────────────────────
+  const logEl = document.getElementById('log');
+  function log(msg, cls = '') {
+    const span = document.createElement('span');
+    span.className = 'log-entry' + (cls ? ' ' + cls : '');
+    span.textContent = `[${new Date().toLocaleTimeString('zh-CN')}] ${msg}`;
+    logEl.appendChild(span);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  // ── 滑块实时更新数值显示 ──────────────────────────────────────────────────
+  const sliders = [
+    { id: 'sl-speed',   valId: 'vl-speed',   fmt: v => String(Math.round(v)) },
+    { id: 'sl-dist',    valId: 'vl-dist',    fmt: v => parseFloat(v).toFixed(1) },
+    { id: 'sl-offroad', valId: 'vl-offroad', fmt: v => parseFloat(v).toFixed(2) },
+    { id: 'sl-hops',    valId: 'vl-hops',    fmt: v => String(Math.round(v)) },
+    { id: 'sl-alt',     valId: 'vl-alt',     fmt: v => String(Math.round(v)) },
+  ];
+  for (const s of sliders) {
+    const el = document.getElementById(s.id);
+    const vl = document.getElementById(s.valId);
+    el.addEventListener('input', () => { vl.textContent = s.fmt(el.value); });
+  }
+
+  // ── 读取滑块当前值 ────────────────────────────────────────────────────────
+  function getState() {
+    return {
+      speedKmh:   parseFloat(document.getElementById('sl-speed').value),
+      distanceKm: parseFloat(document.getElementById('sl-dist').value),
+      offroad:    parseFloat(document.getElementById('sl-offroad').value),
+      hops:       parseInt(document.getElementById('sl-hops').value, 10),
+      altitudeM:  parseFloat(document.getElementById('sl-alt').value),
+      mode:       'demo',
+    };
+  }
+
+  // ── 按钮事件分发 ──────────────────────────────────────────────────────────
+  document.querySelectorAll('[data-event]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ev = btn.dataset.event;
+      switch (ev) {
+        // 驾驶事件
+        case 'drive_start':
+          log('report("drive_start")');
+          ach.report('drive_start');
+          break;
+        case 'launch_time':
+          if (btn.dataset.fast === 'true') {
+            log('report("launch_time", { seconds: 0.82 })');
+            ach.report('launch_time', { seconds: 0.82 });
+          } else {
+            log('report("launch_time", { seconds: 1.5 })');
+            ach.report('launch_time', { seconds: 1.5 });
+          }
+          break;
+        case 'horn':
+          log('report("horn")');
+          ach.report('horn');
+          break;
+        case 'screenshot':
+          log('report("screenshot")');
+          ach.report('screenshot');
+          break;
+        // 推进器 / 飞行事件
+        case 'airborne':
+          demoHops++;
+          document.getElementById('hops').textContent = demoHops;
+          log('report("airborne")');
+          ach.report('airborne');
+          break;
+        case 'hover10':
+          log('report("hover10")');
+          ach.report('hover10');
+          break;
+        case 'land':
+          log('report("land")');
+          ach.report('land');
+          break;
+        case 'boom':
+          log('report("boom")');
+          ach.report('boom');
+          break;
+        case 'clouds':
+          log('report("clouds")');
+          ach.report('clouds');
+          break;
+        case 'stratosphere':
+          log('report("stratosphere")');
+          ach.report('stratosphere');
+          break;
+        case 'karman':
+          log('report("karman")');
+          ach.report('karman');
+          break;
+        case 'orbit':
+          log('report("orbit")  — 已进入轨道', 'info');
+          ach.report('orbit');
+          break;
+        case 'meet':
+          log('report("meet")');
+          ach.report('meet');
+          break;
+        case 'reentry_home':
+          log('report("reentry_home")');
+          ach.report('reentry_home');
+          break;
+        case 'ascent_abort_fuel':
+          log('report("ascent_abort", { fuelEmpty: true })');
+          ach.report('ascent_abort', { fuelEmpty: true });
+          break;
+        case 'ascent_abort_nofuel':
+          log('report("ascent_abort", { fuelEmpty: false })');
+          ach.report('ascent_abort', { fuelEmpty: false });
+          break;
+        // 镜头
+        case 'camera_chase':
+          log('report("camera", { mode: "chase" })');
+          ach.report('camera', { mode: 'chase' });
+          break;
+        case 'camera_low':
+          log('report("camera", { mode: "low" })');
+          ach.report('camera', { mode: 'low' });
+          break;
+        case 'camera_cine':
+          log('report("camera", { mode: "cine" })');
+          ach.report('camera', { mode: 'cine' });
+          break;
+        case 'camera_cockpit':
+          log('report("camera", { mode: "cockpit" })');
+          ach.report('camera', { mode: 'cockpit' });
+          break;
+        case 'camera_free':
+          log('report("camera", { mode: "free" })');
+          ach.report('camera', { mode: 'free' });
+          break;
+        default:
+          break;
+      }
+    });
+  });
+
+  // ── 推送一帧 ─────────────────────────────────────────────────────────────
+  document.getElementById('btn-push-frame').addEventListener('click', () => {
+    const s = getState();
+    log(`update({ speedKmh:${s.speedKmh}, distanceKm:${s.distanceKm}, offroad:${s.offroad}, hops:${s.hops}, altitudeM:${s.altitudeM} })`);
+    ach.update(s);
+  });
+
+  // ── 工具按钮 ─────────────────────────────────────────────────────────────
+  document.getElementById('btn-open-panel').addEventListener('click', () => {
+    log('openPanel()', 'info');
+    ach.openPanel();
+  });
+
+  document.getElementById('btn-list').addEventListener('click', () => {
+    const items = ach.list();
+    const done = items.filter(i => i.unlocked);
+    log(`list() — 已解锁 ${done.length}/${items.length}`, 'info');
+    for (const it of items) {
+      log(`  ${it.unlocked ? '✅' : '⬜'} [${it.index.toString().padStart(2)}] ${it.name}${it.date ? '  ' + it.date : ''}`);
+    }
+  });
+
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    if (confirm('确定重置所有成就吗？此操作不可撤销。')) {
+      ach.reset();
+      demoHops = 0;
+      document.getElementById('hops').textContent = '0';
+      log('reset() — 所有成就已重置', 'reset');
+    }
+  });
+</script>
+</body>
+</html>

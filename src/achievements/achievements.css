@@ -1,0 +1,425 @@
+/*
+ * 离地 LIFTOFF — 成就系统样式
+ * 与主游戏 HUD 共用设计语言：
+ *   磨砂玻璃面板、白色文字、渐变橙色 #ff8a5c→#ff4d3a、
+ *   青色 #7fe3ff、金色 #ffd27a。
+ * 不依赖任何外部 CSS；主页面可选引入（已含 .g 基础类兼容声明）。
+ */
+
+/* ── CSS 变量（与 index.html :root 保持一致） ──────────────────────────────── */
+:root {
+  --ach-glass:   rgba(14, 16, 22, 0.52);
+  --ach-line:    rgba(255, 255, 255, 0.14);
+  --ach-txt:     #f4f6fa;
+  --ach-dim:     rgba(244, 246, 250, 0.6);
+  --ach-acc:     #ff5a3c;
+  --ach-cy:      #7fe3ff;
+  --ach-gold:    #ffd27a;
+  --ach-gold2:   #ffb347;
+  --ach-radius:  16px;
+  --ach-blur:    blur(14px) saturate(150%);
+}
+
+/* ── 磨砂玻璃基础（独立于 .g，保证 demo 页也好看） ────────────────────────── */
+.ach-glass {
+  background:             var(--ach-glass);
+  backdrop-filter:        var(--ach-blur);
+  -webkit-backdrop-filter: var(--ach-blur);
+  border:                 1px solid var(--ach-line);
+  border-radius:          var(--ach-radius);
+  box-shadow:             0 8px 30px rgba(0, 0, 0, 0.35);
+  color:                  var(--ach-txt);
+  font-family:            -apple-system, "PingFang SC", "SF Pro Display", sans-serif;
+}
+
+/* ── Toast ──────────────────────────────────────────────────────────────────── */
+
+#ach-toast {
+  position:   fixed;
+  top:        96px;           /* 86px 顶栏 + 10px 间距，不遮挡主 HUD */
+  left:       50%;
+  transform:  translateX(-50%) translateY(-120%);
+  z-index:    9999;
+
+  display:    flex;
+  align-items: center;
+  gap:        14px;
+
+  padding:    12px 20px 12px 14px;
+  min-width:  260px;
+  max-width:  min(420px, 90vw);
+
+  /* 磨砂玻璃 */
+  background:             var(--ach-glass);
+  backdrop-filter:        var(--ach-blur);
+  -webkit-backdrop-filter: var(--ach-blur);
+  border:                 1px solid rgba(255, 210, 122, 0.3);
+  border-radius:          var(--ach-radius);
+  box-shadow:             0 8px 30px rgba(0, 0, 0, 0.4),
+                          0 0 0 1px rgba(255, 210, 122, 0.08) inset;
+  color:                  var(--ach-txt);
+  font-family:            -apple-system, "PingFang SC", "SF Pro Display", sans-serif;
+
+  pointer-events:         none;
+  will-change:            transform, opacity;
+}
+
+/* 入场：从上方滑入 */
+#ach-toast.ach-toast-show {
+  animation: ach-slide-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* 退场：向上淡出 */
+#ach-toast.ach-toast-hide {
+  animation: ach-slide-out 0.48s ease-in forwards;
+}
+
+@keyframes ach-slide-in {
+  from { transform: translateX(-50%) translateY(-120%); opacity: 0; }
+  to   { transform: translateX(-50%) translateY(0);     opacity: 1; }
+}
+
+@keyframes ach-slide-out {
+  from { transform: translateX(-50%) translateY(0);     opacity: 1; }
+  to   { transform: translateX(-50%) translateY(-120%); opacity: 0; }
+}
+
+/* 减少动画（辅助功能） */
+@media (prefers-reduced-motion: reduce) {
+  #ach-toast.ach-toast-show,
+  #ach-toast.ach-toast-hide {
+    animation: none;
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+  #ach-toast.ach-toast-hide {
+    opacity: 0;
+  }
+}
+
+/* 金色勋章 */
+.ach-toast-medal {
+  position:       relative;
+  flex-shrink:    0;
+  width:          46px;
+  height:         46px;
+  border-radius:  12px;
+  background:     linear-gradient(140deg, #ffd27a, #ffb347);
+  display:        flex;
+  align-items:    center;
+  justify-content: center;
+  box-shadow:     0 4px 16px rgba(255, 180, 60, 0.45);
+  overflow:       hidden;
+}
+
+/* 序号文字 */
+.ach-toast-index {
+  font-size:    18px;
+  font-weight:  800;
+  color:        rgba(80, 40, 0, 0.85);
+  line-height:  1;
+  position:     relative;
+  z-index:      1;
+}
+
+/* 光泽扫光动画 */
+.ach-toast-shine {
+  position:   absolute;
+  inset:      0;
+  background: linear-gradient(
+    115deg,
+    rgba(255, 255, 255, 0)    0%,
+    rgba(255, 255, 255, 0.55) 50%,
+    rgba(255, 255, 255, 0)    100%
+  );
+  transform:  translateX(-120%);
+  animation:  ach-shine 1.8s ease-in-out 0.3s infinite;
+}
+
+@keyframes ach-shine {
+  0%   { transform: translateX(-120%); }
+  40%  { transform: translateX(120%);  }
+  100% { transform: translateX(120%);  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ach-toast-shine { animation: none; }
+}
+
+/* 文字区域 */
+.ach-toast-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ach-toast-title {
+  display:     block;
+  font-size:   14.5px;
+  font-weight: 700;
+  color:       var(--ach-gold);
+  letter-spacing: 0.3px;
+}
+
+.ach-toast-desc {
+  font-size: 12px;
+  color:     var(--ach-dim);
+  line-height: 1.4;
+}
+
+/* ── 面板遮罩 ────────────────────────────────────────────────────────────────── */
+
+.ach-panel-wrap {
+  position:        fixed;
+  inset:           0;
+  z-index:         9998;
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  background:      rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+
+  /* 默认隐藏 */
+  opacity:         0;
+  pointer-events:  none;
+  transition:      opacity 0.28s ease;
+}
+
+.ach-panel-wrap.ach-panel-visible {
+  opacity:        1;
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ach-panel-wrap { transition: none; }
+}
+
+/* ── 面板主体 ────────────────────────────────────────────────────────────────── */
+
+.ach-panel {
+  position:     relative;
+  width:        min(860px, 94vw);
+  max-height:   82vh;
+  overflow:     hidden;
+  display:      flex;
+  flex-direction: column;
+
+  background:             rgba(14, 16, 22, 0.76);
+  backdrop-filter:        blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border:                 1px solid var(--ach-line);
+  border-radius:          var(--ach-radius);
+  box-shadow:             0 24px 60px rgba(0, 0, 0, 0.6);
+  color:                  var(--ach-txt);
+  font-family:            -apple-system, "PingFang SC", "SF Pro Display", sans-serif;
+
+  /* 面板缩放入场 */
+  transform:    scale(0.92);
+  transition:   transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ach-panel-wrap.ach-panel-visible .ach-panel {
+  transform: scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ach-panel { transform: none; transition: none; }
+}
+
+/* ── 面板顶栏 ────────────────────────────────────────────────────────────────── */
+
+.ach-panel-header {
+  display:     flex;
+  align-items: center;
+  gap:         16px;
+  padding:     18px 22px 14px;
+  border-bottom: 1px solid var(--ach-line);
+  flex-shrink: 0;
+}
+
+.ach-panel-title {
+  font-size:      18px;
+  font-weight:    700;
+  letter-spacing: 1px;
+  white-space:    nowrap;
+}
+
+/* 进度条 */
+.ach-panel-progress-wrap {
+  flex:        1;
+  display:     flex;
+  align-items: center;
+  gap:         10px;
+  min-width:   0;
+}
+
+.ach-panel-progress-bar {
+  flex:            1;
+  height:          6px;
+  border-radius:   3px;
+  background:      rgba(255, 255, 255, 0.14);
+  overflow:        hidden;
+}
+
+.ach-panel-progress-fill {
+  height:           100%;
+  border-radius:    3px;
+  background:       linear-gradient(90deg, #ff8a5c, #ff4d3a);
+  transition:       width 0.5s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ach-panel-progress-fill { transition: none; }
+}
+
+.ach-panel-progress-label {
+  font-size:    13px;
+  color:        var(--ach-dim);
+  white-space:  nowrap;
+}
+
+/* 关闭按钮 */
+.ach-panel-close {
+  flex-shrink:    0;
+  width:          32px;
+  height:         32px;
+  border:         1px solid var(--ach-line);
+  border-radius:  8px;
+  background:     rgba(255, 255, 255, 0.06);
+  color:          var(--ach-dim);
+  font-size:      15px;
+  cursor:         pointer;
+  display:        flex;
+  align-items:    center;
+  justify-content: center;
+  transition:     background 0.18s, color 0.18s;
+}
+
+.ach-panel-close:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color:      var(--ach-txt);
+}
+
+/* ── 成就网格 ────────────────────────────────────────────────────────────────── */
+
+.ach-grid {
+  display:               grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap:                   10px;
+  padding:               16px 20px 20px;
+  overflow-y:            auto;
+  overscroll-behavior:   contain;
+
+  /* 自定义滚动条 */
+  scrollbar-width:       thin;
+  scrollbar-color:       rgba(255,255,255,0.18) transparent;
+}
+
+.ach-grid::-webkit-scrollbar       { width: 5px; }
+.ach-grid::-webkit-scrollbar-track { background: transparent; }
+.ach-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+
+@media (max-width: 720px) {
+  .ach-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 420px) {
+  .ach-grid { grid-template-columns: 1fr; }
+}
+
+/* ── 单个成就卡片 ─────────────────────────────────────────────────────────────── */
+
+.ach-item {
+  display:        flex;
+  align-items:    flex-start;
+  gap:            10px;
+  padding:        12px 14px;
+  border-radius:  12px;
+  border:         1px solid var(--ach-line);
+  background:     rgba(255, 255, 255, 0.04);
+  transition:     background 0.18s;
+}
+
+.ach-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* 已解锁：金色边框高亮 */
+.ach-item-done {
+  border-color:  rgba(255, 210, 122, 0.4);
+  background:    rgba(255, 210, 122, 0.06);
+}
+
+.ach-item-done:hover {
+  background: rgba(255, 210, 122, 0.1);
+}
+
+/* 未解锁：暗淡 */
+.ach-item-locked {
+  opacity: 0.52;
+}
+
+/* 勋章圆圈 */
+.ach-item-medal {
+  flex-shrink:    0;
+  width:          38px;
+  height:         38px;
+  border-radius:  10px;
+  display:        flex;
+  align-items:    center;
+  justify-content: center;
+  font-size:      16px;
+}
+
+.ach-item-done .ach-item-medal {
+  background:  linear-gradient(140deg, #ffd27a, #ffb347);
+  box-shadow:  0 3px 10px rgba(255, 180, 60, 0.35);
+}
+
+.ach-item-locked .ach-item-medal {
+  background:  rgba(255, 255, 255, 0.1);
+}
+
+.ach-item-index {
+  font-size:   16px;
+  font-weight: 800;
+  color:       rgba(80, 40, 0, 0.85);
+}
+
+.ach-item-lock {
+  font-size: 16px;
+  filter:    grayscale(1) opacity(0.6);
+}
+
+/* 文字区域 */
+.ach-item-info {
+  display:        flex;
+  flex-direction: column;
+  gap:            3px;
+  min-width:      0;
+}
+
+.ach-item-name {
+  font-size:   13.5px;
+  font-weight: 700;
+  color:       var(--ach-txt);
+  line-height: 1.2;
+}
+
+.ach-item-done .ach-item-name {
+  color: var(--ach-gold);
+}
+
+.ach-item-desc {
+  font-size:   11.5px;
+  color:       var(--ach-dim);
+  line-height: 1.4;
+  word-break:  break-all;
+}
+
+.ach-item-date {
+  font-size:   10.5px;
+  color:       rgba(255, 210, 122, 0.6);
+  margin-top:  2px;
+}

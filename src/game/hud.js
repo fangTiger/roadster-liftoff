@@ -33,13 +33,13 @@ export function createHUD() {
     $('alt').textContent = s.y < 1 ? '0 m' : Math.round(s.y) + ' m';
     $('fuelbar').style.width = (s.fuel * 100).toFixed(0) + '%'; $('fuelpct').textContent = (s.fuel * 100).toFixed(0) + '%';
     $('hops').textContent = s.hops;
-    if (s.airborne && !shownLift) { shownLift = true; toast('第一次起飞', '底部四个推进器同时点燃'); }
+    // "第一次起飞"由成就系统弹出
     if (s.y > 10 && !shownHigh) { shownHigh = true; toast('离地 10 米', '继续按住空格，冲出大气层！'); }
     const L = s.launch;
     $('lv').innerHTML = (L.timing ? L.t : (L.last ?? 0)).toFixed(2) + '<i>s</i>';
     $('launch').style.opacity = L.timing || L.last != null ? 1 : .55;
     $('speed').style.opacity = Math.max(0, Math.min(1, (kmh - 90) / 220));
-    if (L.last != null && L.last < .9 && !shownClub) { shownClub = true; toast('0.8 秒俱乐部', `0–100 km/h 用时 ${L.last.toFixed(2)} 秒`); }
+    // "0.8 秒俱乐部"由成就系统弹出，这里不再重复提示
   }
   // 飞行导演接管时，用覆盖值显示轨道高度/速度
   const setOverride = o => { override = o; };

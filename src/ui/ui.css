@@ -1,0 +1,87 @@
+/* 与原 HUD 共用玻璃材质；样式限定在模块和工具栏内。 */
+#liftoff-ui{--glass:rgba(14,16,22,.42);--line:rgba(255,255,255,.14);--txt:#f4f6fa;--dim:rgba(244,246,250,.6);--cy:#7fe3ff;position:relative;z-index:1000;color:var(--txt);font-family:-apple-system,"PingFang SC","SF Pro Display",sans-serif;font-size:14px}
+#liftoff-ui *,#tools *{box-sizing:border-box}
+#liftoff-ui [hidden],.ui-hints-hidden{display:none!important}
+#liftoff-ui .g{position:relative;background:var(--glass);backdrop-filter:blur(14px) saturate(150%);-webkit-backdrop-filter:blur(14px) saturate(150%);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+#liftoff-ui button{font:inherit;color:inherit;cursor:pointer;border:1px solid var(--line);background:rgba(255,255,255,.06);border-radius:10px;min-height:44px;padding:10px 18px;transition:background .18s,border-color .18s,transform .18s}
+#liftoff-ui button:hover{background:rgba(255,255,255,.13);border-color:rgba(255,255,255,.35)}
+#liftoff-ui button:active{transform:translateY(1px)}
+#liftoff-ui :focus-visible,#tools span:focus-visible{outline:2px solid #7fe3ff;outline-offset:4px}
+#liftoff-ui .ui-overlay{position:fixed;inset:0;overflow:auto;overscroll-behavior:contain;display:flex;align-items:safe center;justify-content:center;padding:32px 24px;background:rgba(8,10,16,.64);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+#liftoff-ui .ui-loading{z-index:3;background:linear-gradient(180deg,rgba(8,10,16,.72),rgba(14,16,22,.42) 52%,rgba(8,10,16,.9));transition:opacity .6s ease,visibility .6s}
+#liftoff-ui .ui-loading.ui-leaving{opacity:0;visibility:hidden;pointer-events:none}
+#liftoff-ui .ui-start-content{width:min(100%,720px);text-align:center;margin:auto}
+#liftoff-ui .ui-eyebrow{font-size:11px;letter-spacing:3px;color:var(--cy);margin:0 0 14px}
+#liftoff-ui h1{font-size:clamp(42px,6.4vw,80px);letter-spacing:6px;line-height:1.1;margin:0;font-weight:800}
+#liftoff-ui h1 span{font-weight:650;letter-spacing:7px}
+#liftoff-ui .ui-subtitle{font-size:16px;letter-spacing:2px;color:var(--dim);margin:20px 0 0}
+#liftoff-ui .ui-launch-status{height:100px;display:flex;align-items:center;justify-content:center}
+#liftoff-ui .ui-progress-wrap{width:min(100%,360px)}
+#liftoff-ui .ui-progress-label{display:flex;justify-content:space-between;color:var(--dim);font-size:12px;margin-bottom:12px}
+#liftoff-ui .ui-percent{color:var(--cy);font-variant-numeric:tabular-nums}
+#liftoff-ui .ui-progress{height:3px;background:rgba(255,255,255,.12);overflow:hidden;border-radius:4px}
+#liftoff-ui .ui-progress i{display:block;height:100%;width:100%;transform:scaleX(0);transform-origin:left;background:linear-gradient(90deg,#ff8a5c,#ff4d3a);transition:transform .3s ease}
+#liftoff-ui .ui-start{border:0;background:transparent;color:#fff;letter-spacing:3px;font-weight:600;animation:ui-pulse 2s ease-in-out infinite}
+#liftoff-ui .ui-start:hover{background:rgba(255,255,255,.06)}
+#liftoff-ui .ui-control-panel{text-align:left;padding:22px 28px}
+#liftoff-ui .ui-control-panel h2{font-size:13px;font-weight:600;margin:0 0 18px;display:flex;justify-content:space-between}
+#liftoff-ui .ui-control-panel h2 span{color:var(--dim);font-size:11px;font-weight:400}
+#liftoff-ui .ui-controls{display:grid;grid-template-columns:1fr 1fr;gap:12px 32px;margin:0;text-align:left}
+#liftoff-ui .ui-controls>div{display:flex;gap:10px;align-items:center;min-width:0}
+#liftoff-ui dt{min-width:58px;flex-shrink:0}
+#liftoff-ui dd{margin:0;color:var(--dim);font-size:12px;line-height:1.5;text-wrap:pretty}
+#liftoff-ui kbd{display:inline-block;min-width:28px;padding:3px 7px;border-radius:5px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.06);color:var(--txt);font:600 11px -apple-system,sans-serif;text-align:center;white-space:nowrap}
+#liftoff-ui footer{margin-top:28px;font-size:11px;color:var(--dim);line-height:2}
+#liftoff-ui footer a{color:var(--dim);text-decoration:none;margin-left:24px;display:inline-block}
+#liftoff-ui footer a:hover{color:var(--cy)}
+#liftoff-ui .ui-modal{z-index:4;animation:ui-enter .2s ease}
+#liftoff-ui .ui-card{width:min(100%,520px);padding:30px}
+#liftoff-ui header{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:24px}
+#liftoff-ui header h2{font-size:30px;letter-spacing:2px;margin:0;font-weight:650}
+#liftoff-ui header .ui-eyebrow{margin-bottom:8px;letter-spacing:2px;font-size:10px}
+#liftoff-ui .ui-close{font-size:26px;width:44px;padding:0;color:var(--dim)}
+#liftoff-ui .ui-note{color:var(--dim);line-height:1.7;margin-bottom:24px}
+#liftoff-ui .ui-actions{display:grid;gap:10px}
+#liftoff-ui .ui-primary,#liftoff-ui .ui-quality [aria-pressed=true]{background:linear-gradient(180deg,#ff8a5c,#ff4d3a);border-color:transparent;color:#fff}
+#liftoff-ui .ui-primary:hover{filter:brightness(1.1)}
+#liftoff-ui .ui-footnote{color:var(--dim);font-size:11px;text-align:center;margin:22px 0 0;line-height:1.6}
+#liftoff-ui fieldset{margin:0 0 16px;padding:0;border:0;min-width:0}
+#liftoff-ui legend{font-size:13px;margin-bottom:12px}
+#liftoff-ui .ui-quality{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+#liftoff-ui .ui-quality button{padding:10px 4px}
+#liftoff-ui .ui-setting{display:flex;align-items:center;justify-content:space-between;min-height:58px;gap:20px;border-bottom:1px solid var(--line);font-size:13px;position:relative;cursor:pointer}
+#liftoff-ui .ui-volume{flex-direction:column;align-items:stretch;gap:14px;padding:8px 0 18px;cursor:default}
+#liftoff-ui .ui-volume span{display:flex;justify-content:space-between}
+#liftoff-ui output{color:var(--cy);font-variant-numeric:tabular-nums}
+#liftoff-ui input[type=range]{width:100%;margin:0;accent-color:#ff8a5c;cursor:pointer;height:20px}
+#liftoff-ui input[type=checkbox]{position:absolute;right:0;width:42px;height:28px;opacity:0;cursor:pointer}
+#liftoff-ui .ui-setting>i{display:block;width:40px;height:24px;border-radius:20px;background:rgba(255,255,255,.12);border:1px solid var(--line);transition:background .2s;pointer-events:none;flex-shrink:0}
+#liftoff-ui .ui-setting>i:after{content:"";display:block;width:16px;height:16px;background:#fff;border-radius:50%;margin:3px;transition:transform .2s}
+#liftoff-ui input:checked+i{background:linear-gradient(90deg,#ff8a5c,#ff4d3a)}
+#liftoff-ui input:checked+i:after{transform:translateX(16px)}
+#liftoff-ui input:focus-visible+i{outline:2px solid var(--cy);outline-offset:4px}
+#liftoff-ui .ui-back{width:100%;margin-top:18px}
+#liftoff-ui .ui-howto{border-top:1px solid var(--line);padding-top:20px;margin:22px 0 0;line-height:1.9;color:var(--cy);font-size:13px;text-wrap:pretty}
+#liftoff-ui .ui-flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:8}
+#liftoff-ui .ui-flashing{animation:ui-flash .4s ease-out}
+#liftoff-ui .ui-toast{position:fixed;left:50%;bottom:32px;transform:translateX(-50%);padding:12px 22px;z-index:9;font-size:13px;white-space:nowrap;pointer-events:none}
+#tools{pointer-events:auto!important;cursor:pointer;z-index:10}
+#tools span{pointer-events:auto;display:inline-flex;align-items:center;justify-content:center;min-width:32px;min-height:32px;border-radius:8px;transition:background .18s,color .18s;user-select:none}
+#tools span:hover{color:#fff;background:rgba(255,255,255,.12)}
+@keyframes ui-pulse{0%,100%{opacity:.55}50%{opacity:1}}
+@keyframes ui-enter{from{opacity:0}to{opacity:1}}
+@keyframes ui-flash{from{opacity:.9}to{opacity:0}}
+@media(max-width:600px){
+ #liftoff-ui .ui-overlay{padding:24px 18px}
+ #liftoff-ui h1{font-size:40px;letter-spacing:2px}#liftoff-ui h1 span{letter-spacing:3px}
+ #liftoff-ui .ui-subtitle{font-size:12px;letter-spacing:1px;margin-top:16px}
+ #liftoff-ui .ui-eyebrow{font-size:10px;letter-spacing:2px}
+ #liftoff-ui .ui-launch-status{height:88px}
+ #liftoff-ui .ui-control-panel{padding:20px}
+ #liftoff-ui .ui-controls{grid-template-columns:1fr;gap:10px}
+ #liftoff-ui .ui-control-panel h2 span{display:none}
+ #liftoff-ui .ui-card{padding:24px}#liftoff-ui header{margin-bottom:22px}
+ #liftoff-ui footer{margin-top:20px;font-size:10px}#liftoff-ui footer a{margin-left:12px}
+ #tools{gap:4px!important;padding:4px!important}#tools span{min-width:44px;min-height:44px}
+}
+@media(prefers-reduced-motion:reduce){#liftoff-ui *,#tools *{animation:none!important;transition:none!important}}

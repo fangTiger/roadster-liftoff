@@ -5,7 +5,7 @@ export function createChaseCamera(camera) {
   const pos = new THREE.Vector3(0, 1.6, 7), look = new THREE.Vector3();
   let shake = 0, t = 0;
   const tmp = new THREE.Vector3();
-  function update(dt, car, s) {
+  function update(dt, car, s, shakeOn = true) {
     t += dt;
     const speed = s.v / 111;
     const launchKick = Math.max(0, s.a - 12) / 22;                 // 起步猛加速时镜头被“甩”向后
@@ -18,7 +18,7 @@ export function createChaseCamera(camera) {
     tmp.y = Math.max(tmp.y, .6);
     pos.lerp(tmp, 1 - Math.exp(-dt * (6 + speed * 6)));
     camera.position.copy(pos);
-    const j = shake * .05;
+    const j = shakeOn ? shake * .05 : 0;           // 设置里可关闭镜头抖动
     camera.position.x += (Math.sin(t * 71) + Math.sin(t * 43)) * j;
     camera.position.y += (Math.sin(t * 59) + Math.sin(t * 37)) * j;
     look.set(car.position.x - Math.sin(s.yaw) * 6, car.position.y + .65 + air * .02, car.position.z - 8);

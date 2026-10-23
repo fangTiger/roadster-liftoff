@@ -23,7 +23,10 @@ const BURN = .02;                // 每秒消耗推进剂（满箱约 50 秒，�
 const fmtAlt = m => m >= 10000 ? `${Math.round(m / 1000)} km` : m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`;
 const layerOf = m => m < 12000 ? '对流层' : m < 50000 ? '平流层' : m < 85000 ? '中间层' : m < KARMAN ? '热层' : '卡门线以上 · 太空';
 
-export function createFlight({ scene, camera, desert, space, clouds, cloudSea, sky, car, vehicle, hud, flash, music, engine }) {
+// 里程碑提示的 key → 成就事件名
+const EVENT_OF = { boom: 'boom', clouds: 'clouds', strato: 'stratosphere', karman: 'karman', meet: 'meet', home: 'reentry_home' };
+
+export function createFlight({ scene, camera, desert, space, clouds, cloudSea, sky, car, vehicle, hud, flash, music, engine, onEvent = () => {} }) {
   const st = { mode: 'drive', t: 0, jetHold: 0, orbitT: 0, meet: null, meetCooldown: 3, shown: {}, alt: 0, plasma: 0, flash: 0 };
   const asc = { alt: 0, vz: 0, roll: 0, world: 'desert', mach: 0, boom: 0, envSwapped: false };
   const camPos = V(), camLook = V(), tmpP = V(), tmpL = V();
@@ -38,7 +41,7 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
   }
   function shake(amount, t) { camera.position.x += Math.sin(t * 61) * amount; camera.position.y += Math.sin(t * 47 + 1) * amount; }
   function setFov(f, dt) { camera.fov += (f - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix(); }
-  function toast(key, a, b) { if (!st.shown[key]) { st.shown[key] = true; hud.toast(a, b, 3800); } }
+  function toast(key, a, b) { if (!st.shown[key]) { st.shown[key] = true; hud.toast(a, b, 3800); if (EVENT_OF[key]) onEvent(EVENT_OF[key]); } }
   function aimEarth() { space.aimEarth(car.root.position.clone().addScaledVector(FWD, 2600).sub(space.center).normalize()); }
   // 太空场景里的高度（场景单位 ≈ 公里），低空额外加 3，保证地球表面在云海之下
   const hVis = alt => alt / 1000 + 3;
@@ -92,10 +95,10 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
       Object.assign(asc, { alt: s.y, vz: 12, roll: 0, world: 'desert', mach: 0, boom: 0 });
       x0 = s.x; camPos.copy(camera.position); camLook.copy(car.root.position).add(V(0, .6, -8));
       sky.dome.visible = true;
-      for (const k of ['clouds', 'strato', 'karman', 'boom', 'lowfuel']) st.shown[k] = false;
+      for (const k of ['clouds', 'strato', 'karman', 'boom', 'lowfuel', 'home']) st.shown[k] = false;
       hud.toast('冲向太空', '按住空格持续爬升 · W 加力 · A/D 侧移 · 松开会下坠', 4200);
     }
-    if (mode === 'orbit') { st.orbitT = 0; st.meetCooldown = 3; }
+    if (mode === 'orbit') { st.orbitT = 0; st.meetCooldown = 3; st.shown.meet = false; onEvent('orbit'); }
     if (mode === 'reentry') { music?.cue('road'); }
   }
   // 放弃爬升：交还给公路驾驶的物理，从当前高度自由下落（按住空格可缓冲）
@@ -104,6 +107,7 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
     Object.assign(s, { y: asc.alt, vy: Math.max(asc.vz, -30), airborne: true, lift: 0, x: car.root.position.x });
     car.chassis.rotation.set(0, 0, 0); car.root.rotation.z = 0; car.setVapor(0, 0);
     hud.setOverride(null); st.mode = 'drive'; st.jetHold = 0;
+    onEvent('ascent_abort', { fuelEmpty: s.fuel <= 0 });
     hud.toast('爬升中止', s.fuel <= 0 ? '推进剂耗尽，正在下坠——按住空格缓冲落地' : '松开了推进器，正在下坠——按住空格缓冲落地', 3600);
   }
 

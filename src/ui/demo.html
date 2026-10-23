@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>离地 · 界面演示</title><link rel="icon" href="data:,"><link rel="stylesheet" href="/src/ui/ui.css">
+<style>body{margin:0;background:#17191f;color:white;font-family:-apple-system,"PingFang SC",sans-serif;overflow:hidden}canvas{position:fixed;inset:0;width:100%;height:100%}#tools{position:fixed;right:18px;top:16px;display:flex;padding:6px;gap:4px}#keys{position:fixed;bottom:20px;left:24px;font-size:13px;opacity:.6;padding:12px}</style></head>
+<body><canvas id="demo-canvas"></canvas><div id="tools" class="g"><span>◎</span><span>♪</span><span>⛶</span><span>⚙</span><span>?</span></div><div id="keys" class="g">W 加速 · 空格 推进器</div>
+<script type="module">
+import { createUI } from './ui.js';
+const canvas = document.querySelector('canvas');
+const calls = window.demoCalls = [];
+const engine = { renderer: { domElement:canvas, shadowMap:{enabled:true}, setPixelRatio:v=>calls.push(['像素比',v]) }, composer:{setPixelRatio:v=>calls.push(['后期像素比',v]),setSize:(w,h)=>calls.push(['尺寸',w,h])}, bloom:{enabled:true}, render(){
+ canvas.width=innerWidth; canvas.height=innerHeight;
+ const g=canvas.getContext('2d'); const sky=g.createLinearGradient(0,0,0,innerHeight);sky.addColorStop(0,'#101925');sky.addColorStop(.56,'#725c53');sky.addColorStop(1,'#29252a');g.fillStyle=sky;g.fillRect(0,0,innerWidth,innerHeight);
+ g.fillStyle='#292b32';g.beginPath();g.moveTo(innerWidth*.49,innerHeight*.52);g.lineTo(innerWidth*.51,innerHeight*.52);g.lineTo(innerWidth*.83,innerHeight);g.lineTo(innerWidth*.17,innerHeight);g.fill();
+ g.strokeStyle='#7fe3ff';g.globalAlpha=.2;g.beginPath();g.moveTo(0,innerHeight*.52);g.lineTo(innerWidth,innerHeight*.52);g.stroke();g.globalAlpha=1;calls.push(['渲染']);
+} };
+const audio={muted:false,unlock(){calls.push(['解锁']);return Promise.resolve()},setMuted(v){this.muted=v;calls.push(['静音',v])},setVolume(v){calls.push(['音量',v])}};
+window.demoAudio=audio;window.demoEngine=engine;
+window.ui=createUI({engine,audio,onStart:()=>calls.push(['开始']),onPauseChange:v=>calls.push(['暂停',v]),onQualityChange:v=>calls.push(['画质',v])});
+engine.render();addEventListener('resize',()=>engine.render());
+ui.showLoading(.42,'加载沙漠全景…');
+</script></body></html>

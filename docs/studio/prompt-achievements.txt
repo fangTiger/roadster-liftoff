@@ -1,0 +1,44 @@
+Build a self-contained achievements module for a browser 3D game called "离地 LIFTOFF" (a thruster Roadster: drive a desert highway, hop on thrusters, climb to space, meet the 2018 Starman Roadster in orbit, re-enter). Plain ES modules, no dependencies, no build step. All UI text in Simplified Chinese, code comments in Chinese. Two reference files are attached under context/ (index.html and hud.js) so you can match the existing look: frosted-glass panels (translucent dark background, backdrop-filter blur, 1px light border, 16px radius), white text, accent gradient #ff8a5c -> #ff4d3a, cyan #7fe3ff, gold for achievements #ffd27a.
+
+FILES
+- src/achievements/achievements.js
+- src/achievements/achievements.css
+- src/achievements/demo.html (buttons to fire every event + a reset button)
+- src/achievements/README.md (Chinese: API and how to wire it)
+
+API (exact)
+export function createAchievements({ storageKey = 'liftoff.achievements.v1' } = {})
+returns { report(event, data), update(state), list(), get unlocked, get total, reset(), openPanel(), closePanel(), onUnlock(fn) }
+- report(event, data): discrete game events. Event names: 'drive_start', 'launch_time' {seconds}, 'airborne', 'hover10', 'land', 'boom', 'clouds', 'stratosphere', 'karman', 'orbit', 'meet', 'reentry_home', 'ascent_abort' {fuelEmpty:boolean}, 'camera' {mode} (modes: chase, low, cine, cockpit, free), 'screenshot', 'horn'.
+- update(state): called every frame with { speedKmh, distanceKm, offroad (0..1), hops (count this session), altitudeM, mode }. Use it for threshold achievements.
+- Unlocks persist in localStorage (try/catch; must work when storage throws). Counters that span sessions (e.g. number of orbits) also persist.
+
+THE 18 ACHIEVEMENTS (id / 名称 / 描述 / condition)
+1 first_drive / 点火 / 第一次踩下电门 / drive_start
+2 club08 / 0.8 秒俱乐部 / 0–100 km/h 用时不到 0.9 秒 / launch_time seconds < 0.9
+3 top_speed / 极速 / 时速达到 380 km/h / update speedKmh >= 380
+4 first_flight / 第一次起飞 / 底部推进器把车托离地面 / airborne
+5 hover10 / 悬停 / 离地 10 米 / hover10
+6 bunny / 弹跳 / 一次游戏中离地 5 次 / update hops >= 5
+7 gravel / 越野 / 时速 150 km/h 以上冲上碎石路肩 / update offroad > 0.5 && speedKmh > 150
+8 marathon / 长途 / 累计行驶 10 公里 (persisted) / update distanceKm (accumulate deltas across sessions)
+9 boom / 音爆 / 竖直速度突破 1 马赫 / boom
+10 clouds / 云上 / 穿出云层 / clouds
+11 strato / 平流层 / 爬升到 12 公里 / stratosphere
+12 karman / 卡门线 / 海拔 100 公里，进入太空 / karman
+13 meet / 与前辈同框 / 在轨道上遇见 2018 年的老前辈 / meet
+14 home / 安全返航 / 从轨道再入并平稳落回公路 / reentry_home
+15 so_close / 差一点 / 推进剂耗尽，从半空掉了下来 / ascent_abort with fuelEmpty true
+16 director / 导演 / 试遍全部 5 个机位 / camera (track the set, persisted)
+17 photographer / 摄影师 / 保存一张截图 / screenshot
+18 frequent / 太空常客 / 累计进入轨道 3 次 (persisted) / orbit counter >= 3
+
+UI
+- Unlock toast: slides in from the top-center (below y=86px so it does not cover the existing top bar), gold medal icon with the achievement's index, title "成就解锁 · {名称}", description below, auto hides after 3.6 s; queue multiple unlocks one after another (never overlap). Subtle shine animation sweeping across the medal.
+- A small "成就 n / 18" counter is already in the page at #bag .ach b — update its text on unlock (if the element exists).
+- Panel: openPanel() shows a centered frosted-glass panel listing all 18 in a 3-column grid (2 columns under 720px, 1 column under 420px): locked ones dimmed with a lock glyph and hidden description "？？？" except the name; unlocked ones gold with the unlock date (YYYY-MM-DD). Header shows progress bar n/18. Close with Escape, a close button, or clicking the backdrop. Clicking #bag (if present) opens the panel; make #bag clickable (pointer-events:auto, cursor:pointer).
+- Respect prefers-reduced-motion.
+
+QUALITY
+- No console errors; never throws if called before DOM ready (defer DOM creation to first use).
+- Do not deploy anything, do not create keys or .env files. Reply with the file list and anything you could not do.

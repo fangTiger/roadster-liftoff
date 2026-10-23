@@ -67,7 +67,7 @@ export function createCameraRig(camera, canvas) {
   function updateDrive(dt, car, s) {
     t += dt;
     const speed = s.v / 111;
-    if (mode === 'chase') { chase.update(dt, car.root, s); pos.copy(camera.position); look.copy(car.root.position); return; }
+    if (mode === 'chase') { chase.update(dt, car.root, s, rig.shake); pos.copy(camera.position); look.copy(car.root.position); return; }
     if (mode === 'cockpit') return cockpit(dt, car, speed);
     if (mode === 'free') return orbit(dt, car);
     const c = car.root.position;
@@ -106,5 +106,6 @@ export function createCameraRig(camera, canvas) {
     pos.copy(camera.position); return false;
   }
   setMode('chase');
-  return { setMode, cycle, updateDrive, updateFlight, get mode() { return mode; }, onChange: f => listeners.push(f) };
+  const rig = { setMode, cycle, updateDrive, updateFlight, get mode() { return mode; }, onChange: f => listeners.push(f), shake: true };
+  return rig;
 }
