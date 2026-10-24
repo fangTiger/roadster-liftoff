@@ -304,8 +304,8 @@ export async function renderCard(stats, screenshot, format, { logoUrl, author, s
   } else {
     // 无 logo 时画渐变占位方块
     const gLogo = ctx.createLinearGradient(pad, yCursor, pad + logoSize, yCursor + logoSize);
-    gLogo.addColorStop(0, '#ff6a3d');
-    gLogo.addColorStop(1, '#c3122f');
+    gLogo.addColorStop(0, '#0a1030');
+    gLogo.addColorStop(1, '#1f3a7a');
     ctx.fillStyle = gLogo;
     roundRect(ctx, pad, yCursor, logoSize, logoSize, 14);
     ctx.fill();
