@@ -1,12 +1,15 @@
 // 独立界面外壳：只管理交互与设置，不接管游戏循环。
 const STORE = 'liftoff.ui.v1';
 import { QUALITY_PRESETS as PRESETS, getDefaultPreset } from '../mobile/perf.js';
+import { t, applyI18n, onLangChange } from '../i18n/i18n.js';
+// 文字都走多语言词条：L(key) 生成带 data-i18n 的片段，切换语言时由 applyI18n 原地刷新
+const L = key => `<span data-i18n="${key}">${t(key)}</span>`;
 const CONTROLS = [
-  ['W', '加速'], ['S', '刹车 / 爬升时俯冲 / 轨道上再入'], ['A / D', '转向'], ['空格', '推进器（按住冲上太空，再入途中按住可冲回太空）'],
-  ['R', '空中翻滚'], ['C', '切换镜头'], ['M', '静音'], ['H', '喇叭（按住）'], ['P / Esc', '暂停'],
-  ['F', '全屏'], ['K', '截图'], ['/', '操作说明'],
+  ['W', 'ctl.throttle'], ['S', 'ctl.brake'], ['A / D', 'ctl.steer'], ['key.space', 'ctl.jet'],
+  ['R', 'ctl.roll'], ['C', 'ctl.camera'], ['M', 'ctl.mute'], ['H', 'ctl.horn'], ['P / Esc', 'ctl.pause'],
+  ['F', 'ctl.fullscreen'], ['K', 'ctl.screenshot'], ['/', 'ctl.help'],
 ];
-const controlsHTML = () => `<dl class="ui-controls">${CONTROLS.map(([key, text]) => `<div><dt><kbd>${key}</kbd></dt><dd>${text}</dd></div>`).join('')}</dl>`;
+const controlsHTML = () => `<dl class="ui-controls">${CONTROLS.map(([key, text]) => `<div><dt><kbd>${key.startsWith('key.') ? L(key) : key}</kbd></dt><dd>${L(text)}</dd></div>`).join('')}</dl>`;
 
 export function createUI({ engine, audio = null, onStart = () => {}, onPauseChange = () => {}, onQualityChange = () => {}, onSummary = null, isOverlayOpen = () => false }) {
   const settings = { quality: getDefaultPreset(), volume: .8, muted: audio?.muted ?? false, shake: true, hints: true };
@@ -23,29 +26,29 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
   root.innerHTML = `
     <section class="ui-overlay ui-loading" aria-labelledby="ui-title" role="dialog" aria-modal="true" tabindex="-1">
       <div class="ui-start-content">
-        <div class="ui-eyebrow">沙漠公路 → 太空轨道</div>
+        <div class="ui-eyebrow">${L('start.eyebrow')}</div>
         <h1 id="ui-title">Mars <span>Roadster</span></h1>
-        <p class="ui-subtitle">推进器超跑 · 从沙漠公路冲上太空</p>
+        <p class="ui-subtitle">${L('start.subtitle')}</p>
         <div class="ui-launch-status">
-          <div class="ui-progress-wrap"><div class="ui-progress-label"><span role="status">准备起飞…</span><span class="ui-percent">0%</span></div><div class="ui-progress" role="progressbar" aria-label="加载进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div></div>
-          <button class="ui-start" hidden>按任意键 / 点击开始</button>
+          <div class="ui-progress-wrap"><div class="ui-progress-label"><span role="status">${t('load.ready')}</span><span class="ui-percent">0%</span></div><div class="ui-progress" role="progressbar" aria-label="${t('load.progress')}" data-i18n-attr="aria-label:load.progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div></div>
+          <button class="ui-start" hidden>${L('start.press')}</button>
         </div>
-        <div class="g ui-control-panel"><h2>驾驶指南 <span>从第一次离地开始</span></h2>${controlsHTML()}</div>
-        <footer>作者 Captain@mycndota · Built with Arc Studio + Claude Code <a href="https://github.com/fangTiger/roadster-liftoff/blob/main/CREDITS.md" target="_blank" rel="noopener noreferrer">素材致谢 ↗</a></footer>
+        <div class="g ui-control-panel"><h2>${L('start.guide')} <span>${L('start.guideSub')}</span></h2>${controlsHTML()}</div>
+        <footer>${L('credit.author')} Captain@mycndota · Built with Arc Studio + Claude Code <a href="https://github.com/fangTiger/roadster-liftoff/blob/main/CREDITS.md" target="_blank" rel="noopener noreferrer">${L('start.credits')} ↗</a></footer>
       </div>
     </section>
     <section class="ui-overlay ui-modal" hidden role="dialog" aria-modal="true" aria-labelledby="ui-panel-title" tabindex="-1">
-      <div class="g ui-card"><header><div><p class="ui-eyebrow">Mars Roadster</p><h2 id="ui-panel-title">已暂停</h2></div><button class="ui-close" aria-label="关闭">×</button></header>
-        <div data-panel="pause"><p class="ui-note">旅程停在这里，随时继续。</p><div class="ui-actions"><button class="ui-primary" data-action="resume">继续</button><button data-action="summary">本局成绩 · 分享</button><button data-action="settings">设置</button><button data-action="help">操作说明</button></div><p class="ui-footnote">P / Esc 继续旅程</p></div>
+      <div class="g ui-card"><header><div><p class="ui-eyebrow">Mars Roadster</p><h2 id="ui-panel-title">${t('menu.paused')}</h2></div><button class="ui-close" aria-label="${t('menu.close')}" data-i18n-attr="aria-label:menu.close">×</button></header>
+        <div data-panel="pause"><p class="ui-note">${L('menu.note')}</p><div class="ui-actions"><button class="ui-primary" data-action="resume">${L('menu.resume')}</button><button data-action="summary">${L('menu.summary')}</button><button data-action="settings">${L('menu.settings')}</button><button data-action="help">${L('menu.help')}</button></div><p class="ui-footnote">${L('menu.resumeHint')}</p></div>
         <div data-panel="settings" hidden>
-          <fieldset><legend>画质</legend><div class="ui-quality">${PRESETS.map(p => `<button data-quality="${p}" aria-pressed="false">${p}</button>`).join('')}</div></fieldset>
-          <label class="ui-setting ui-volume"><span>音量 <output id="ui-volume-output"></output></span><input aria-label="音量" type="range" min="0" max="1" step="0.01" data-setting="volume"></label>
-          <label class="ui-setting"><span>静音</span><input type="checkbox" role="switch" data-setting="muted"><i></i></label>
-          <label class="ui-setting"><span>镜头抖动</span><input type="checkbox" role="switch" data-setting="shake"><i></i></label>
-          <label class="ui-setting"><span>显示操作提示</span><input type="checkbox" role="switch" data-setting="hints"><i></i></label>
-          <p class="ui-footnote">设置自动保存到此设备</p><button class="ui-back" data-action="back">返回暂停菜单</button>
+          <fieldset><legend>${L('set.quality')}</legend><div class="ui-quality">${PRESETS.map(p => `<button data-quality="${p}" aria-pressed="false">${L('quality.' + p)}</button>`).join('')}</div></fieldset>
+          <label class="ui-setting ui-volume"><span>${L('set.volume')} <output id="ui-volume-output"></output></span><input aria-label="${t('set.volume')}" data-i18n-attr="aria-label:set.volume" type="range" min="0" max="1" step="0.01" data-setting="volume"></label>
+          <label class="ui-setting"><span>${L('set.mute')}</span><input type="checkbox" role="switch" data-setting="muted"><i></i></label>
+          <label class="ui-setting"><span>${L('set.shake')}</span><input type="checkbox" role="switch" data-setting="shake"><i></i></label>
+          <label class="ui-setting"><span>${L('set.hints')}</span><input type="checkbox" role="switch" data-setting="hints"><i></i></label>
+          <p class="ui-footnote">${L('set.saved')}</p><button class="ui-back" data-action="back">${L('set.back')}</button>
         </div>
-        <div data-panel="help" hidden>${controlsHTML()}<p class="ui-howto">推进剂过半时，离地 8 米后一直按住空格即可冲向太空；松开后推进器自动托底，缓缓降落。空中按 R 翻滚，按 S 从轨道再入。</p><button class="ui-back" data-action="help-close">返回</button></div>
+        <div data-panel="help" hidden>${controlsHTML()}<p class="ui-howto">${L('help.howto')}</p><button class="ui-back" data-action="help-close">${L('help.back')}</button></div>
       </div>
     </section>
     <div class="ui-flash" aria-hidden="true"></div><div class="g ui-toast" role="status" hidden></div>`;
@@ -56,6 +59,7 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
   }
   const $ = selector => root.querySelector(selector);
   const loading = $('.ui-loading'), modal = $('.ui-modal');
+  onLangChange(() => { if (panel) $('#ui-panel-title').textContent = t(panel === 'settings' ? 'menu.settings' : panel === 'help' ? 'menu.help' : 'menu.paused'); });
   const background = new Map();
   function syncBackground() {
     const blocked = !started || !!panel;
@@ -93,7 +97,7 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
     panel = next;
     modal.hidden = !next;
     for (const el of root.querySelectorAll('[data-panel]')) el.hidden = el.dataset.panel !== next;
-    $('#ui-panel-title').textContent = next === 'settings' ? '设置' : next === 'help' ? '操作说明' : '已暂停';
+    $('#ui-panel-title').textContent = t(next === 'settings' ? 'menu.settings' : next === 'help' ? 'menu.help' : 'menu.paused');
     syncBackground();
     if (next) { paintSettings(); modal.scrollTop = 0; $('.ui-close').focus({ preventScroll: true }); }
     else {
@@ -142,29 +146,29 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
         // 必须同一任务先渲染再读回，兼容未保留绘图缓冲区的 WebGL。
         engine.render();
         engine.renderer.domElement.toBlob(blob => {
-          if (!blob) { toast('截图失败，请重试'); resolve(false); return; }
+          if (!blob) { toast(t('toast.shotFail')); resolve(false); return; }
           const now = new Date(), pad = n => String(n).padStart(2, '0');
           const filename = `mars-roadster-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.png`;
           const url = URL.createObjectURL(blob), link = document.createElement('a');
           link.href = url; link.download = filename; link.click();
           setTimeout(() => URL.revokeObjectURL(url), 1000);
           const flash = $('.ui-flash'); flash.classList.remove('ui-flashing'); void flash.offsetWidth; flash.classList.add('ui-flashing');
-          toast('已保存截图'); resolve(true);
+          toast(t('toast.shotSaved')); resolve(true);
         }, 'image/png');
-      } catch { toast('截图失败，请重试'); resolve(false); }
+      } catch { toast(t('toast.shotFail')); resolve(false); }
     });
   }
   function fullscreen() {
     try {
       const task = document.fullscreenElement ? document.exitFullscreen?.() : document.documentElement.requestFullscreen?.();
-      if (!task) { toast('此设备暂不支持全屏'); return; }
-      task.catch(() => toast('无法切换全屏，请重试'));
-    } catch { toast('无法切换全屏，请重试'); }
+      if (!task) { toast(t('toast.noFullscreen')); return; }
+      task.catch(() => toast(t('toast.fullscreenFail')));
+    } catch { toast(t('toast.fullscreenFail')); }
   }
   function start() {
     if (!ready || started) return;
     // 解锁必须在用户手势内同步调用，不等待音频 Promise。
-    try { audio?.unlock()?.catch(() => toast('音频暂不可用')); } catch { toast('音频暂不可用'); }
+    try { audio?.unlock()?.catch(() => toast(t('toast.noAudio'))); } catch { toast(t('toast.noAudio')); }
     started = true; loading.classList.add('ui-leaving'); loading.inert = true;
     document.activeElement?.blur();
     syncBackground();
@@ -189,9 +193,11 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
   });
   const tools = document.getElementById('tools');
   const toolActions = [screenshot, null, fullscreen, showSettings, toggleHelp];
-  const toolNames = ['截图', '静音', '全屏', '设置', '操作说明'];
+  const toolNames = ['tool.screenshot', 'tool.mute', 'tool.fullscreen', 'tool.settings', 'tool.help'];
   tools?.querySelectorAll('span').forEach((el, i) => {
-    el.tabIndex = 0; el.setAttribute('role', 'button'); el.setAttribute('aria-label', toolNames[i]); el.title = toolNames[i];
+    if (!toolNames[i]) return;                                // 工具栏后面追加的按钮（如语言切换）自己处理
+    el.tabIndex = 0; el.setAttribute('role', 'button'); el.setAttribute('aria-label', t(toolNames[i])); el.title = t(toolNames[i]);
+    el.dataset.i18nAttr = `aria-label:${toolNames[i]};title:${toolNames[i]}`;
     if (toolActions[i]) el.addEventListener('click', toolActions[i]);
     // 音符只转发原有点击，不额外绑定静音逻辑。
     el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); el.click(); } });
@@ -235,7 +241,7 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
   });
   applyQuality(); audio?.setVolume(settings.volume); audio?.setMuted(settings.muted); paintSettings(); syncBackground(); loading.focus({ preventScroll: true });
   return {
-    showLoading(progress0to1, label = '准备起飞…') {
+    showLoading(progress0to1, label = t('load.ready')) {
       if (started) return;
       ready = false; clearTimeout(fadeTimer); loading.hidden = false; $('.ui-start').hidden = true; $('.ui-progress-wrap').hidden = false;
       const p = Number.isFinite(progress0to1) ? Math.max(0, Math.min(1, progress0to1)) : 0;

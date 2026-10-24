@@ -1,23 +1,25 @@
+import { t } from '../i18n/i18n.js';
+const L = key => `<span data-i18n="${key}">${t(key)}</span>`;
 // 每个触点独立持有动作，捕获指针后即使移出按钮也能正确释放。
 export function createTouch({ input, onCamera = () => {}, onRoll = () => {} }) {
   const media = matchMedia('(pointer: coarse)');
   const forced = new URLSearchParams(location.search).has('touch');
   const root = document.createElement('div'); root.id = 'mobile-touch';
-  root.setAttribute('aria-label', '触屏驾驶');
+  root.setAttribute('aria-label', t('touch.label')); root.dataset.i18nAttr = 'aria-label:touch.label';
   root.innerHTML = `
-    <div class="mobile-steering mobile-glass" role="group" aria-label="左右拖动转向" data-touch="steer">
-      <span class="mobile-steer-arrows" aria-hidden="true">‹<span>转向</span>›</span><i class="mobile-knob"></i>
+    <div class="mobile-steering mobile-glass" role="group" aria-label="${t('touch.steerLabel')}" data-i18n-attr="aria-label:touch.steerLabel" data-touch="steer">
+      <span class="mobile-steer-arrows" aria-hidden="true">‹${L('touch.steer')}›</span><i class="mobile-knob"></i>
     </div>
     <div class="mobile-pedals">
-      <button type="button" class="mobile-camera mobile-glass" data-touch="camera">镜头</button>
-      <button type="button" class="mobile-roll mobile-glass" data-touch="roll">翻滚</button>
-      <button type="button" class="mobile-brake mobile-glass" data-touch="brake" aria-pressed="false">刹车</button>
-      <button type="button" class="mobile-throttle mobile-glass" data-touch="throttle" aria-pressed="false">加速<small>按住</small></button>
+      <button type="button" class="mobile-camera mobile-glass" data-touch="camera">${L('touch.camera')}</button>
+      <button type="button" class="mobile-roll mobile-glass" data-touch="roll">${L('touch.roll')}</button>
+      <button type="button" class="mobile-brake mobile-glass" data-touch="brake" aria-pressed="false">${L('touch.brake')}</button>
+      <button type="button" class="mobile-throttle mobile-glass" data-touch="throttle" aria-pressed="false">${L('touch.throttle')}<small>${L('touch.hold')}</small></button>
       <button type="button" class="mobile-jet mobile-glass" data-touch="jet" aria-pressed="false">
-        <svg viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="37"/></svg><span>推进器<small>按住升空</small></span>
+        <svg viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="37"/></svg><span>${L('touch.jet')}<small>${L('touch.jetSub')}</small></span>
       </button>
     </div>
-    <aside class="mobile-rotate mobile-glass" aria-label="横屏建议"><span class="mobile-rotate-icon" aria-hidden="true">▯ ↻</span><div>横屏体验更佳<small>转动手机，视野更开阔</small></div><button type="button" aria-label="关闭横屏提示">×</button></aside>`;
+    <aside class="mobile-rotate mobile-glass" aria-label="${t('touch.rotateLabel')}" data-i18n-attr="aria-label:touch.rotateLabel"><span class="mobile-rotate-icon" aria-hidden="true">▯ ↻</span><div>${L('touch.rotate')}<small>${L('touch.rotateSub')}</small></div><button type="button" aria-label="${t('touch.rotateClose')}" data-i18n-attr="aria-label:touch.rotateClose">×</button></aside>`;
   const pointers = new Map(), knob = root.querySelector('.mobile-knob');
   const controls = [...root.querySelectorAll('[data-touch]')];
   const abort = new AbortController();

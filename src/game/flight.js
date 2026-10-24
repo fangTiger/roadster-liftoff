@@ -6,6 +6,7 @@
 //   reentry 再入返回：机头下压、等离子火光 → 穿云回到沙漠上空 → 推进器减速、交还公路驾驶；途中按住空格可中止再入、接回爬升
 import * as THREE from 'three';
 import { descentSpeed } from './vehicle.js';
+import { t } from '../i18n/i18n.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const clamp01 = x => Math.max(0, Math.min(1, x));
@@ -22,7 +23,7 @@ const V_CAP = 7800;              // 末速约 28,000 km/h
 const BURN = .018;               // 每秒消耗推进剂（满箱约 55 秒，爬到卡门线约需 0.4）
 
 const fmtAlt = m => m >= 10000 ? `${Math.round(m / 1000)} km` : m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`;
-const layerOf = m => m < 12000 ? '对流层' : m < 50000 ? '平流层' : m < 85000 ? '中间层' : m < KARMAN ? '热层' : '卡门线以上 · 太空';
+const layerOf = m => t(m < 12000 ? 'layer.troposphere' : m < 50000 ? 'layer.stratosphere' : m < 85000 ? 'layer.mesosphere' : m < KARMAN ? 'layer.thermosphere' : 'layer.space');
 
 // 里程碑提示的 key → 成就事件名
 const EVENT_OF = { boom: 'boom', clouds: 'clouds', strato: 'stratosphere', karman: 'karman', meet: 'meet', home: 'reentry_home' };
@@ -101,7 +102,7 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
     if (st.jetHold > .4) { start('ascent'); return true; }
     // 推进剂不够还一直按着：提示还差多少（只在悬停超过 1.2 秒时提示，普通小跳不打扰）
     st.lowHold = !st.armed && s.y > 6 ? (st.lowHold || 0) + dt : 0;
-    if (st.lowHold > 1.2 && st.lowHold - dt <= 1.2) hud.toast('推进剂不足，冲不上太空', `按下空格时只有 ${Math.round(st.pressFuel * 100)}%，需要 ${LAUNCH_FUEL * 100}% 以上 · 落地停几秒就会充满`, 3600);
+    if (st.lowHold > 1.2 && st.lowHold - dt <= 1.2) hud.toast(t('toast.lowFuelLaunch'), t('toast.lowFuelLaunchSub', { have: Math.round(st.pressFuel * 100), need: LAUNCH_FUEL * 100 }), 3600);
     return false;
   }
   function start(mode) {
@@ -112,13 +113,13 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
       offP.copy(camPos).sub(car.root.position); offL.copy(camLook).sub(car.root.position);
       sky.dome.visible = true;
       for (const k of ['clouds', 'strato', 'karman', 'boom', 'lowfuel', 'home']) st.shown[k] = false;
-      hud.toast('冲向太空', '按住空格持续爬升 · W 加力 · S 俯冲 · A/D 侧移 · R 翻滚 · 松开会降落', 4200);
+      hud.toast(t('toast.ascent'), t('toast.ascentSub'), 4200);
     }
     if (mode === 'orbit') { st.orbitT = 0; st.meetCooldown = 3; st.shown.meet = false; onEvent('orbit'); }
     if (mode === 'reentry') {
       music?.cue('road'); asc.world = 'space'; asc.alt = 412000; asc.vz = 0; st.shown.home = false; sky.dome.visible = true;
       st.reArm = false;                                       // 先松开空格再按下才算中止，避免一直按着空格时刚再入就被拉回去
-      hud.toast('再入返回', '按住空格可中止再入、冲回太空', 3800);
+      hud.toast(t('toast.reentry'), t('toast.reentrySub'), 3800);
     }
   }
   // 放弃爬升：交还给公路驾驶的物理，从当前高度自由下落（按住空格可缓冲）
@@ -128,7 +129,7 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
     car.chassis.rotation.set(0, 0, 0); car.root.rotation.z = 0; car.setVapor(0, 0);
     hud.setOverride(null); st.mode = 'drive'; st.jetHold = 0; st.armed = false;   // 要松开空格重新按下才能再冲
     onEvent('ascent_abort', { fuelEmpty: s.fuel <= 0 });
-    hud.toast('爬升中止', s.fuel <= 0 ? '推进剂耗尽，推进器自动托底缓降' : '松开了推进器，正在缓缓降落', 3600);
+    hud.toast(t('toast.abort'), t(s.fuel <= 0 ? 'toast.abortEmpty' : 'toast.abortRelease'), 3600);
   }
 
   // 中止再入：推进器全开止住下坠，从当前高度接回爬升（按住空格可冲回太空，松开或按 S 落回公路）
@@ -138,7 +139,7 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
     asc.roll = 0; asc.boom = 0; asc.mach = asc.alt < 15000 ? asc.vz / 340 : 0;
     if (asc.world === 'space') x0 = desert.centerAt(0) + 1.8;   // 之后若落回云层以下，出现在公路上空
     offP.copy(camPos).sub(car.root.position); offL.copy(camLook).sub(car.root.position);
-    hud.toast('中止再入', '推进器全开 · 按住空格冲回太空，松开或按 S 落回公路', 3600);
+    hud.toast(t('toast.reentryAbort'), t('toast.reentryAbortSub'), 3600);
   }
 
   // —— 爬升（玩家操控）——
@@ -170,7 +171,7 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
     car.setThrust(firing ? (boost ? 1 : .8) : 0, now); car.setLift(firing ? lerp(1, .3, ease(t / 3)) : asc.vz < 0 ? .4 : 0, now);   // 下降时车底推进器小火托底
     // 音障：竖直速度接近 340 m/s 时出现蒸汽锥，跨过 1 马赫的瞬间音爆
     const mach = asc.alt < 15000 ? asc.vz / 340 : 0;
-    if (asc.mach < 1 && mach >= 1) { asc.boom = 1; toast('boom', '突破音障', '1 马赫 · 音爆！'); }
+    if (asc.mach < 1 && mach >= 1) { asc.boom = 1; toast('boom', t('ms.boom'), t('ms.boomSub')); }
     asc.mach = mach; asc.boom = Math.max(0, asc.boom - dt * 1.6);
     car.setVapor(bell(mach, .9, 1.35), now);
     if (st.plasma > 0) { st.plasma = Math.max(0, st.plasma - dt * 1.5); car.setPlasma(st.plasma, now); }   // 从再入中止接回时，等离子火光渐熄
@@ -181,9 +182,9 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
     if (asc.world === 'desert') updateDesertLook(asc.alt, dt); else updateSpaceLook(asc.alt, dt);
     // 穿云白雾：在云层中段最浓
     setFlash(Math.max(bell(asc.alt, CLOUD_LO + 150, CLOUD_HI + 250) * .92, asc.boom * .25));
-    if (asc.alt > CLOUD_HI + 200) toast('clouds', '穿出云层', '脚下是一片云海');
-    if (asc.alt > 12000) toast('strato', '进入平流层', '天空正在变暗');
-    if (s.fuel < .12 && s.fuel > 0) toast('lowfuel', '推进剂告急', '再不到卡门线就要掉下去了');
+    if (asc.alt > CLOUD_HI + 200) toast('clouds', t('ms.clouds'), t('ms.cloudsSub'));
+    if (asc.alt > 12000) toast('strato', t('ms.strato'), t('ms.stratoSub'));
+    if (s.fuel < .12 && s.fuel > 0) toast('lowfuel', t('ms.lowfuel'), t('ms.lowfuelSub'));
 
     // 镜头：车下后方仰拍，速度越快越远、越抖
     // 镜头：起飞头 2 秒在车后下方仰拍；之后转到车的左侧、略高于车，平视略俯，
@@ -201,7 +202,7 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
     st.alt = asc.alt;
     hud.setOverride({ label: layerOf(asc.alt), value: fmtAlt(asc.alt), alt: fmtAlt(asc.alt), spd: Math.round(Math.hypot(asc.vz, s.v) * 3.6).toLocaleString() });
 
-    if (asc.alt >= KARMAN) { toast('karman', '卡门线 · 进入太空', '海拔 100 公里，你已离开地球大气层'); music?.cue('space'); start('insert'); return; }
+    if (asc.alt >= KARMAN) { toast('karman', t('ms.karman'), t('ms.karmanSub')); music?.cue('space'); start('insert'); return; }
     // 下坠回到低空：交还公路驾驶
     if (asc.world === 'desert' && asc.vz < 0 && asc.alt < 30) abortToDrive();
   }
@@ -216,7 +217,7 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
     tmpP.set(lerp(-9.5, 4.6, u), lerp(2.4, 1.9, u), lerp(3.2, 8.6, u)); tmpL.set(lerp(1.2, -.4, u), lerp(-.6, -1.6, u), lerp(-.8, -2.5, u));
     moveCam(dt, tmpP, tmpL, 2.4); setFov(lerp(64, 46, u), dt); setFlash(0);
     engine.blur.uniforms.strength.value = 0;
-    hud.setOverride({ label: '轨道高度', value: fmtAlt(alt), alt: fmtAlt(alt), spd: Math.round(lerp(V_CAP * 3.6, 27600, u)).toLocaleString() });
+    hud.setOverride({ label: t('hud.orbitAlt'), value: fmtAlt(alt), alt: fmtAlt(alt), spd: Math.round(lerp(V_CAP * 3.6, 27600, u)).toLocaleString() });
     if (t > 4) start('orbit');
   }
 
@@ -236,7 +237,7 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
     if (st.meet) {
       st.meet.z += dt * (st.meet.z > -40 && st.meet.z < 30 ? 6 : 18);
       old.position.set(6.5, 1.6 + Math.sin(now * .7) * .3, st.meet.z); old.rotation.set(-.1 + Math.sin(now * .3) * .05, .35 + now * .05, .22);
-      if (st.meet.z > -40 && st.meet.z < 30) { camMode = 'meet'; toast('meet', '与前辈同框', '2018 年被送上太空的老前辈，还在这里'); music?.cue('oldfriend'); }
+      if (st.meet.z > -40 && st.meet.z < 30) { camMode = 'meet'; toast('meet', t('ms.meet'), t('ms.meetSub')); music?.cue('oldfriend'); }
       if (st.meet.z > 120) { st.meet = null; old.visible = false; st.meetCooldown = 40; music?.cue('space'); }
     }
     if (camMode === 'meet') {
@@ -250,7 +251,7 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
     }
     setFov(inp.throttle ? 50 : 46, dt);
     engine.blur.uniforms.strength.value = 0;
-    hud.setOverride({ label: '轨道高度', value: '412 km', alt: '412 km', spd: (inp.throttle ? 27900 : 27600).toLocaleString() });
+    hud.setOverride({ label: t('hud.orbitAlt'), value: '412 km', alt: '412 km', spd: (inp.throttle ? 27900 : 27600).toLocaleString() });
     if (inp.brake) start('reentry');
   }
 
@@ -306,7 +307,7 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
         // 交还：从 6 米接着缓降落地，推进剂已用掉大半
         Object.assign(s, { y: altM, vy: -vz, airborne: true, fuel: .25, lift: 0, x: car.root.position.x, yaw: 0 });
         car.chassis.rotation.x = 0; hud.setOverride(null); st.mode = 'drive'; st.jetHold = 0; st.armed = false; sky.dome.visible = false; setFlash(0); st.plasma = 0;
-        toast('home', '安全返航', '再入大气层，平稳回到公路');
+        toast('home', t('ms.home'), t('ms.homeSub'));
         return;
       }
     }
@@ -314,7 +315,7 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
     setFov(lerp(48, 56, ease(t / 3)) - (asc.world === 'desert' ? ramp(altM, 200, 10) * 6 : 0), dt);
     engine.blur.uniforms.strength.value = 0;
     const kmh = asc.world === 'space' ? Math.max(Math.abs(asc.vz), 7800 * Math.exp(-t / 8)) * 3.6 : Math.hypot(asc.vz, s.v) * 3.6;
-    hud.setOverride({ label: '再入高度', value: fmtAlt(altM), alt: fmtAlt(altM), spd: Math.round(kmh).toLocaleString() });
+    hud.setOverride({ label: t('hud.reentryAlt'), value: fmtAlt(altM), alt: fmtAlt(altM), spd: Math.round(kmh).toLocaleString() });
   }
 
   function update(dt, inp, now) {
