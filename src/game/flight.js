@@ -19,7 +19,7 @@ const SWITCH_ALT = 820;          // 在云层里切换到太空场景
 const CLOUD_LO = 450, CLOUD_HI = 900;
 const KARMAN = 100000;
 const V_CAP = 7800;              // 末速约 28,000 km/h
-const BURN = .02;                // 每秒消耗推进剂（满箱约 50 秒，爬到卡门线约需 0.45）
+const BURN = .018;               // 每秒消耗推进剂（满箱约 55 秒，爬到卡门线约需 0.4）
 
 const fmtAlt = m => m >= 10000 ? `${Math.round(m / 1000)} km` : m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`;
 const layerOf = m => m < 12000 ? '对流层' : m < 50000 ? '平流层' : m < 85000 ? '中间层' : m < KARMAN ? '热层' : '卡门线以上 · 太空';
@@ -90,11 +90,18 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
     clouds.follow(car.root.position.x, 0); clouds.group.visible = alt > 250;
   }
 
-  // —— 触发：悬停 8 米以上、推进剂过半、持续按住空格 0.8 秒 ——
+  // —— 触发：按下空格那一刻推进剂够 LAUNCH_FUEL 就锁定，离地 6 米以上、继续按住 0.4 秒冲向太空 ——
+  // 之前要求悬停全程推进剂都过半，悬停本身每秒烧掉 16%，实际从地面起跳要 80% 以上才行，玩家按住空格却没反应、也没有提示
+  const LAUNCH_FUEL = .7;
   function checkAscent(dt, inp) {
     if (st.mode !== 'drive') return false;
-    st.jetHold = inp.jet && s.y > 8 && s.vy > -1 && s.fuel > .5 ? st.jetHold + dt : 0;   // 下降途中不触发，避免刚中止又被拉回去
-    if (st.jetHold > .8) { start('ascent'); return true; }
+    if (!inp.jet) { st.armed = null; st.jetHold = 0; st.lowHold = 0; return false; }
+    if (st.armed == null) { st.armed = s.fuel >= LAUNCH_FUEL; st.pressFuel = s.fuel; }
+    st.jetHold = st.armed && s.y > 6 && s.vy > -1 ? st.jetHold + dt : 0;   // 下降途中不触发，避免刚中止又被拉回去
+    if (st.jetHold > .4) { start('ascent'); return true; }
+    // 推进剂不够还一直按着：提示还差多少（只在悬停超过 1.2 秒时提示，普通小跳不打扰）
+    st.lowHold = !st.armed && s.y > 6 ? (st.lowHold || 0) + dt : 0;
+    if (st.lowHold > 1.2 && st.lowHold - dt <= 1.2) hud.toast('推进剂不足，冲不上太空', `按下空格时只有 ${Math.round(st.pressFuel * 100)}%，需要 ${LAUNCH_FUEL * 100}% 以上 · 落地停几秒就会充满`, 3600);
     return false;
   }
   function start(mode) {
@@ -119,7 +126,7 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
     sky.dome.visible = false; setFlash(0);
     Object.assign(s, { y: asc.alt, vy: Math.max(asc.vz, -descentSpeed(asc.alt) * 1.1), airborne: true, lift: 0, x: car.root.position.x });
     car.chassis.rotation.set(0, 0, 0); car.root.rotation.z = 0; car.setVapor(0, 0);
-    hud.setOverride(null); st.mode = 'drive'; st.jetHold = 0;
+    hud.setOverride(null); st.mode = 'drive'; st.jetHold = 0; st.armed = false;   // 要松开空格重新按下才能再冲
     onEvent('ascent_abort', { fuelEmpty: s.fuel <= 0 });
     hud.toast('爬升中止', s.fuel <= 0 ? '推进剂耗尽，推进器自动托底缓降' : '松开了推进器，正在缓缓降落', 3600);
   }
@@ -298,7 +305,7 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
       if (altM <= RE.hand) {
         // 交还：从 6 米接着缓降落地，推进剂已用掉大半
         Object.assign(s, { y: altM, vy: -vz, airborne: true, fuel: .25, lift: 0, x: car.root.position.x, yaw: 0 });
-        car.chassis.rotation.x = 0; hud.setOverride(null); st.mode = 'drive'; st.jetHold = 0; sky.dome.visible = false; setFlash(0); st.plasma = 0;
+        car.chassis.rotation.x = 0; hud.setOverride(null); st.mode = 'drive'; st.jetHold = 0; st.armed = false; sky.dome.visible = false; setFlash(0); st.plasma = 0;
         toast('home', '安全返航', '再入大气层，平稳回到公路');
         return;
       }
