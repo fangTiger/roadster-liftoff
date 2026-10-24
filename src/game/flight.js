@@ -1,9 +1,9 @@
 // 飞行导演：公路驾驶之外的三段流程
-//   ascent  冲向太空（玩家操控）：按住空格爬升、W 加力、A/D 侧移；松开会减速并缓缓降落，推进剂耗尽或放弃则落回公路。
+//   ascent  冲向太空（玩家操控）：按住空格爬升、W 加力、A/D 侧移；松开会减速并缓缓降落，按 S 主动俯冲，推进剂耗尽或放弃则落回公路。
 //           沿途：突破音障（蒸汽锥 + 音爆）→ 穿云 → 云海 → 平流层天空变暗 → 卡门线（100 km）进入太空
 //   insert  入轨：自动把高度推到轨道，镜头转到巡航机位
 //   orbit   轨道巡航：地球在脚下转动，老前辈迎面飘来，近距离时环绕运镜
-//   reentry 再入返回：机头下压、等离子火光 → 穿云回到沙漠上空 → 推进器减速、交还公路驾驶
+//   reentry 再入返回：机头下压、等离子火光 → 穿云回到沙漠上空 → 推进器减速、交还公路驾驶；途中按住空格可中止再入、接回爬升
 import * as THREE from 'three';
 import { descentSpeed } from './vehicle.js';
 
@@ -105,10 +105,14 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
       offP.copy(camPos).sub(car.root.position); offL.copy(camLook).sub(car.root.position);
       sky.dome.visible = true;
       for (const k of ['clouds', 'strato', 'karman', 'boom', 'lowfuel', 'home']) st.shown[k] = false;
-      hud.toast('冲向太空', '按住空格持续爬升 · W 加力 · A/D 侧移 · R 翻滚 · 松开会降落', 4200);
+      hud.toast('冲向太空', '按住空格持续爬升 · W 加力 · S 俯冲 · A/D 侧移 · R 翻滚 · 松开会降落', 4200);
     }
     if (mode === 'orbit') { st.orbitT = 0; st.meetCooldown = 3; st.shown.meet = false; onEvent('orbit'); }
-    if (mode === 'reentry') { music?.cue('road'); asc.world = 'space'; asc.alt = 412000; asc.vz = 0; st.shown.home = false; sky.dome.visible = true; }
+    if (mode === 'reentry') {
+      music?.cue('road'); asc.world = 'space'; asc.alt = 412000; asc.vz = 0; st.shown.home = false; sky.dome.visible = true;
+      st.reArm = false;                                       // 先松开空格再按下才算中止，避免一直按着空格时刚再入就被拉回去
+      hud.toast('再入返回', '按住空格可中止再入、冲回太空', 3800);
+    }
   }
   // 放弃爬升：交还给公路驾驶的物理，从当前高度自由下落（按住空格可缓冲）
   function abortToDrive() {
@@ -120,13 +124,27 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
     hud.toast('爬升中止', s.fuel <= 0 ? '推进剂耗尽，推进器自动托底缓降' : '松开了推进器，正在缓缓降落', 3600);
   }
 
+  // 中止再入：推进器全开止住下坠，从当前高度接回爬升（按住空格可冲回太空，松开或按 S 落回公路）
+  function resumeAscent() {
+    st.mode = 'ascent'; st.t = 3.5;                         // 跳过起飞仰拍，直接用爬升侧面机位
+    asc.vz = Math.max(asc.vz, 2);                           // 再入的下降速度是演出用的，接回时直接止住下坠、开始上升
+    asc.roll = 0; asc.boom = 0; asc.mach = asc.alt < 15000 ? asc.vz / 340 : 0;
+    if (asc.world === 'space') x0 = desert.centerAt(0) + 1.8;   // 之后若落回云层以下，出现在公路上空
+    offP.copy(camPos).sub(car.root.position); offL.copy(camLook).sub(car.root.position);
+    hud.toast('中止再入', '推进器全开 · 按住空格冲回太空，松开或按 S 落回公路', 3600);
+  }
+
   // —— 爬升（玩家操控）——
   function updateAscent(dt, inp, now) {
     const t = (st.t += dt);
-    const firing = inp.jet && s.fuel > 0, boost = firing && inp.throttle;
+    const dive = inp.brake;                                 // S：主动俯冲，比松开推进器落得更快
+    const firing = inp.jet && !dive && s.fuel > 0, boost = firing && inp.throttle;
     // 松开推进器：先减速，再按与公路段相同的下降速度曲线落回（高处快、近地慢），不再瞬间猛坠
-    const vt = -Math.min(descentSpeed(asc.alt), 3000);
-    const a = firing ? (40 + .3 * Math.max(asc.vz, 0)) * (boost ? 1.5 : 1) : THREE.MathUtils.clamp(1.5 * (vt - asc.vz), -150, 40);
+    // 回落速度与再入返回同一条曲线（v = 0.38·h + 3，高处封顶），高处快、近地慢，一直缓降到 30 米再交还公路驾驶
+    const vt = -Math.min((RE.k2 * asc.alt + RE.c2) * (dive ? 2.2 : 1), dive ? 6000 : 3000);
+    // 不推进时向目标下降速度收敛：上升越快减速越猛（按 S 更猛），不会靠惯性一路冲上卡门线；下坠过快时车底推进器托住
+    const lo = -(dive ? 400 + 1.2 * Math.max(asc.vz, 0) : 150 + .45 * Math.max(asc.vz, 0)), hi = 40 + .45 * Math.max(-asc.vz, 0);
+    const a = firing ? (40 + .3 * Math.max(asc.vz, 0)) * (boost ? 1.5 : 1) : THREE.MathUtils.clamp((dive ? 2 : 1.5) * (vt - asc.vz), lo, hi);
     asc.vz = Math.min(asc.vz + a * dt, V_CAP * (boost ? 1.04 : 1));
     if (firing) s.fuel = Math.max(0, s.fuel - BURN * (boost ? 1.8 : 1) * dt);
     asc.alt += asc.vz * dt;
@@ -134,8 +152,12 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
     const side = (inp.left ? 1 : 0) - (inp.right ? 1 : 0);
     asc.roll += (side * .35 - asc.roll) * Math.min(1, dt * 3);
     car.root.position.x -= asc.roll * dt * 6;
+    // 回落到沙漠上空且没在侧移时，慢慢对准公路右侧车道，免得落在路外的草地上
+    if (asc.world === 'desert' && asc.vz < 0 && !side) { const tx = desert.centerAt(-s.v * .5) + 1.8; car.root.position.x += (tx - car.root.position.x) * Math.min(1, dt * lerp(.4, 2.5, ramp(asc.alt, 800, 250))); }
     // 车头抬起像火箭一样向上，推力越大抬得越高
-    const pitch = lerp(.15, .95, ease(t / 2.2)) * (firing ? 1 : .7);
+    const falling = !firing && asc.vz < 0 && asc.world === 'desert';
+    const pitch = dive ? -.3 * (falling ? ramp(asc.alt, 30, 300) : 1)            // 俯冲时机头朝下
+      : lerp(.15, .95, ease(t / 2.2)) * (firing ? 1 : .7) * (falling ? ramp(asc.alt, 40, 400) : 1);   // 快落地时放平车身
     car.chassis.rotation.x += (pitch - car.chassis.rotation.x) * Math.min(1, dt * 3);
     car.root.rotation.z = asc.roll * .8; car.root.rotation.y *= Math.exp(-dt * 2);
     car.setThrust(firing ? (boost ? 1 : .8) : 0, now); car.setLift(firing ? lerp(1, .3, ease(t / 3)) : asc.vz < 0 ? .4 : 0, now);   // 下降时车底推进器小火托底
@@ -144,10 +166,11 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
     if (asc.mach < 1 && mach >= 1) { asc.boom = 1; toast('boom', '突破音障', '1 马赫 · 音爆！'); }
     asc.mach = mach; asc.boom = Math.max(0, asc.boom - dt * 1.6);
     car.setVapor(bell(mach, .9, 1.35), now);
+    if (st.plasma > 0) { st.plasma = Math.max(0, st.plasma - dt * 1.5); car.setPlasma(st.plasma, now); }   // 从再入中止接回时，等离子火光渐熄
 
     // 世界：云层里切换场景；回落到云层以下切回沙漠
     if (asc.world === 'desert' && asc.alt >= SWITCH_ALT) toSpaceWorld();
-    if (asc.world === 'space' && asc.alt < SWITCH_ALT) toDesertWorld(asc.alt);
+    if (asc.world === 'space' && asc.alt < SWITCH_ALT) { x0 = desert.centerAt(0) + 6; toDesertWorld(asc.alt); }
     if (asc.world === 'desert') updateDesertLook(asc.alt, dt); else updateSpaceLook(asc.alt, dt);
     // 穿云白雾：在云层中段最浓
     setFlash(Math.max(bell(asc.alt, CLOUD_LO + 150, CLOUD_HI + 250) * .92, asc.boom * .25));
@@ -173,7 +196,7 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
 
     if (asc.alt >= KARMAN) { toast('karman', '卡门线 · 进入太空', '海拔 100 公里，你已离开地球大气层'); music?.cue('space'); start('insert'); return; }
     // 下坠回到低空：交还公路驾驶
-    if (asc.world === 'desert' && asc.vz < 0 && asc.alt < 220) abortToDrive();
+    if (asc.world === 'desert' && asc.vz < 0 && asc.alt < 30) abortToDrive();
   }
 
   // —— 入轨：自动把高度推到 412 km，镜头转到巡航机位 ——
@@ -192,6 +215,7 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
 
   function updateOrbit(dt, inp, now) {
     st.orbitT += dt; st.alt = 412000;
+    s.fuel = Math.min(1, s.fuel + dt * .05);                // 轨道上慢慢补充推进剂，留够中止再入、冲回太空的量
     // 地球在脚下缓缓转动，表现向前飞行
     space.earth.rotateOnWorldAxis(V(1, 0, 0), dt * .0035 * (inp.throttle ? 2.2 : 1));
     car.setThrust(inp.throttle ? .8 : .18, now); car.setLift(0, now);
@@ -231,6 +255,8 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
   const RE = { deorbit: 2.5, k: .6, a0: 395000, k2: .38, c2: 3, hand: 6 };
   function updateReentry(dt, inp, now) {
     const t = (st.t += dt);
+    if (!inp.jet) st.reArm = true;
+    if (st.reArm && inp.jet && s.fuel > .05 && asc.alt > 12) { resumeAscent(); return; }
     let altM;
     if (asc.world === 'space') {
       if (t < RE.deorbit) {

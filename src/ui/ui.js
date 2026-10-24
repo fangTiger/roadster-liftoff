@@ -2,7 +2,7 @@
 const STORE = 'liftoff.ui.v1';
 import { QUALITY_PRESETS as PRESETS, getDefaultPreset } from '../mobile/perf.js';
 const CONTROLS = [
-  ['W', '加速'], ['S', '刹车 / 再入'], ['A / D', '转向'], ['空格', '推进器（按住冲上太空）'],
+  ['W', '加速'], ['S', '刹车 / 爬升时俯冲 / 轨道上再入'], ['A / D', '转向'], ['空格', '推进器（按住冲上太空，再入途中按住可冲回太空）'],
   ['R', '空中翻滚'], ['C', '切换镜头'], ['M', '静音'], ['H', '喇叭（按住）'], ['P / Esc', '暂停'],
   ['F', '全屏'], ['K', '截图'], ['/', '操作说明'],
 ];
@@ -31,7 +31,7 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
           <button class="ui-start" hidden>按任意键 / 点击开始</button>
         </div>
         <div class="g ui-control-panel"><h2>驾驶指南 <span>从第一次离地开始</span></h2>${controlsHTML()}</div>
-        <footer>Built with Arc Studio + Claude Code <a href="https://github.com/fangTiger/roadster-liftoff/blob/main/CREDITS.md" target="_blank" rel="noopener noreferrer">素材致谢 ↗</a></footer>
+        <footer>作者 Captain@mycndota · Built with Arc Studio + Claude Code <a href="https://github.com/fangTiger/roadster-liftoff/blob/main/CREDITS.md" target="_blank" rel="noopener noreferrer">素材致谢 ↗</a></footer>
       </div>
     </section>
     <section class="ui-overlay ui-modal" hidden role="dialog" aria-modal="true" aria-labelledby="ui-panel-title" tabindex="-1">
