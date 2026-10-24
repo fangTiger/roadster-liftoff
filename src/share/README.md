@@ -28,7 +28,7 @@ src/share/
 import { createShare } from './src/share/share.js';
 
 const share = createShare({
-  logoUrl: '/logo.svg',               // 默认 '/logo.svg'
+  logoUrl: '/logo.png',               // 默认 '/logo.png'
   author:  'Captain@mycndota',        // 显示在卡片页脚
   siteUrl: 'mars-roadster.example.com', // 可选，页脚附加
   credit:  'Built with Arc Studio + Claude Code',
@@ -80,7 +80,7 @@ await share.open(stats, screenshot);
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `logoUrl` | `string` | `'/logo.svg'` | Logo 图像 URL（同源，不会污染 Canvas） |
+| `logoUrl` | `string` | `'/logo.png'` | Logo 图像 URL（同源，不会污染 Canvas） |
 | `author` | `string` | `'Captain@mycndota'` | 卡片页脚作者名 |
 | `siteUrl` | `string` | `''` | 卡片页脚网站（留空则不显示） |
 | `credit` | `string` | `'Built with Arc Studio + Claude Code'` | 版权行文字 |
@@ -278,7 +278,7 @@ node --test src/share/share.test.mjs
 // main.js
 import { createShare } from './src/share/share.js';
 
-const share = createShare({ logoUrl: '/logo.svg' });
+const share = createShare({ logoUrl: '/logo.png' });
 
 share.onClose(() => {
   game.paused = false;

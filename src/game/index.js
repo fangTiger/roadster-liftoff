@@ -73,7 +73,7 @@ const flight = createFlight({ scene, camera, desert, space, clouds, cloudSea, sk
 
 // 本局成绩：供结算面板与分享卡使用
 const run = { topSpeedKmh: 0, launchSec: null, maxAltM: 0, reachedSpace: false, metOldFriend: false, home: false };
-const share = CAPTURE ? null : createShare({ logoUrl: '/logo.svg', injectCss: false });
+const share = CAPTURE ? null : createShare({ logoUrl: '/logo.png', injectCss: false });
 let sharing = false, shareTimer = 0;
 share?.onClose(() => { sharing = false; });
 function onFlightEvent(e) {

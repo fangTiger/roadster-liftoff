@@ -252,7 +252,7 @@ export async function renderCard(stats, screenshot, format, { logoUrl, author, s
   const ctx = canvas.getContext('2d');
 
   // ── 加载 logo 图像 ──────────────────────────────────────────────────────────
-  const logoImg = await loadImage(logoUrl || '/logo.svg');
+  const logoImg = await loadImage(logoUrl || '/logo.png');
 
   // ── 截图源加载（data URL 需等待 onload） ────────────────────────────────────
   let imgSrc = normaliseScreenshot(screenshot);
@@ -477,13 +477,13 @@ export async function renderCard(stats, screenshot, format, { logoUrl, author, s
 /**
  * 创建分享模块实例。
  * @param {object} [opts]
- * @param {string} [opts.logoUrl='/logo.svg']
+ * @param {string} [opts.logoUrl='/logo.png']
  * @param {string} [opts.author='Captain@mycndota']
  * @param {string} [opts.siteUrl='']
  * @param {string} [opts.credit='Built with Arc Studio + Claude Code']
  */
 export function createShare({
-  logoUrl = '/logo.svg',
+  logoUrl = '/logo.png',
   author  = 'Captain@mycndota',
   siteUrl = '',
   credit  = 'Built with Arc Studio + Claude Code',
