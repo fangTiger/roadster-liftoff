@@ -32,6 +32,7 @@ canvas{display:block}
 #bag .bar i{position:absolute;left:0;top:0;bottom:0;width:72%;border-radius:2px;background:linear-gradient(90deg,#ff9a5c,#ffd2a0)}
 #keys{left:50%;bottom:16px;transform:translateX(-50%);padding:8px 14px;display:flex;gap:14px;font-size:12.5px;color:var(--dim);white-space:nowrap}
 @media (max-width:1480px){#keys{gap:10px;font-size:12px;padding:7px 12px}#keys span:nth-child(n+6){display:none}}
+@media (max-width:1380px){html[lang=en] #keys > span:nth-child(4){display:none}}   /* 英文较长：窄屏时省掉「Space Jets」，下一条按住 Space 的提示已覆盖 */
 @media (max-width:1180px){#keys{display:none}}
 kbd{display:inline-block;min-width:18px;padding:1px 5px;margin-right:4px;border-radius:5px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.1);color:var(--txt);font:600 11px -apple-system,sans-serif;text-align:center}
 #credit{right:18px;bottom:150px;padding:7px 12px;display:flex;align-items:center;gap:9px;font-size:12px;color:var(--dim)}
@@ -40,7 +41,7 @@ kbd{display:inline-block;min-width:18px;padding:1px 5px;margin-right:4px;border-
 #toast .ic{width:34px;height:34px;border-radius:9px;background:linear-gradient(140deg,#7fe3ff,#2f7cff);display:flex;align-items:center;justify-content:center;font-size:17px}
 #toast b{display:block;font-size:14.5px}#toast small{font-size:12px;color:var(--dim)}
 .speed{position:fixed;inset:0;pointer-events:none;background:repeating-conic-gradient(from 0deg at 50% 52%,rgba(255,255,255,.0) 0deg,rgba(255,255,255,.0) 2.6deg,rgba(255,255,255,.07) 2.8deg,rgba(255,255,255,0) 3deg);-webkit-mask:radial-gradient(ellipse at 50% 52%,transparent 38%,#000 75%);mask:radial-gradient(ellipse at 50% 52%,transparent 38%,#000 75%)}
-</style><link rel="stylesheet" href="/src/ui/ui.css"><link rel="stylesheet" href="/src/mobile/mobile.css"><link rel="stylesheet" href="/src/share/share.css"></head><body>
+</style><link rel="stylesheet" href="/src/ui/ui.css"><link rel="stylesheet" href="/src/mobile/mobile.css"><link rel="stylesheet" href="/src/share/share.css"><link rel="stylesheet" href="/src/i18n/i18n.css"></head><body>
 <div class="speed" id="speed"></div>
 <div id="flash" style="position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none"></div>
 <div class="g" id="brand"><img class="logo" src="/logo.png" alt=""><div><b>Mars Roadster</b><small data-i18n="brand.sub">离地 · 推进器超跑 · 实时 3D</small></div></div>
@@ -52,8 +53,8 @@ kbd{display:inline-block;min-width:18px;padding:1px 5px;margin-right:4px;border-
   <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="6" stroke-dasharray="198 66" transform="rotate(135 50 50)" stroke-linecap="round"/>
   <circle cx="50" cy="50" r="42" fill="none" stroke="url(#gr)" stroke-width="6" stroke-dasharray="0 264" transform="rotate(135 50 50)" stroke-linecap="round"/>
   <defs><linearGradient id="gr"><stop offset="0" stop-color="#ffb35c"/><stop offset="1" stop-color="#ff3d3a"/></linearGradient></defs>
-  <text x="50" y="53" text-anchor="middle" fill="#f4f6fa" font-size="26" font-weight="700" font-family="-apple-system" id="spd">0</text>
-  <text x="50" y="68" text-anchor="middle" fill="rgba(244,246,250,.6)" font-size="9" font-family="-apple-system">KM/H</text></svg>
+  <text x="50" y="53" text-anchor="middle" fill="#f4f6fa" font-size="26" font-weight="700" font-family="-apple-system, 'SF Pro Display', 'Helvetica Neue', 'PingFang SC', Arial, sans-serif" id="spd">0</text>
+  <text x="50" y="68" text-anchor="middle" fill="rgba(244,246,250,.6)" font-size="9" font-family="-apple-system, 'SF Pro Display', 'Helvetica Neue', 'PingFang SC', Arial, sans-serif">KM/H</text></svg>
   <div class="rows"><span data-i18n="hud.fuel">推进剂</span><b><span id="fuel"><i id="fuelbar" style="width:100%"></i></span><span id="fuelpct">100%</span></b><span data-i18n="hud.alt">高度</span><b id="alt">0 m</b><span data-i18n="hud.dist">里程</span><b id="dist">0.0 km</b><span data-i18n="hud.coins">金币</span><b id="coins"><i class="coin"></i><span id="coinn">0</span></b><span data-i18n="hud.camera">镜头</span><b id="camname">追随</b></div>
 </div>
 <div class="g" id="keys"><span><kbd>W</kbd><span data-i18n="bar.throttle">加速</span></span><span><kbd>S</kbd><span data-i18n="bar.brake">刹车</span></span><span><kbd>A</kbd><kbd>D</kbd><span data-i18n="bar.steer">转向</span></span><span><kbd data-i18n="key.space">空格</kbd><span data-i18n="bar.jet">推进器</span></span><span data-i18n-html="bar.space">按住<kbd>空格</kbd>冲出大气层</span><span><kbd>R</kbd><span data-i18n="bar.roll">翻滚</span></span><span><kbd>C</kbd><span data-i18n="bar.camera">镜头</span></span><span><kbd>H</kbd><span data-i18n="bar.horn">喇叭</span></span></div>

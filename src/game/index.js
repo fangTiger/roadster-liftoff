@@ -47,7 +47,7 @@ const ui = CAPTURE ? null : createUI({ engine, audio, onQualityChange: setMobile
   else hud.toast(t('hint.keyStart'), t('hint.keyStartSub'), 4500);
 } });
 if (ui) setMobilePreset(ui.quality);
-applyI18n(); mountLangToggle(document.getElementById('tools'));     // 页面静态文字按当前语言刷新，右上角加「中 / EN」切换
+applyI18n(); mountLangToggle(document.getElementById('tools'), { injectCss: false });     // 页面静态文字按当前语言刷新，右上角加「中 / EN」切换
 ui?.showLoading(.05, t('load.desert'));
 if (DBG.includes('nobloom')) engine.bloom.enabled = false;
 if (DBG.includes('noblur')) engine.blur.enabled = false;

@@ -1,0 +1,96 @@
+/*
+ * Mars Roadster — 语言切换开关样式
+ * 嵌入到 #tools 工具栏（磨砂玻璃面板，右上角）。
+ * 视觉风格与 index.html 中其他 icon span 一致：
+ *   font-size 16px, color var(--dim)，悬停变白。
+ */
+
+/* ── CSS 变量兼容（若主页面已定义则覆盖会被跳过） ────────────────────────────── */
+:root {
+  --i18n-txt:   #f4f6fa;
+  --i18n-dim:   rgba(244, 246, 250, 0.6);
+  --i18n-hover: rgba(255, 255, 255, 0.18);
+  --i18n-acc1:  #ff8a5c;
+  --i18n-acc2:  #ff4d3a;
+}
+
+/* ── 开关容器 ────────────────────────────────────────────────────────────────── */
+.lang-toggle {
+  /* 在 #tools 工具栏中与其他 icon span 并排 */
+  display:         inline-flex;
+  align-items:     center;
+  gap:             0;
+
+  font-size:       13px;
+  font-family:     -apple-system, "PingFang SC", "SF Pro Display", sans-serif;
+  line-height:     1;
+
+  /* 默认暗色（dim），与工具栏图标一致） */
+  color:           var(--i18n-dim, rgba(244,246,250,.6));
+
+  cursor:          pointer;
+  border-radius:   7px;
+  padding:         3px 6px;
+  transition:      background 0.18s, color 0.18s;
+
+  /* 确保可聚焦 */
+  outline:         none;
+  user-select:     none;
+  -webkit-user-select: none;
+  white-space:     nowrap;
+}
+
+/* 悬停：淡亮背景 */
+.lang-toggle:hover {
+  background: var(--i18n-hover, rgba(255,255,255,.18));
+  color:      var(--i18n-txt, #f4f6fa);
+}
+
+/* 键盘焦点环（仅键盘触发，鼠标点击不显示） */
+.lang-toggle:focus-visible {
+  outline:        2px solid rgba(255,255,255,.5);
+  outline-offset: 2px;
+}
+
+/* ── 当前激活语言（粗体白色） ─────────────────────────────────────────────────── */
+.lang-toggle-active {
+  font-weight:  700;
+  color:        var(--i18n-txt, #f4f6fa);
+  /* 轻微渐变高亮 */
+  background:              linear-gradient(90deg, var(--i18n-acc1, #ff8a5c), var(--i18n-acc2, #ff4d3a));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip:         text;
+  /* 回退（不支持 gradient text 时仍为白色） */
+  font-style:   normal;
+}
+
+/* ── 分隔符 ──────────────────────────────────────────────────────────────────── */
+.lang-toggle-sep {
+  color:       var(--i18n-dim, rgba(244,246,250,.6));
+  font-weight: 400;
+  font-size:   11px;
+  opacity:     0.7;
+}
+
+/* ── 未激活语言（暗淡） ───────────────────────────────────────────────────────── */
+.lang-toggle-dim {
+  font-weight: 400;
+  color:       var(--i18n-dim, rgba(244,246,250,.6));
+}
+
+/* ── 在 #tools 工具栏中的特殊调整 ───────────────────────────────────────────── */
+/* #tools 里其他 span 的 font-size 是 16px；lang-toggle 用 13px 更紧凑以免撑宽面板 */
+#tools .lang-toggle {
+  font-size: 13px;
+  padding:   4px 7px;
+}
+
+/* ── 减少动画（辅助功能） ────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .lang-toggle { transition: none; }
+}
+
+/* 工具栏里的图标 span 有最小宽高（方便点击），切换开关内部的小片段不受影响，否则「中 / EN」会被撑得很宽 */
+#tools .lang-toggle span, #tools .lang-toggle b { min-width: 0 !important; min-height: 0 !important; padding: 0; }
+#tools .lang-toggle span:hover { background: none; }   /* 当前语言用渐变文字（背景裁剪），不能清它的背景 */
