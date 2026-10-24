@@ -121,7 +121,7 @@ export async function createDesert(scene, renderer) {
   for (const t of [grassTex, aerialTex]) { t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; }
   const gu = { ...sky.material.uniforms, skyInv: { value: sky.matrixWorld.clone().invert() }, grass: { value: grassTex }, aerial: { value: aerialTex },
     so: { value: Array.from({ length: 5 }, () => new THREE.Vector2()) }, roadX: { value: ROAD_X }, verge: { value: VERGE }, haze: { value: new THREE.Color('#b1b4b4') }, hazeK: { value: 0 },
-    grassL: { value: new THREE.Color() }, grassR: { value: new THREE.Color() } };
+    grassL: { value: new THREE.Color() }, grassR: { value: new THREE.Color() }, sunL: { value: sunDir.clone().normalize() } };
   // 两侧草地的平均色：照片是站在路中间拍的，车旁十几米内全是沥青和土路肩（右侧逆光处是一片沙土），近处没法直接用照片。
   // 这里取照片里公路两侧 40–120 米、前方 60–250 米那片草地的平均色，近处地面用它铺底，和远处照片里的草地一致
   {
@@ -144,7 +144,7 @@ export async function createDesert(scene, renderer) {
     fog: false, depthWrite: false, uniforms: gu,
     vertexShader: 'varying vec3 vW; void main(){ vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }',
     fragmentShader: `uniform sampler2D bg, hi, grass, aerial; uniform vec4 rect; uniform mat3 invIn, invOut; uniform mat4 skyInv;
-      uniform float exposure, roadX, verge, hazeK; uniform vec2 so[5]; uniform vec3 haze, grassL, grassR; varying vec3 vW;
+      uniform float exposure, roadX, verge, hazeK; uniform vec2 so[5]; uniform vec3 haze, grassL, grassR, sunL; varying vec3 vW;
       ${INV_ACES}
       // 天空盒是 z 轴翻转的球体，按顶点方向取 UV（与 SphereGeometry 的 UV 公式一致）
       vec2 panoUV(vec3 w){ vec3 d=normalize((skyInv*vec4(w,1.)).xyz); return vec2(fract(atan(-d.z,-d.x)/6.28318531),1.-acos(clamp(d.y,-1.,1.))/3.14159265); }
@@ -166,6 +166,13 @@ export async function createDesert(scene, renderer) {
         }
         return c;
       }
+      // 地面起伏：把细节贴图的亮度当作高度，相邻两次采样求坡度（单位：每贴图坐标），返回坡度
+      float lum(vec3 c){ return dot(c,vec3(.3,.59,.11)); }
+      vec2 slope(sampler2D tex, vec2 uv, float e){
+        e=max(e,length(fwidth(uv)));                                   // 采样间距不小于一个像素的覆盖范围，远处不闪噪点
+        float h=lum(texture2D(tex,uv).rgb);
+        return vec2(lum(texture2D(tex,uv+vec2(e,0.)).rgb)-h, lum(texture2D(tex,uv+vec2(0.,e)).rgb)-h)/e;
+      }
       void main(){
         vec2 uv=panoUV(vW);
         vec2 gx=dFdx(uv), gy=dFdy(uv); gx.x-=floor(gx.x+.5); gy.x-=floor(gy.x+.5);   // 跨越全景接缝时修正导数
@@ -182,13 +189,22 @@ export async function createDesert(scene, renderer) {
         vec2 q=vW.xz;
         vec3 mg=max(textureLod(grass,vec2(.5),12.).rgb,vec3(1e-3)), ma=max(textureLod(aerial,vec2(.5),12.).rgb,vec3(1e-3));
         vec3 fine=texture2D(grass,q/2.5+so[0]).rgb/mg;
+        // 第二层细节：7 米一格、旋转过的干草地，把细纹理延伸到 600 米外，中远景不再是一片平均色
+        vec3 fine2=texture2D(grass,mat2(.8,.6,-.6,.8)*q/7.+so[0]*(2.5/7.)).rgb/mg;
         // 同一张贴图按互不整除的尺度、不同角度各取一次再平均，高空俯瞰时看不出重复的方格
         vec3 mid=(texture2D(aerial,q/15.+so[1]).rgb+texture2D(aerial,mat2(.6,.8,-.8,.6)*q/23.7+so[2]).rgb)*.5/ma;
         vec3 mac=(texture2D(aerial,mat2(.8,-.6,.6,.8)*q/170.+so[3]).rgb/ma+texture2D(grass,mat2(.28,.96,-.96,.28)*q/61.+so[4]).rgb/mg)*.5;
-        float kf=1.-smoothstep(25.,180.,dist), km=1.-smoothstep(300.,4000.,dist), kM=1.-smoothstep(1500.,20000.,dist);
+        float kf=1.-smoothstep(25.,180.,dist), kf2=smoothstep(20.,90.,dist)*(1.-smoothstep(250.,900.,dist)), km=1.-smoothstep(300.,4000.,dist), kM=1.-smoothstep(1500.,20000.,dist);
         vec3 ratio=mix(vec3(1.),clamp(fine,.25,2.2),kf*.9)
+                  *mix(vec3(1.),clamp(fine2,.4,1.8),kf2*.7*(1.-air))
                   *mix(vec3(1.),clamp(mid,.35,2.),km*mix(.4,.6,air))
-                  *mix(vec3(1.),clamp(mac,.5,1.7),kM*mix(.25,.8,air));
+                  *mix(vec3(1.),clamp(mac,.5,1.7),kM*mix(.45,.8,air));
+        // 太阳打光：细节层（2.5 米）给土块与草根的明暗，航拍层（15 米）给缓坡起伏；傍晚太阳低，受光面与背光面差别明显
+        vec2 g1=slope(grass,q/2.5+so[0],1.5/1024.)/2.5, g2=slope(aerial,q/15.+so[1],2./1024.)/15.;
+        vec3 n=normalize(vec3(-(g1.x*.012*kf+g2.x*.12*km), 1., -(g1.y*.012*kf+g2.y*.12*km)));
+        vec3 L=normalize(sunL); float flat0=max(L.y,.12);
+        float shade=clamp(max(dot(n,L),0.)/flat0, .7, 1.35);
+        ratio*=mix(1., shade, (1.-air)*.7);
         vec3 lin=min(invACES(base)*ratio,vec3(40.));
         // 高空的空气透视：越远越融进与天空穹顶地平线同色的雾霭
         lin=mix(lin,invACES(haze),hazeK*(1.-exp(-dist/7000.)));
