@@ -1,5 +1,6 @@
 // 界面：速度表、0–100 计时、里程、速度线、成就提示
 import { KMH } from './vehicle.js';
+import { t } from '../i18n/i18n.js';
 
 const $ = id => document.getElementById(id);
 const ARC = 198;                           // 速度表弧长（与 SVG 的 dasharray 对应）
@@ -15,7 +16,7 @@ export function createHUD() {
   $('toast').style.transition = 'opacity .4s, transform .4s';
   $('toast').style.opacity = 0;
   document.querySelectorAll('#cams span').forEach(s => s.classList.toggle('on', s.dataset.v === 'road'));
-  $('camname').textContent = '追随';
+  $('camname').textContent = t('cam.chase');
 
   function update(s) {
     const kmh = s.v * KMH;
@@ -34,7 +35,7 @@ export function createHUD() {
     $('fuelbar').style.width = (s.fuel * 100).toFixed(0) + '%'; $('fuelpct').textContent = (s.fuel * 100).toFixed(0) + '%';
     $('hops').textContent = s.hops;
     // "第一次起飞"由成就系统弹出
-    if (s.y > 10 && !shownHigh) { shownHigh = true; toast('离地 10 米', '继续按住空格，冲出大气层！'); }
+    if (s.y > 10 && !shownHigh) { shownHigh = true; toast(t('toast.high'), t('toast.highSub')); }
     const L = s.launch;
     $('lv').innerHTML = (L.timing ? L.t : (L.last ?? 0)).toFixed(2) + '<i>s</i>';
     $('launch').style.opacity = L.timing || L.last != null ? 1 : .55;

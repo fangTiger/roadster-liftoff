@@ -18,6 +18,7 @@ import { createAudio } from '../audio/audio.js';
 import { createAchievements } from '../achievements/achievements.js';
 import { createUI } from '../ui/ui.js';
 import { createShare } from '../share/share.js';
+import { t, applyI18n, mountLangToggle } from '../i18n/i18n.js';
 import { createTouch } from '../mobile/touch.js';
 import { createPerf, QUALITY_PRESETS, getDefaultPreset } from '../mobile/perf.js';
 
@@ -42,20 +43,21 @@ function setMobilePreset(preset) {
 let started = CAPTURE, touch = null;
 const ui = CAPTURE ? null : createUI({ engine, audio, onQualityChange: setMobilePreset, onSummary: () => openShare(), isOverlayOpen: () => sharing, onStart() {
   started = true;
-  if (touch?.active) hud.toast('按住加速起步', '左侧拖动转向 · 按住推进器升空', 4500);
-  else hud.toast('按 W 起步', '0–100 km/h 只要 0.8 秒，A / D 转向，S 刹车', 4500);
+  if (touch?.active) hud.toast(t('hint.touchStart'), t('hint.touchStartSub'), 4500);
+  else hud.toast(t('hint.keyStart'), t('hint.keyStartSub'), 4500);
 } });
 if (ui) setMobilePreset(ui.quality);
-ui?.showLoading(.05, '加载沙漠全景…');
+applyI18n(); mountLangToggle(document.getElementById('tools'));     // 页面静态文字按当前语言刷新，右上角加「中 / EN」切换
+ui?.showLoading(.05, t('load.desert'));
 if (DBG.includes('nobloom')) engine.bloom.enabled = false;
 if (DBG.includes('noblur')) engine.blur.enabled = false;
 const { scene, camera, renderer } = engine;
 
 const desert = await createDesert(scene, renderer);
 desertRef = desert; desert.setGrassDensity(grassK);
-ui?.showLoading(.35, '加载推进器超跑…');
+ui?.showLoading(.35, t('load.car'));
 const car = await createCar(); scene.add(car.root);
-ui?.showLoading(.5, '加载地球与星空…');
+ui?.showLoading(.5, t('load.space'));
 const vehicle = createVehicle({ roadHalf: desert.ROAD_HALF, centerAt: desert.centerAt, slopeAt: desert.slopeAt });
 const rig = createCameraRig(camera, renderer.domElement);
 rig.onChange(m => ach?.report('camera', { mode: m }));
@@ -66,7 +68,7 @@ perf = CAPTURE ? null : createPerf({ engine, getPreset: () => mobilePreset, setP
 const space = await createSpace(scene, renderer);
 const clouds = createClouds(scene);
 const sky = await createSkyDome(scene, renderer);
-ui?.showLoading(.85, '准备起飞…');
+ui?.showLoading(.85, t('load.ready'));
 const cloudSea = createCloudSea(space.group);
 const ach = createAchievements();
 const coins = createCoins(desert.root);
@@ -198,7 +200,7 @@ function updateRoll(dt) {
   if (roll.t < 0) return 0;
   roll.t += dt; const u = Math.min(1, roll.t / roll.dur), e = u * u * u * (u * (u * 6 - 15) + 10);
   car.setRoll(roll.dir * e * Math.PI * 2);
-  if (u >= 1) { roll.t = -1; car.setRoll(0); vehicle.state.rolling = false; ach.report('roll'); if (!rollShown) { rollShown = true; hud.toast('桶滚！', '空中 360° 翻滚', 2600); } }
+  if (u >= 1) { roll.t = -1; car.setRoll(0); vehicle.state.rolling = false; ach.report('roll'); if (!rollShown) { rollShown = true; hud.toast(t('toast.roll'), t('toast.rollSub'), 2600); } }
   return Math.sin(Math.PI * u);             // 0→1→0：翻滚中段最强
 }
 let rollShown = false;
@@ -288,7 +290,7 @@ if (CAPTURE) {
   // 截图成就：K 键或 ◎ 图标
   addEventListener('keydown', e => { if (e.code === 'KeyK' && started) ach.report('screenshot'); if (e.code === 'KeyR' && !e.repeat && started && !ui.paused) tryRoll(input.state()); });
   document.querySelector('#tools span:nth-child(1)')?.addEventListener('click', () => ach.report('screenshot'));
-  engine.render(); ui.showLoading(1, '准备起飞…'); ui.hideLoading();
+  engine.render(); ui.showLoading(1, t('load.ready')); ui.hideLoading();
   let last = performance.now();
   renderer.setAnimationLoop(now => {
     const elapsed = (now - last) / 1000; last = now;

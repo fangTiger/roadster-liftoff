@@ -3,6 +3,7 @@
  * 纯 ES 模块，无外部依赖，无构建步骤，无网络请求。
  * 所有 UI 文字为简体中文，代码注释亦为中文。
  */
+import { t } from '../i18n/i18n.js';
 
 // ─── 纯工具函数（可单独导出供测试使用） ──────────────────────────────────────
 
@@ -43,10 +44,10 @@ export function formatSpeed(kmh) {
 export function formatDuration(sec) {
   if (sec == null || isNaN(sec)) return '—';
   const s = Math.round(sec);
-  if (s < 60) return `${s} 秒`;
+  if (s < 60) return t('unit.sec', { n: s });
   const m = Math.floor(s / 60);
   const r = s % 60;
-  return `${m} 分 ${String(r).padStart(2, '0')} 秒`;
+  return t('unit.minSec', { m, s: String(r).padStart(2, '0') });
 }
 
 /**
@@ -56,7 +57,7 @@ export function formatDuration(sec) {
  */
 function formatLaunch(sec) {
   if (sec == null || isNaN(sec)) return '—';
-  return `${Number(sec).toFixed(2)} 秒`;
+  return t('unit.sec', { n: Number(sec).toFixed(2) });
 }
 
 /**
@@ -82,21 +83,21 @@ export function pickHeadline(stats = {}) {
   const { home, metOldFriend, reachedSpace, maxAltM, hops, topSpeedKmh } = stats;
 
   if (home) {
-    return { title: '往返太空，安全返航', value: formatAltitude(maxAltM) };
+    return { title: t('share.hl.home'), value: formatAltitude(maxAltM) };
   }
   if (metOldFriend) {
-    return { title: '在轨道上与前辈同框', value: formatAltitude(maxAltM) };
+    return { title: t('share.hl.meet'), value: formatAltitude(maxAltM) };
   }
   if (reachedSpace) {
-    return { title: '冲出大气层', value: formatAltitude(maxAltM) };
+    return { title: t('share.hl.space'), value: formatAltitude(maxAltM) };
   }
   if (maxAltM != null && maxAltM >= 450) {
-    return { title: '穿出云层', value: formatAltitude(maxAltM) };
+    return { title: t('share.hl.clouds'), value: formatAltitude(maxAltM) };
   }
   if (hops != null && hops > 0) {
-    return { title: '离地起飞', value: formatAltitude(maxAltM) };
+    return { title: t('share.hl.hop'), value: formatAltitude(maxAltM) };
   }
-  return { title: '沙漠公路', value: formatSpeed(topSpeedKmh) };
+  return { title: t('share.hl.road'), value: formatSpeed(topSpeedKmh) };
 }
 
 // ─── 内部常量 ─────────────────────────────────────────────────────────────────
@@ -326,7 +327,7 @@ export async function renderCard(stats, screenshot, format, { logoUrl, author, s
   // 副标题
   ctx.fillStyle = C.dim;
   ctx.font = `16px ${FONT_STACK}`;
-  ctx.fillText('离地 · 推进器超跑', textX, yCursor + 48);
+  ctx.fillText(t('share.tagline'), textX, yCursor + 48);
 
   // 日期（右对齐）
   ctx.textAlign = 'right';
@@ -362,13 +363,13 @@ export async function renderCard(stats, screenshot, format, { logoUrl, author, s
 
   // 构建统计条目
   const statRows = [
-    { label: '极速',      value: formatSpeed(stats.topSpeedKmh) },
+    { label: t('share.top'),      value: formatSpeed(stats.topSpeedKmh) },
     { label: '0–100',     value: formatLaunch(stats.launchSec) },
-    { label: '最高海拔',  value: formatAltitude(stats.maxAltM) },
-    { label: '里程',      value: stats.distanceKm != null ? `${Number(stats.distanceKm).toFixed(1)} km` : '—' },
-    { label: '金币',      value: stats.coins != null ? String(stats.coins) : '—' },
+    { label: t('share.maxAlt'),  value: formatAltitude(stats.maxAltM) },
+    { label: t('share.dist'),      value: stats.distanceKm != null ? `${Number(stats.distanceKm).toFixed(1)} km` : '—' },
+    { label: t('share.coins'), kind: 'coins', value: stats.coins != null ? String(stats.coins) : '—' },
     {
-      label: '成就',
+      label: t('share.ach'), kind: 'ach',
       value: stats.achievements
         ? `${stats.achievements.unlocked} / ${stats.achievements.total}`
         : '—',
@@ -408,8 +409,8 @@ export async function renderCard(stats, screenshot, format, { logoUrl, author, s
 
     // 值（金币行加金色，成就行加青色）
     let valColor = C.txt;
-    if (statRows[i].label === '金币')  valColor = C.gold;
-    if (statRows[i].label === '成就')  valColor = C.cy;
+    if (statRows[i].kind === 'coins') valColor = C.gold;
+    if (statRows[i].kind === 'ach')   valColor = C.cy;
 
     ctx.fillStyle = valColor;
     ctx.font = `bold 22px ${FONT_STACK}`;
@@ -420,9 +421,9 @@ export async function renderCard(stats, screenshot, format, { logoUrl, author, s
 
   // ── 徽章行 ────────────────────────────────────────────────────────────────
   const badges = [
-    { key: 'reachedSpace',  label: '进入太空',  color: C.cy },
-    { key: 'metOldFriend',  label: '与前辈同框', color: C.gold },
-    { key: 'home',          label: '安全返航',  color: '#7fff9a' },
+    { key: 'reachedSpace',  label: t('share.badge.space'),  color: C.cy },
+    { key: 'metOldFriend',  label: t('share.badge.meet'), color: C.gold },
+    { key: 'home',          label: t('share.badge.home'),  color: '#7fff9a' },
   ];
 
   const pillH = 34;
@@ -464,7 +465,7 @@ export async function renderCard(stats, screenshot, format, { logoUrl, author, s
   ctx.font = `13px ${FONT_STACK}`;
 
   let footerParts = [];
-  if (author) footerParts.push(`作者 ${author}`);
+  if (author) footerParts.push(`${t('credit.author')} ${author}`);
   if (credit) footerParts.push(credit);
   if (siteUrl) footerParts.push(siteUrl);
   ctx.fillText(footerParts.join(' · '), pad, footerY);
@@ -537,7 +538,7 @@ export function createShare({
     wrap.id = 'share-wrap';
     wrap.setAttribute('role', 'dialog');
     wrap.setAttribute('aria-modal', 'true');
-    wrap.setAttribute('aria-label', '本局成绩');
+    wrap.setAttribute('aria-label', t('share.title')); wrap.dataset.i18nAttr = 'aria-label:share.title';
     wrap.innerHTML = `
       <div class="share-panel" id="share-panel" tabindex="-1">
         <header class="share-header">
@@ -545,11 +546,11 @@ export function createShare({
             <img class="share-logo" id="share-logo" src="" alt="" width="36" height="36">
             <div>
               <b class="share-title">Mars Roadster</b>
-              <span class="share-subtitle">本局成绩</span>
+              <span class="share-subtitle" data-i18n="share.title">${t('share.title')}</span>
             </div>
           </div>
           <span class="share-date" id="share-date"></span>
-          <button class="share-close" id="share-close" aria-label="关闭">✕</button>
+          <button class="share-close" id="share-close" aria-label="${t('menu.close')}" data-i18n-attr="aria-label:menu.close">✕</button>
         </header>
 
         <div class="share-hero" id="share-hero">
@@ -563,23 +564,23 @@ export function createShare({
 
         <div class="share-preview-wrap">
           <div class="share-preview-header">
-            <span class="share-preview-label">分享卡片预览</span>
+            <span class="share-preview-label" data-i18n="share.preview">${t('share.preview')}</span>
             <div class="share-fmt-toggle" id="share-fmt-toggle">
-              <button class="share-fmt-btn active" data-fmt="landscape">横版</button>
-              <button class="share-fmt-btn" data-fmt="portrait">竖版</button>
+              <button class="share-fmt-btn active" data-fmt="landscape" data-i18n="share.landscape">${t('share.landscape')}</button>
+              <button class="share-fmt-btn" data-fmt="portrait" data-i18n="share.portrait">${t('share.portrait')}</button>
             </div>
           </div>
           <div class="share-preview-canvas-wrap" id="share-preview-canvas-wrap">
             <canvas class="share-preview-canvas" id="share-preview-canvas"></canvas>
-            <div class="share-preview-loading" id="share-preview-loading">渲染中…</div>
+            <div class="share-preview-loading" id="share-preview-loading" data-i18n="share.rendering">${t('share.rendering')}</div>
           </div>
         </div>
 
         <footer class="share-actions" id="share-actions">
-          <button class="share-btn share-btn-save"  id="share-save">保存图片</button>
-          <button class="share-btn share-btn-share" id="share-share" style="display:none">分享</button>
-          <button class="share-btn share-btn-copy"  id="share-copy"  style="display:none">复制图片</button>
-          <button class="share-btn share-btn-primary" id="share-continue">继续驾驶</button>
+          <button class="share-btn share-btn-save"  id="share-save" data-i18n="share.save">${t('share.save')}</button>
+          <button class="share-btn share-btn-share" id="share-share" style="display:none" data-i18n="share.share">${t('share.share')}</button>
+          <button class="share-btn share-btn-copy"  id="share-copy"  style="display:none" data-i18n="share.copy">${t('share.copy')}</button>
+          <button class="share-btn share-btn-primary" id="share-continue" data-i18n="share.continue">${t('share.continue')}</button>
         </footer>
       </div>
     `;
@@ -664,18 +665,18 @@ export function createShare({
     const coins = stats.coins != null ? stats.coins : null;
     const ach   = stats.achievements;
     const rows = [
-      { label: '极速',     value: formatSpeed(stats.topSpeedKmh) },
-      { label: '0–100 用时', value: formatLaunch(stats.launchSec) },
-      { label: '最高海拔', value: formatAltitude(stats.maxAltM) },
-      { label: '里程',     value: stats.distanceKm != null ? `${Number(stats.distanceKm).toFixed(1)} km` : '—' },
+      { label: t('share.top'),     value: formatSpeed(stats.topSpeedKmh) },
+      { label: t('share.launch'), value: formatLaunch(stats.launchSec) },
+      { label: t('share.maxAlt'), value: formatAltitude(stats.maxAltM) },
+      { label: t('share.dist'),     value: stats.distanceKm != null ? `${Number(stats.distanceKm).toFixed(1)} km` : '—' },
       {
-        label: '金币',
+        label: t('share.coins'),
         value: coins != null ? String(coins) : '—',
         gold: true,
         coin: true,
       },
       {
-        label: '成就',
+        label: t('share.ach'),
         value: ach ? `${ach.unlocked} / ${ach.total}` : '—',
         cy: true,
       },
@@ -692,9 +693,9 @@ export function createShare({
     // 徽章行
     const badgeWrap = document.getElementById('share-badges');
     const badgeDefs = [
-      { key: 'reachedSpace',  label: '进入太空' },
-      { key: 'metOldFriend',  label: '与前辈同框' },
-      { key: 'home',          label: '安全返航' },
+      { key: 'reachedSpace',  label: t('share.badge.space') },
+      { key: 'metOldFriend',  label: t('share.badge.meet') },
+      { key: 'home',          label: t('share.badge.home') },
     ];
     badgeWrap.innerHTML = badgeDefs.map(b => `
       <span class="share-badge${stats[b.key] ? ' share-badge-earned' : ''}">${b.label}</span>
@@ -746,8 +747,8 @@ export function createShare({
       try {
         const blob = await canvasToBlob(c);
         await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-        copyBtn.textContent = '已复制 ✓';
-        setTimeout(() => { copyBtn.textContent = '复制图片'; }, 2200);
+        copyBtn.textContent = t('share.copied');
+        setTimeout(() => { copyBtn.textContent = t('share.copy'); }, 2200);
       } catch (_) {}
     };
 

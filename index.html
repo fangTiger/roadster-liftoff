@@ -43,22 +43,22 @@ kbd{display:inline-block;min-width:18px;padding:1px 5px;margin-right:4px;border-
 </style><link rel="stylesheet" href="/src/ui/ui.css"><link rel="stylesheet" href="/src/mobile/mobile.css"><link rel="stylesheet" href="/src/share/share.css"></head><body>
 <div class="speed" id="speed"></div>
 <div id="flash" style="position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none"></div>
-<div class="g" id="brand"><img class="logo" src="/logo.png" alt=""><div><b>Mars Roadster</b><small>离地 · 推进器超跑 · 实时 3D</small></div></div>
+<div class="g" id="brand"><img class="logo" src="/logo.png" alt=""><div><b>Mars Roadster</b><small data-i18n="brand.sub">离地 · 推进器超跑 · 实时 3D</small></div></div>
 <div class="g" id="cams"><span data-v="road">追随</span><span data-v="lift">低角跟拍</span><span data-v="space">电影运镜</span><span>驾驶舱</span><span>自由环绕</span></div>
 <div class="g" id="tools"><span>◎</span><span>♪</span><span>⛶</span><span>⚙</span><span>?</span></div>
 <div class="g" id="launch"><small id="lt">0 – 100 KM/H</small><b id="lv">0.00<i>s</i></b></div>
-<div class="g" id="toast"><span class="ic">✦</span><div><b id="tt">0.8 秒俱乐部</b><small id="ts">0–100 km/h 用时不到 0.9 秒</small></div></div>
+<div class="g" id="toast"><span class="ic">✦</span><div><b id="tt"></b><small id="ts"></small></div></div>
 <div class="g" id="gauge">
   <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="6" stroke-dasharray="198 66" transform="rotate(135 50 50)" stroke-linecap="round"/>
   <circle cx="50" cy="50" r="42" fill="none" stroke="url(#gr)" stroke-width="6" stroke-dasharray="0 264" transform="rotate(135 50 50)" stroke-linecap="round"/>
   <defs><linearGradient id="gr"><stop offset="0" stop-color="#ffb35c"/><stop offset="1" stop-color="#ff3d3a"/></linearGradient></defs>
   <text x="50" y="53" text-anchor="middle" fill="#f4f6fa" font-size="26" font-weight="700" font-family="-apple-system" id="spd">0</text>
   <text x="50" y="68" text-anchor="middle" fill="rgba(244,246,250,.6)" font-size="9" font-family="-apple-system">KM/H</text></svg>
-  <div class="rows"><span>推进剂</span><b><span id="fuel"><i id="fuelbar" style="width:100%"></i></span><span id="fuelpct">100%</span></b><span>高度</span><b id="alt">0 m</b><span>里程</span><b id="dist">0.0 km</b><span>金币</span><b id="coins"><i class="coin"></i><span id="coinn">0</span></b><span>镜头</span><b id="camname">追随</b></div>
+  <div class="rows"><span data-i18n="hud.fuel">推进剂</span><b><span id="fuel"><i id="fuelbar" style="width:100%"></i></span><span id="fuelpct">100%</span></b><span data-i18n="hud.alt">高度</span><b id="alt">0 m</b><span data-i18n="hud.dist">里程</span><b id="dist">0.0 km</b><span data-i18n="hud.coins">金币</span><b id="coins"><i class="coin"></i><span id="coinn">0</span></b><span data-i18n="hud.camera">镜头</span><b id="camname">追随</b></div>
 </div>
-<div class="g" id="keys"><span><kbd>W</kbd>加速</span><span><kbd>S</kbd>刹车</span><span><kbd>A</kbd><kbd>D</kbd>转向</span><span><kbd>空格</kbd>推进器</span><span>按住<kbd>空格</kbd>冲出大气层</span><span><kbd>R</kbd>翻滚</span><span><kbd>C</kbd>镜头</span><span><kbd>H</kbd>喇叭</span></div>
-<div class="g" id="credit"><span class="dot"></span>Built with <b>Arc Studio</b> + <b>Claude Code</b><span class="by">作者 <b>Captain@mycndota</b></span></div>
-<div class="g" id="bag"><div class="top"><div class="n"><span id="hops">0</span><small>次离地</small></div><div class="ach">成就<b>0 / 20</b></div></div>
+<div class="g" id="keys"><span><kbd>W</kbd><span data-i18n="bar.throttle">加速</span></span><span><kbd>S</kbd><span data-i18n="bar.brake">刹车</span></span><span><kbd>A</kbd><kbd>D</kbd><span data-i18n="bar.steer">转向</span></span><span><kbd data-i18n="key.space">空格</kbd><span data-i18n="bar.jet">推进器</span></span><span data-i18n-html="bar.space">按住<kbd>空格</kbd>冲出大气层</span><span><kbd>R</kbd><span data-i18n="bar.roll">翻滚</span></span><span><kbd>C</kbd><span data-i18n="bar.camera">镜头</span></span><span><kbd>H</kbd><span data-i18n="bar.horn">喇叭</span></span></div>
+<div class="g" id="credit"><span class="dot"></span>Built with <b>Arc Studio</b> + <b>Claude Code</b><span class="by"><span data-i18n="credit.author">作者</span> <b>Captain@mycndota</b></span></div>
+<div class="g" id="bag"><div class="top"><div class="n"><span id="hops">0</span><small data-i18n="hud.hops">次离地</small></div><div class="ach"><span data-i18n="hud.ach">成就</span><b>0 / 20</b></div></div>
 <div class="time"><span>☀</span><div class="bar"><i></i></div><span id="clock">18:42</span></div></div>
 <script type="module" src="/src/main.js"></script>
 </body></html>

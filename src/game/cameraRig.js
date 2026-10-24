@@ -7,10 +7,11 @@
 // 公路驾驶时五个机位都生效；飞行导演接管时，只有驾驶舱和自由环绕会覆盖导演镜头
 import * as THREE from 'three';
 import { createChaseCamera } from './chaseCamera.js';
+import { t, onLangChange } from '../i18n/i18n.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 export const CAM_MODES = ['chase', 'low', 'cine', 'cockpit', 'free'];
-const CAM_NAMES = { chase: '追随', low: '低角跟拍', cine: '电影运镜', cockpit: '驾驶舱', free: '自由环绕' };
+const camName = m => t('cam.' + m);
 const EYE = V(-.36, 1.02, .22);            // 驾驶员眼睛（车身局部坐标，车头朝 -Z）
 
 export function createCameraRig(camera, canvas) {
@@ -34,7 +35,7 @@ export function createCameraRig(camera, canvas) {
   function setMode(m) {
     mode = m; cine.t = 99;
     document.querySelectorAll('#cams span').forEach((s, i) => s.classList.toggle('on', CAM_MODES[i] === m));
-    const n = document.getElementById('camname'); if (n) n.textContent = CAM_NAMES[m];
+    const n = document.getElementById('camname'); if (n) n.textContent = camName(m);
     canvas.style.cursor = m === 'free' ? 'grab' : '';
     listeners.forEach(f => f(m));
   }
@@ -106,6 +107,9 @@ export function createCameraRig(camera, canvas) {
     if (mode === 'free') { orbit(dt, car); return true; }
     pos.copy(camera.position); return false;
   }
+  // 顶部机位按钮与左下角“镜头”名称跟随语言
+  const paintNames = () => { document.querySelectorAll('#cams span').forEach((s, i) => { s.textContent = camName(CAM_MODES[i]); }); const n = document.getElementById('camname'); if (n) n.textContent = camName(mode); };
+  onLangChange(paintNames); paintNames();
   setMode('chase');
   const rig = { setMode, cycle, updateDrive, updateFlight, syncChase: () => chase.reset(camera.position), get mode() { return mode; }, onChange: f => listeners.push(f), shake: true };
   return rig;

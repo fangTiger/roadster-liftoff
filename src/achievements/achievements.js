@@ -3,6 +3,7 @@
  * 纯 ES 模块，无依赖，无构建步骤。
  * 所有持久化数据存储于 localStorage，失败时静默降级。
  */
+import { t } from '../i18n/i18n.js';
 
 // ─── 常量 ────────────────────────────────────────────────────────────────────
 
@@ -11,124 +12,86 @@ const DEFS = [
   {
     id: 'first_drive',
     index: 1,
-    name: '点火',
-    desc: '第一次踩下电门',
   },
   {
     id: 'club08',
     index: 2,
-    name: '0.8 秒俱乐部',
-    desc: '0–100 km/h 用时不到 0.9 秒',
   },
   {
     id: 'top_speed',
     index: 3,
-    name: '极速',
-    desc: '时速达到 380 km/h',
   },
   {
     id: 'first_flight',
     index: 4,
-    name: '第一次起飞',
-    desc: '底部推进器把车托离地面',
   },
   {
     id: 'hover10',
     index: 5,
-    name: '悬停',
-    desc: '离地 10 米',
   },
   {
     id: 'bunny',
     index: 6,
-    name: '弹跳',
-    desc: '一次游戏中离地 5 次',
   },
   {
     id: 'gravel',
     index: 7,
-    name: '越野',
-    desc: '时速 150 km/h 以上冲上碎石路肩',
   },
   {
     id: 'marathon',
     index: 8,
-    name: '长途',
-    desc: '累计行驶 10 公里',
   },
   {
     id: 'boom',
     index: 9,
-    name: '音爆',
-    desc: '竖直速度突破 1 马赫',
   },
   {
     id: 'clouds',
     index: 10,
-    name: '云上',
-    desc: '穿出云层',
   },
   {
     id: 'strato',
     index: 11,
-    name: '平流层',
-    desc: '爬升到 12 公里',
   },
   {
     id: 'karman',
     index: 12,
-    name: '卡门线',
-    desc: '海拔 100 公里，进入太空',
   },
   {
     id: 'meet',
     index: 13,
-    name: '与前辈同框',
-    desc: '在轨道上遇见 2018 年的老前辈',
   },
   {
     id: 'home',
     index: 14,
-    name: '安全返航',
-    desc: '从轨道再入并平稳落回公路',
   },
   {
     id: 'so_close',
     index: 15,
-    name: '差一点',
-    desc: '推进剂耗尽，从半空掉了下来',
   },
   {
     id: 'director',
     index: 16,
-    name: '导演',
-    desc: '试遍全部 5 个机位',
   },
   {
     id: 'photographer',
     index: 17,
-    name: '摄影师',
-    desc: '保存一张截图',
   },
   {
     id: 'frequent',
     index: 18,
-    name: '太空常客',
-    desc: '累计进入轨道 3 次',
   },
   {
     id: 'barrel_roll',
     index: 19,
-    name: '桶滚',
-    desc: '在空中完成一次 360° 翻滚',
   },
   {
     id: 'coin_hunter',
     index: 20,
-    name: '金币猎人',
-    desc: '一局里吃到 100 枚金币',
   },
 ];
+// 名称与描述按当前语言取词（词条 ach.<id>.name / ach.<id>.desc）
+for (const d of DEFS) Object.defineProperties(d, { name: { get: () => t(`ach.${d.id}.name`), enumerable: true }, desc: { get: () => t(`ach.${d.id}.desc`), enumerable: true } });
 
 // 全部 5 个机位名称（用于 director 成就追踪）
 const ALL_CAMERAS = new Set(['chase', 'low', 'cine', 'cockpit', 'free']);
@@ -315,7 +278,7 @@ export function createAchievements({ storageKey = 'liftoff.achievements.v1' } = 
         <span class="ach-toast-shine"></span>
       </div>
       <div class="ach-toast-body">
-        <b class="ach-toast-title">成就解锁 · ${def.name}</b>
+        <b class="ach-toast-title">${t('ach.unlocked', { name: def.name })}</b>
         <span class="ach-toast-desc">${def.desc}</span>
       </div>
     `;
@@ -356,7 +319,7 @@ export function createAchievements({ storageKey = 'liftoff.achievements.v1' } = 
       panelRoot.className = 'ach-panel-wrap';
       panelRoot.setAttribute('role', 'dialog');
       panelRoot.setAttribute('aria-modal', 'true');
-      panelRoot.setAttribute('aria-label', '成就面板');
+      panelRoot.setAttribute('aria-label', t('ach.panel'));
       b.appendChild(panelRoot);
 
       // 点击半透明背景关闭
@@ -392,7 +355,7 @@ export function createAchievements({ storageKey = 'liftoff.achievements.v1' } = 
           </div>
           <div class="ach-item-info">
             <b class="ach-item-name">${def.name}</b>
-            <span class="ach-item-desc">${done ? def.desc : '？？？'}</span>
+            <span class="ach-item-desc">${done ? def.desc : t('ach.locked')}</span>
             ${done ? `<span class="ach-item-date">${date}</span>` : ''}
           </div>
         </div>
@@ -402,14 +365,14 @@ export function createAchievements({ storageKey = 'liftoff.achievements.v1' } = 
     panelRoot.innerHTML = `
       <div class="ach-panel g" role="document">
         <header class="ach-panel-header">
-          <div class="ach-panel-title">🏆 成就</div>
+          <div class="ach-panel-title">🏆 ${t('ach.title')}</div>
           <div class="ach-panel-progress-wrap">
             <div class="ach-panel-progress-bar">
               <div class="ach-panel-progress-fill" style="width:${pct}%"></div>
             </div>
             <span class="ach-panel-progress-label">${count} / ${DEFS.length}</span>
           </div>
-          <button class="ach-panel-close" aria-label="关闭成就面板">✕</button>
+          <button class="ach-panel-close" aria-label="${t('ach.close')}">✕</button>
         </header>
         <div class="ach-grid">
           ${items}

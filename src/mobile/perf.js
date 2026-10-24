@@ -1,3 +1,4 @@
+import { t } from '../i18n/i18n.js';
 // 自动档只调整像素比与底档泛光，保留用户选择的质量上限。
 export const QUALITY_PRESETS = Object.freeze(['自动', '低', '中', '高', '极致']);
 export function getDefaultPreset() {
@@ -20,7 +21,7 @@ export function createPerf({ engine, getPreset, setPreset }) {
     if (!globalThis.document) return;
     toast = document.createElement('div');
     toast.className = 'mobile-perf-toast'; toast.role = 'status';
-    toast.textContent = '已自动降低画质以保持流畅';
+    toast.textContent = t('toast.autoQuality');
     document.body.append(toast);
     timer = setTimeout(() => { toast.remove(); }, 4200);
   }
