@@ -75,10 +75,11 @@ export async function createCar() {
       const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.x = rotX; body.add(g);
       for (const [r, len, col] of sizes) {
         const f = new THREE.Mesh(new THREE.ConeGeometry(r, len, 20, 1, true), flameMaterial(col));
-        f.position.y = len / 2; f.userData.len = len; g.add(f); flames.push(f);
+        f.position.y = len / 2; f.userData.len = len; f.renderOrder = 10; g.add(f); flames.push(f);   // 排在路面等贴地透明层之后渲染，否则会被路面盖住
       }
     }
-    return (k, t) => { for (const f of flames) { f.material.uniforms.k.value = k; f.material.uniforms.t.value = t; const s = .4 + .6 * k; f.scale.set(1, s, 1); f.position.y = f.userData.len * s / 2; f.visible = k > .01; } };
+    // reach：喷口到地面的距离（米），离地很近时把火焰收短到刚好触地，不穿进地下
+    return (k, t, reach = Infinity) => { for (const f of flames) { f.material.uniforms.k.value = k; f.material.uniforms.t.value = t; const s = Math.min(.4 + .6 * k, Math.max(.12, (reach + .15) / f.userData.len)); f.scale.set(1, s, 1); f.position.y = f.userData.len * s / 2; f.visible = k > .01; } };
   }
   const setThrust = thrusterSet([-.5, -.17, .17, .5].map(x => [x, .38, 2.2]), Math.PI / 2, [[.065, 1.4, '#9fdcff'], [.03, .55, '#ffffff']]);
   const setLift = thrusterSet([[-.72, .16, -1.45], [.72, .16, -1.45], [-.72, .16, 1.3], [.72, .16, 1.3]], Math.PI, [[.1, 2.6, '#9fdcff'], [.045, 1.0, '#ffffff']]);
@@ -97,7 +98,7 @@ export async function createCar() {
         gl_FragColor=vec4(clamp(col*f*front*front*flick*k*3.,0.,8.),1.);
       }`,
   }));
-  plasma.scale.set(1.35, .9, 2.7); plasma.position.set(0, .62, -.3); plasma.visible = false; body.add(plasma);
+  plasma.scale.set(1.35, .9, 2.7); plasma.position.set(0, .62, -.3); plasma.visible = false; plasma.renderOrder = 10; body.add(plasma);
   // 尾迹：从车身两侧向后拖出的长条火焰
   const trail = new THREE.Mesh(new THREE.ConeGeometry(.95, 7, 32, 1, true), new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, uniforms: { k: { value: 0 }, t: { value: 0 } },
@@ -132,7 +133,7 @@ export async function createCar() {
       }`,
   }));
   vapor.rotation.x = -Math.PI / 2; vapor.position.set(0, .62, .6);   // 锥尖朝车头（-Z），开口向后
-  vapor.visible = false; body.add(vapor);
+  vapor.visible = false; vapor.renderOrder = 10; body.add(vapor);
   const setVapor = (k, t) => { vapor.visible = k > .01; vapor.material.uniforms.k.value = k; vapor.material.uniforms.t.value = t; vapor.scale.setScalar(.85 + .3 * k); };
   // 方向盘：模型里的 yoke 是独立网格，按顶点求出盘面法线作为转轴，挂到以盘心为原点的枢轴上
   const yoke = meshes.find(m => /roadster014/.test(m.name));
