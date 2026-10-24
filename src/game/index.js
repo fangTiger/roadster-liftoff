@@ -27,7 +27,7 @@ const engine = createEngine(CAPTURE ? { pixelRatio: 1 } : {});
 // 音频与界面外壳先创建：加载期间显示进度，点击开始时在同一个手势里解锁音频
 const audio = CAPTURE ? null : createAudio({ urls: { road: '/assets/music/road-80s-synthwave.mp3', space: '/assets/music/space-cosmos.mp3', oldfriend: '/assets/music/oldfriend-reflected-light.mp3' } });
 // 画质档位：手动档由界面直接应用；"自动"档以用户上一次的手动档为上限，由 perf 模块自适应降档
-let mobilePreset = getDefaultPreset(), mobileCeiling = '高', perf = null, desertRef = null, grassK = 1;
+let mobilePreset = getDefaultPreset(), mobileCeiling = '极致', perf = null, desertRef = null, grassK = 1;
 function setMobilePreset(preset) {
   if (!QUALITY_PRESETS.includes(preset)) return;
   mobilePreset = preset;
