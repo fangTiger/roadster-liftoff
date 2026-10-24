@@ -1,5 +1,5 @@
 /**
- * 离地 LIFTOFF — 成就系统
+ * Mars Roadster — 成就系统
  * 纯 ES 模块，无依赖，无构建步骤。
  * 所有持久化数据存储于 localStorage，失败时静默降级。
  */

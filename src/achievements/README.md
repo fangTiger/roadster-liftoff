@@ -1,4 +1,4 @@
-# 离地 LIFTOFF — 成就系统
+# Mars Roadster — 成就系统
 
 纯 ES 模块，无外部依赖，无构建步骤。支持持久化（localStorage）、吐司通知队列、全屏成就面板，与主游戏 HUD 视觉风格统一。
 

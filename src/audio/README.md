@@ -1,4 +1,4 @@
-# LIFTOFF 音频模块
+# Mars Roadster 音频模块
 
 零依赖原生 ES 模块，音乐通过 `<audio>` → `MediaElementAudioSourceNode` 流式播放，不下载解码整首 MP3。音效、噪声和混响均在本地合成，无需安装包或构建。
 
