@@ -12,7 +12,7 @@ const SpeedBlurShader = {
   vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
   fragmentShader: `uniform sampler2D tDiffuse; uniform float strength; uniform vec2 center; varying vec2 vUv;
     void main(){
-      vec2 d=vUv-center; float r=length(d*vec2(1.6,1.)); float w=smoothstep(.18,.75,r)*strength;
+      vec2 d=vUv-center; float r=length(d*vec2(1.6,1.)); float w=smoothstep(.3,.85,r)*strength;
       vec3 c=vec3(0.);
       for(int i=0;i<10;i++){ float t=float(i)/9.; c+=texture2D(tDiffuse,vUv-d*w*t).rgb; }
       c/=10.;

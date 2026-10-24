@@ -27,7 +27,7 @@ const engine = createEngine(CAPTURE ? { pixelRatio: 1 } : {});
 // 音频与界面外壳先创建：加载期间显示进度，点击开始时在同一个手势里解锁音频
 const audio = CAPTURE ? null : createAudio({ urls: { road: '/assets/music/road-80s-synthwave.mp3', space: '/assets/music/space-cosmos.mp3', oldfriend: '/assets/music/oldfriend-reflected-light.mp3' } });
 // 画质档位：手动档由界面直接应用；"自动"档以用户上一次的手动档为上限，由 perf 模块自适应降档
-let mobilePreset = getDefaultPreset(), mobileCeiling = '高', perf = null;
+let mobilePreset = getDefaultPreset(), mobileCeiling = '高', perf = null, desertRef = null, grassK = 1;
 function setMobilePreset(preset) {
   if (!QUALITY_PRESETS.includes(preset)) return;
   mobilePreset = preset;
@@ -36,6 +36,7 @@ function setMobilePreset(preset) {
   const ratio = base === '极致' ? Math.min(devicePixelRatio || 1, 2) : base === '高' ? Math.min(devicePixelRatio || 1, 1.5) : 1;
   engine.renderer.setPixelRatio(ratio); engine.composer.setPixelRatio(ratio); engine.composer.setSize(innerWidth, innerHeight);
   engine.renderer.shadowMap.enabled = base !== '低'; engine.bloom.enabled = base !== '低';
+  grassK = base === '低' ? .3 : base === '中' ? .6 : 1; desertRef?.setGrassDensity(grassK);      // 路边草丛按画质抽稀
   perf?.refresh();
 }
 let started = CAPTURE, touch = null;
@@ -51,6 +52,7 @@ if (DBG.includes('noblur')) engine.blur.enabled = false;
 const { scene, camera, renderer } = engine;
 
 const desert = await createDesert(scene, renderer);
+desertRef = desert; desert.setGrassDensity(grassK);
 ui?.showLoading(.35, '加载推进器超跑…');
 const car = await createCar(); scene.add(car.root);
 ui?.showLoading(.5, '加载地球与星空…');
@@ -241,7 +243,7 @@ function driveFrame(dt, inp) {
   updateDust(dt, dz);
   // 世界滚动、阴影跟随、镜头、后期
   blob.position.x = s.x; blob.rotation.z = s.yaw; blob.scale.setScalar(1 + s.y * .06); blob.material.opacity = Math.max(0, 1 - s.y / 12);
-  desert.advance(dz); desert.follow(car.root.position, camera); desert.setAltitude(s.y);
+  desert.advance(dz, dt); desert.follow(car.root.position, camera); desert.setAltitude(s.y);
   // 金币：连着吃时音调逐个升高，断档 1.2 秒后从头开始
   const got = coins.update(dt, desert.trackD, dz, { x: s.x, y: s.y }, clock.t);
   coinStreakT += dt; if (coinStreakT > 1.2) coinStreak = 0;
@@ -267,7 +269,7 @@ function frame(dt, inp) {
     for (const w of car.wheels) w.spin.rotation.x -= s.v / w.radius * dt;
     updateDust(dt, 0);
   }
-  if (flight.state.mode === 'drive') engine.blur.uniforms.strength.value = THREE.MathUtils.clamp((s.v * KMH - 120) / 280, 0, 1) * .055;
+  if (flight.state.mode === 'drive') engine.blur.uniforms.strength.value = THREE.MathUtils.clamp((s.v * KMH - 200) / 220, 0, 1) * .028;   // 只在高速时轻微拉丝，画面保持清晰
   hud.update(s);
   updateAudio(dt, inp);
   updateAchievements();
