@@ -75,6 +75,44 @@ const coins = createCoins(desert.root);
 let coinStreak = 0, coinStreakT = 0, lastMode = 'drive';
 const flight = createFlight({ scene, camera, desert, space, clouds, cloudSea, sky, car, vehicle, hud, flash: document.getElementById('flash'), music: null, engine, onEvent: (e, d) => { ach.report(e, d); onFlightEvent(e); } });
 
+// 预热：冲太空途中才第一次出现的东西（天空穹顶、云层、太空场景、云海、老前辈），首次显示时要编译着色器、把 8k 贴图传进显卡；
+// 飞进太空时沙漠整组隐藏、关雾，灯光数量变化会让所有材质重新编译——实测爬升时卡顿 0.6 秒与 1 秒。
+// 加载阶段先按“贴地爬升”和“太空”两种场景状态各编译一次、上传全部贴图、预生成一次太空环境反射，再恢复原状
+async function warmUp(progress = () => {}) {
+  const t0 = performance.now(), log = [];
+  const step = async (k, label) => { log.push(`${label} ${Math.round(performance.now() - t0)}`); progress(k); await new Promise(r => requestAnimationFrame(r)); };   // 每步让出一帧，进度条能动
+  const uploadTextures = root => root.traverse(o => {
+    for (const m of [].concat(o.material || [])) {
+      for (const v of Object.values(m)) if (v?.isTexture) renderer.initTexture(v);
+      for (const u of Object.values(m.uniforms || {})) if (u?.value?.isTexture) renderer.initTexture(u.value);
+    }
+  });
+  const vis = [sky.dome, clouds.group, space.group, cloudSea.sea, space.oldFriend].map(o => [o, o.visible]);
+  const bg = scene.background, env = scene.environment, envI = scene.environmentIntensity;
+  // 只编译还不够：首次真正绘制时还要上传顶点数据、生成阴影与后期处理的着色器。
+  // 所以在加载画面背后按两种状态各真画两帧，期间关掉视锥剔除，保证每个物体都被画到
+  const culled = []; scene.traverse(o => { if (o.isMesh || o.isPoints || o.isSprite) { culled.push([o, o.frustumCulled]); o.frustumCulled = false; } });
+  const draw = async () => { await renderer.compileAsync(scene, camera); engine.render(); engine.render(); };   // 并行编译着色器（浏览器支持时不阻塞）
+  // 状态一：贴地爬升（沙漠 + 天空穹顶 + 云层）
+  sky.dome.visible = clouds.group.visible = true;
+  uploadTextures(sky.dome); uploadTextures(clouds.group); await step(.93, '贴图');
+  await draw(); await step(.95, '爬升');
+  // 状态二：太空（沙漠隐藏、无雾、太空场景与云海、老前辈），并预生成太空环境反射供爬升到 30 公里时直接使用
+  desert.setVisible(false); clouds.group.visible = false;
+  space.group.visible = cloudSea.sea.visible = space.oldFriend.visible = true; scene.background = new THREE.Color('#000');
+  uploadTextures(space.group); await step(.96, '太空贴图');
+  await draw(); await step(.97, '太空');
+  space.place(car.root.position, 33, new THREE.Vector3(0, 0, -1));   // 先把地球摆到约 30 公里高度时的位置再烘焙
+  scene.environment = space.bakeEnv(); await draw(); await step(.98, '环境反射');
+  // 恢复
+  desert.setVisible(true); scene.background = bg; scene.environment = env; scene.environmentIntensity = envI;
+  for (const [o, v] of vis) o.visible = v;
+  for (const [o, f] of culled) o.frustumCulled = f;
+  await draw();
+  console.info(`[预热] 着色器与贴图预加载 ${Math.round(performance.now() - t0)} ms（${log.join(' / ')}）`);
+}
+if (!CAPTURE) { ui?.showLoading(.9, t('load.ready')); try { await warmUp(k => ui?.showLoading(k, t('load.ready'))); } catch (e) { console.warn('[预热] 跳过：', e); } }   // 预热只是优化，出错也不能挡住开始游戏
+
 // 本局成绩：供结算面板与分享卡使用
 const run = { topSpeedKmh: 0, launchSec: null, maxAltM: 0, reachedSpace: false, metOldFriend: false, home: false };
 const share = CAPTURE ? null : createShare({ logoUrl: '/logo.png', injectCss: false });
