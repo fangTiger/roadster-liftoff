@@ -69,7 +69,7 @@ const flight = createFlight({ scene, camera, desert, space, clouds, cloudSea, sk
 
 // 扬尘：起步烧胎或开上路肩时从后轮扬起
 const dustTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); const r = g.createRadialGradient(64, 64, 0, 64, 64, 64); r.addColorStop(0, 'rgba(150,125,95,.55)'); r.addColorStop(1, 'rgba(150,125,95,0)'); g.fillStyle = r; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); })();
-const dust = Array.from({ length: 70 }, () => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: dustTex, transparent: true, depthWrite: false, opacity: 0 })); s.visible = false; scene.add(s); return { s, life: 0, max: 1, vx: 0, vy: 0, vz: 0 }; });
+const dust = Array.from({ length: 70 }, () => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: dustTex, transparent: true, depthWrite: false, opacity: 0 })); s.visible = false; s.renderOrder = 6; scene.add(s); return { s, life: 0, max: 1, vx: 0, vy: 0, vz: 0 }; });
 let dustIdx = 0, dustAcc = 0, jetAcc = 0;
 function emitDust(x, z, power) {
   const d = dust[dustIdx++ % dust.length];
@@ -93,6 +93,10 @@ function updateDust(dt, dz) {
 // 车底接触阴影：贴地的柔和暗斑，离地越高越淡、越大
 const blob = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 5.2), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, map: (() => { const c = document.createElement('canvas'); c.width = 128; c.height = 256; const g = c.getContext('2d'); g.setTransform(1, 0, 0, 2, 0, 0); const r = g.createRadialGradient(64, 64, 8, 64, 64, 64); r.addColorStop(0, 'rgba(0,0,0,.75)'); r.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = r; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); })() }));
 blob.rotation.x = -Math.PI / 2; blob.position.y = .02; blob.renderOrder = 3; scene.add(blob);
+// 喷流光斑：车底推进器贴近地面时，地面被照亮的一圈蓝白光
+const jetGlow = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 6.4), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: '#9fd8ff', opacity: 0,
+  map: (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); const r = g.createRadialGradient(64, 64, 0, 64, 64, 64); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(.35, 'rgba(255,255,255,.45)'); r.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = r; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); })() }));
+jetGlow.rotation.x = -Math.PI / 2; jetGlow.position.y = .03; jetGlow.renderOrder = 4; scene.add(jetGlow);
 
 // 音频：录制模式下不创建；首次按键或点击时解锁（浏览器自动播放规则）
 flight.setMusic(audio);
@@ -191,7 +195,8 @@ function driveFrame(dt, inp) {
   fx.boost = thrust;
   const liftVis = Math.max(s.lift, Math.min(1, s.assist * 1.4));
   car.setThrust(DBG.includes('noflame') ? 0 : thrust, clock.t);
-  car.setLift(DBG.includes('noflame') ? 0 : liftVis, clock.t);
+  car.setLift(DBG.includes('noflame') ? 0 : liftVis, clock.t, s.y + .16);
+  jetGlow.position.x = s.x; jetGlow.rotation.z = s.yaw; jetGlow.material.opacity = DBG.includes('noflame') ? 0 : liftVis * Math.max(0, 1 - s.y / 5) * (.75 + .25 * Math.sin(clock.t * 70));
   // 扬尘
   const launchDust = inp.throttle && s.v < 25 ? THREE.MathUtils.clamp((s.a - 10) / 20, 0, 1) : 0;
   const dustRate = launchDust * 40 + s.offroad * Math.min(1, s.v / 10) * 50;
@@ -213,9 +218,9 @@ function driveFrame(dt, inp) {
 function frame(dt, inp) {
   clock.t += dt;
   const s = vehicle.state;
-  if (flight.state.mode === 'drive') { blob.visible = true; driveFrame(dt, inp); }
+  if (flight.state.mode === 'drive') { blob.visible = jetGlow.visible = true; driveFrame(dt, inp); }
   else {
-    blob.visible = false;
+    blob.visible = jetGlow.visible = false;
     flight.update(dt, inp, clock.t);
     updateRoll(dt);
     updateCockpitBits(dt, inp, (inp.left ? 1 : 0) - (inp.right ? 1 : 0));
