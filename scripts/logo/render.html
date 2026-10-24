@@ -1,0 +1,40 @@
+<!doctype html><html><head><meta charset="utf-8"><title>logo render</title></head>
+<body style="margin:0;background:#333">
+<script type="module">
+// 临时：用游戏里的真车模型渲染 LOGO（俯视、车头朝左上），再在 2D 画布上合成背景、光轨与白色喷焰
+import * as THREE from 'three';
+import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
+import { createCar } from '/src/game/car.js';
+
+const P = new URLSearchParams(location.search);
+const S = 1024, TILT = +(P.get('tilt') ?? .32), FOV = +(P.get('fov') ?? 22), ZOOM = +(P.get('zoom') ?? 1);
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setSize(S, S); renderer.setPixelRatio(1);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = +(P.get('exp') ?? .9);
+renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.setClearColor(0, 0);
+const scene = new THREE.Scene();
+const hdr = await new HDRLoader().loadAsync('/assets/hdri/goegap_road_2k.hdr');
+hdr.mapping = THREE.EquirectangularReflectionMapping;
+{ const d = hdr.image.data, cap = THREE.DataUtils.toHalfFloat(30000); if (d instanceof Uint16Array) for (let i = 0; i < d.length; i++) if ((d[i] & 0x7C00) === 0x7C00 || (d[i] < 0x8000 && d[i] > cap)) d[i] = cap; }
+scene.environment = hdr; scene.environmentRotation.y = +(P.get('envrot') ?? 2.2); scene.environmentIntensity = 1;
+const key = new THREE.DirectionalLight('#ffffff', 2.2); key.position.set(-3, 8, -2); scene.add(key);
+const car = await createCar(); scene.add(car.root);
+car.setHeadlights(1);
+const YAW = Math.PI / 4;                          // 车头 -Z 转向左上
+car.root.rotation.y = YAW;
+const cam = new THREE.PerspectiveCamera(FOV, 1, .1, 200);
+// 镜头在车后上方（右下方向）略斜俯视，能看到一点车尾和侧面，立体感更强
+const back = new THREE.Vector3(Math.sin(YAW), 0, Math.cos(YAW));
+const dist = 14 / ZOOM;
+cam.position.copy(back.clone().multiplyScalar(dist * Math.sin(TILT))).add(new THREE.Vector3(0, dist * Math.cos(TILT), 0));
+const SHIFT = +(P.get('shift') ?? 1.2);                 // 视线对准车尾后方，车在画面里偏左上，给喷焰留出右下空间
+cam.position.add(back.clone().multiplyScalar(SHIFT));
+cam.up.set(0, 0, -1); cam.lookAt(back.clone().multiplyScalar(SHIFT).setY(.5));
+renderer.render(scene, cam);
+// 车尾两个喷口在屏幕上的位置
+const rearL = new THREE.Vector3(-.36, .45, 2.15), rearR = new THREE.Vector3(.36, .45, 2.15);
+car.body.updateWorldMatrix(true, true);
+const proj = v => { const p = car.body.localToWorld(v.clone()).project(cam); return [(p.x + 1) / 2 * S, (1 - p.y) / 2 * S]; };
+window.__render = { png: renderer.domElement.toDataURL('image/png'), rear: [proj(rearL), proj(rearR)], nose: proj(new THREE.Vector3(0, .45, -2.2)) };
+document.title = 'ready';
+</script></body></html>
