@@ -189,7 +189,7 @@ function updateAudio(dt, inp) {
   if (!audio) return;
   const s = vehicle.state, f = flight.state, drive = f.mode === 'drive';
   audio.update(dt, { mode: drive ? 'drive' : f.mode, speedKmh: s.v * KMH, throttle: !!inp.throttle, brake: !!inp.brake, jet: !!inp.jet,
-    lift: drive ? Math.max(s.lift, s.assist * .6) : (f.mode === 'ascent' && inp.jet ? 1 : 0), altitude: drive ? s.y : f.alt, offroad: s.offroad, landing: s.landing, plasma: f.plasma,
+    lift: Math.max(drive ? Math.max(s.lift, s.assist * .6) : (f.mode === 'ascent' && inp.jet ? 1 : 0), rcsLevel * .45),   // 姿态喷口点火时也有喷气声 altitude: drive ? s.y : f.alt, offroad: s.offroad, landing: s.landing, plasma: f.plasma,
     boost: drive ? fx.boost : 0, accel: drive ? THREE.MathUtils.clamp(s.a / A_REF, 0, 1) : 0 });
   if (s.landing > .3 && aud.landing <= .3) audio.event('land');
   if (s.launch.timing && !aud.timing) audio.event('launch');
@@ -226,7 +226,7 @@ function updateSuspension(dt, s) {
   return susp.comp;
 }
 // 翻滚：R 键绕车身纵轴转一整圈，方向跟随当前转向（默认向左）；公路上需离地 1.2 米以上，爬升和太空中随时可用
-const roll = { t: -1, dir: 1, dur: 1.15 };
+const roll = { t: -1, u: -1, dir: 1, dur: 1.15 };
 function tryRoll(inp) {
   const m = flight.state.mode, s = vehicle.state;
   if (roll.t >= 0 || !(m === 'drive' ? s.y > 1.2 : m === 'ascent' || m === 'insert' || m === 'orbit')) return;
@@ -235,13 +235,29 @@ function tryRoll(inp) {
   audio?.event('roll');
 }
 function updateRoll(dt) {
-  if (roll.t < 0) return 0;
+  if (roll.t < 0) { roll.u = -1; return 0; }
   roll.t += dt; const u = Math.min(1, roll.t / roll.dur), e = u * u * u * (u * (u * 6 - 15) + 10);
   car.setRoll(roll.dir * e * Math.PI * 2);
+  roll.u = u;
   if (u >= 1) { roll.t = -1; car.setRoll(0); vehicle.state.rolling = false; ach.report('roll'); if (!rollShown) { rollShown = true; hud.toast(t('toast.roll'), t('toast.rollSub'), 2600); } }
   return Math.sin(Math.PI * u);             // 0→1→0：翻滚中段最强
 }
 let rollShown = false;
+// 姿态喷口：strafe > 0 向左平移、yaw > 0 车头向左转，换算成前左/前右/后左/后右四个喷口的强度
+// （左侧喷气把车推向右；前右 + 后左一起喷，车头向左转）
+let rcsLevel = 0;                // 姿态喷口当前最大强度，给推进器音效
+const bell01 = (x, a, b) => x <= a || x >= b ? 0 : Math.sin(Math.PI * (x - a) / (b - a));
+function updateRCS(inp) {
+  const s = vehicle.state, f = flight.state;
+  let strafe = f.mode === 'drive' ? 0 : f.rcs.strafe, yaw = f.mode === 'drive' ? 0 : f.rcs.yaw;
+  // 空中转向：离地后靠喷口转向
+  if (f.mode === 'drive' && s.airborne && s.y > .4) yaw += ((inp.left ? 1 : 0) - (inp.right ? 1 : 0)) * .8;
+  // 翻滚：开头一侧喷气把车推转起来，快转完时另一侧反喷把转动刹住
+  if (roll.u >= 0) strafe += roll.dir * (bell01(roll.u, 0, .35) - .8 * bell01(roll.u, .68, 1));
+  const c = x => Math.min(1, Math.max(0, x));
+  const j = [c(c(-strafe) + c(-yaw)), c(c(strafe) + c(yaw)), c(c(-strafe) + c(yaw)), c(c(strafe) + c(-yaw))];
+  car.setRCS(...j, clock.t); rcsLevel = Math.max(...j);
+}
 // 方向盘与刹车灯：公路上跟随转向/刹车，飞行中跟随左右与 S 键
 function updateCockpitBits(dt, inp, steer) {
   fx.steer += (steer - fx.steer) * Math.min(1, dt * 10);
@@ -312,6 +328,7 @@ function frame(dt, inp) {
   if (flight.state.mode === 'drive') engine.blur.uniforms.strength.value = THREE.MathUtils.clamp((s.v * KMH - 200) / 220, 0, 1) * .028;   // 只在高速时轻微拉丝，画面保持清晰
   hud.update(s);
   updateAudio(dt, inp);
+  updateRCS(inp);
   updateAchievements();
   trackRun();
   if (shareTimer > 0 && (shareTimer -= dt) <= 0 && flight.state.mode === 'drive') openShare();

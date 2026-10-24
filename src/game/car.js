@@ -68,11 +68,11 @@ export async function createCar() {
     if (m.material.name === 'calipers') { if (w.front) w.steer.attach(m); } else w.spin.attach(m);
   }
 
-  // 推进器：尾部 4 个（加速）+ 车底四角 4 个（离地），火焰沿喷口局部 +Y 方向伸出
-  function thrusterSet(spots, rotX, sizes) {
+  // 推进器：尾部 4 个（加速）+ 车底四角 4 个（离地）+ 两侧前后 4 个姿态喷口，火焰沿喷口局部 +Y 方向伸出
+  function thrusterSet(spots, rotX, sizes, rotZ = 0) {
     const flames = [];
     for (const [x, y, z] of spots) {
-      const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.x = rotX; body.add(g);
+      const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.set(rotX, 0, rotZ); body.add(g);
       for (const [r, len, col] of sizes) {
         const f = new THREE.Mesh(new THREE.ConeGeometry(r, len, 20, 1, true), flameMaterial(col));
         f.position.y = len / 2; f.userData.len = len; f.renderOrder = 10; g.add(f); flames.push(f);   // 排在路面等贴地透明层之后渲染，否则会被路面盖住
@@ -84,6 +84,14 @@ export async function createCar() {
   const setThrust = thrusterSet([-.5, -.17, .17, .5].map(x => [x, .38, 2.2]), Math.PI / 2, [[.065, 1.4, '#9fdcff'], [.03, .55, '#ffffff']]);
   const setLift = thrusterSet([[-.72, .16, -1.45], [.72, .16, -1.45], [-.72, .16, 1.3], [.72, .16, 1.3]], Math.PI, [[.1, 2.6, '#9fdcff'], [.045, 1.0, '#ffffff']]);
   setThrust(0, 0); setLift(0, 0);
+  // 姿态喷口（RCS）：车身两侧前后各一个，火焰朝外。真空里没有空气可借力，侧移、转向、翻滚都靠它们：
+  // 左侧喷气把车推向右；前右 + 后左一起喷，车头向左转
+  const RCS = [.08, 1.3, '#9fdcff'], RCS_CORE = [.034, .55, '#ffffff'];
+  const rcs = [[-.97, -1.2, Math.PI / 2], [.97, -1.2, -Math.PI / 2], [-.97, 1.35, Math.PI / 2], [.97, 1.35, -Math.PI / 2]]   // 前左、前右、后左、后右
+    .map(([x, z, rz]) => thrusterSet([[x, .58, z]], 0, [RCS, RCS_CORE], rz));
+  // 四个喷口的强度（0–1）：fl 前左、fr 前右、rl 后左、rr 后右
+  const setRCS = (fl, fr, rl, rr, t) => { rcs[0](fl, t); rcs[1](fr, t); rcs[2](rl, t); rcs[3](rr, t); };
+  setRCS(0, 0, 0, 0, 0);
   // 再入等离子：包裹全车的椭球，菲涅尔边缘发光，车头最亮
   const plasma = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
@@ -158,5 +166,5 @@ export async function createCar() {
   const setBrake = k => { for (const m of brakeMats) m.emissiveIntensity = TAIL_K + (BRAKE_K - TAIL_K) * k; };
   // 悬架：comp 为车身相对车轮的下压量（米，负值表示车轮下垂）。车身由调用方整体下移，这里把车轮反向抬回，保持贴地
   const setSuspension = comp => { for (const w of wheels) w.steer.position.y = w.center.y + comp; };
-  return { root, chassis, body, wheels, setThrust, setLift, setPlasma, setHeadlights, setVapor, setSteer, setRoll, setBrake, setSuspension, ROLL_H };
+  return { root, chassis, body, wheels, setThrust, setLift, setRCS, setPlasma, setHeadlights, setVapor, setSteer, setRoll, setBrake, setSuspension, ROLL_H };
 }

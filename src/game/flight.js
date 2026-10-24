@@ -29,7 +29,7 @@ const layerOf = m => tr(m < 12000 ? 'layer.troposphere' : m < 50000 ? 'layer.str
 const EVENT_OF = { boom: 'boom', clouds: 'clouds', strato: 'stratosphere', karman: 'karman', meet: 'meet', home: 'reentry_home' };
 
 export function createFlight({ scene, camera, desert, space, clouds, cloudSea, sky, car, vehicle, hud, flash, music, engine, onEvent = () => {} }) {
-  const st = { mode: 'drive', t: 0, jetHold: 0, orbitT: 0, meet: null, meetCooldown: 3, shown: {}, alt: 0, plasma: 0, flash: 0 };
+  const st = { rcs: { strafe: 0, yaw: 0 }, mode: 'drive', t: 0, jetHold: 0, orbitT: 0, meet: null, meetCooldown: 3, shown: {}, alt: 0, plasma: 0, flash: 0 };
   const asc = { alt: 0, vz: 0, roll: 0, world: 'desert', mach: 0, boom: 0, envSwapped: false };
   const camPos = V(), camLook = V(), tmpP = V(), tmpL = V();
   const s = vehicle.state;
@@ -159,6 +159,7 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
     // 侧移与侧倾
     const side = (inp.left ? 1 : 0) - (inp.right ? 1 : 0);
     asc.roll += (side * .35 - asc.roll) * Math.min(1, dt * 3);
+    st.rcs.strafe = side; st.rcs.yaw = 0;                                  // 侧移靠两侧姿态喷口
     car.root.position.x -= asc.roll * dt * 6;
     // 回落到沙漠上空且没在侧移时，慢慢对准公路右侧车道，免得落在路外的草地上
     if (asc.world === 'desert' && asc.vz < 0 && !side) { const tx = desert.centerAt(-s.v * .5) + 1.8; car.root.position.x += (tx - car.root.position.x) * Math.min(1, dt * lerp(.4, 2.5, ramp(asc.alt, 800, 250))); }
@@ -228,6 +229,7 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
     space.earth.rotateOnWorldAxis(V(1, 0, 0), dt * .0035 * (inp.throttle ? 2.2 : 1));
     car.setThrust(inp.throttle ? .8 : .18, now); car.setLift(0, now);
     const yawT = (inp.left ? .25 : 0) - (inp.right ? .25 : 0);
+    st.rcs.yaw = clamp01(Math.abs(yawT - car.root.rotation.y) * 8) * Math.sign(yawT - car.root.rotation.y); st.rcs.strafe = 0;   // 转向时对角两个喷口点火，转到位就熄
     car.root.rotation.y += (yawT - car.root.rotation.y) * Math.min(1, dt * 2);
     car.root.rotation.z = Math.sin(now * .5) * .02 - yawT * .15; car.chassis.rotation.x = .04 + Math.sin(now * .4) * .01;
     // 老前辈：每隔一段时间从正前方迎面飘来，从车旁擦肩而过
@@ -319,6 +321,7 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
   }
 
   function update(dt, inp, now) {
+    st.rcs.strafe = st.rcs.yaw = 0;
     if (st.mode === 'ascent') updateAscent(dt, inp, now);
     else if (st.mode === 'insert') updateInsert(dt, inp, now);
     else if (st.mode === 'orbit') updateOrbit(dt, inp, now);
