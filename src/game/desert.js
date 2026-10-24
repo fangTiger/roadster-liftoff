@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { GroundedSkybox } from 'three/addons/objects/GroundedSkybox.js';
 import { loadHDR, loadGLTF, loadPBR } from './assets.js';
 import { ROAD_X, roadCenter, roadSlope } from './road.js';
+import { createGrass } from './grass.js';
 
 const ROT = 1.257;          // 旋转全景，让照片里的公路沿 -Z 延伸（ROAD_X：照片里公路中心相对原点的横向偏移）
 const VERGE = 15;           // 照片里公路连同两侧土路肩的半宽（米），流动地面把这一条换成两侧的草地
@@ -171,7 +172,7 @@ export async function createDesert(scene, renderer) {
         float dist=length(vW-cameraPosition);
         float air=smoothstep(4.,60.,cameraPosition.y);                 // 0：贴地视角，1：航拍视角（照片离地几米就开始失真）
         float near=1.-smoothstep(40.,320.,dist);
-        float blur=exp2(max(near*3.5,air*5.));                          // 近处/高空把照片模糊成大块色调
+        float blur=exp2(max(near*1.6,air*5.));                          // 近处/高空把照片模糊成大块色调（贴地时只轻微模糊，保留照片细节）
         vec3 base=field(vW,gx*blur,gy*blur);
         // 近处（以及高空俯瞰时）改用两侧草地的平均色铺底，远处过渡回照片
         float sw=mix(30.,700.,air);                                     // 高空时两侧色差拉成大范围的渐变，不出现分界线
@@ -229,6 +230,11 @@ export async function createDesert(scene, renderer) {
   posts.castShadow = true; posts.frustumCulled = refl.frustumCulled = false;
   const postItems = Array.from({ length: 18 }, (_, i) => ({ off: (i % 2 ? 1 : -1) * (ROAD_HALF + .9), z: BACK - Math.floor(i / 2) * 50, s: 1, r: 0, span: 450 }));
   add(posts, postItems); add(refl, postItems, .85);
+  // 路边草丛：颜色取照片两侧草地的平均色（草叶受光后与地面同一亮度）
+  const GRASS_K = .55;
+  const grass = createGrass({ edge: ROAD_HALF + SW + .25, colors: [gu.grassL.value.clone().multiplyScalar(GRASS_K), gu.grassR.value.clone().multiplyScalar(GRASS_K)] });
+  scene.add(grass.mesh);
+  const NOGRASS = /nograss/.test(location.search);           // 排查用：关掉草丛
 
   const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(), P = new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
   function placeProps() {
@@ -249,8 +255,10 @@ export async function createDesert(scene, renderer) {
   let trackD = 0;
   const centerAt = (z = 0) => roadCenter(trackD - z), slopeAt = (z = 0) => roadSlope(trackD - z);
   for (const it of movers) it.x = centerAt(it.z) + it.off;
-  function advance(dz) {
+  grass.init(centerAt);
+  function advance(dz, dt = 1 / 60) {
     trackD += dz;
+    grass.advance(dz, centerAt); grass.tick(dt);
     for (const it of movers) { it.z += dz; if (it.z > BACK) { it.z -= it.span; it.x = centerAt(it.z) + it.off; } }
     for (const tx of [...Object.values(asphalt), ...Object.values(gravel), dashTex]) tx.offset.y += dz / L * tx.repeat.y;
     scrollGround(trackD);
@@ -264,6 +272,7 @@ export async function createDesert(scene, renderer) {
     const air = Math.max(0, Math.min(1, (y - 12) / 140));
     gu.hazeK.value = air; if (hazeColor) gu.haze.value.copy(hazeColor);      // 不传颜色时沿用上一次的雾霭色
     fog.density = .0011 / (1 + Math.max(0, y - 10) / 60);
+    grass.mesh.visible = y < 150 && !NOGRASS;                                          // 高空看不见半米高的草，省掉绘制
     fog.color.copy(fogCol).lerp(gu.haze.value, air);
   }
   // 太阳与阴影相机跟随车；流动地面跟随镜头
@@ -273,5 +282,5 @@ export async function createDesert(scene, renderer) {
   }
   // 显示/隐藏整个沙漠：同时切换环境光照贴图与雾
   function setVisible(on) { root.visible = on; sceneRef.fog = on ? fog : null; if (on) { sceneRef.environment = hdr; sceneRef.environmentRotation.y = ROT; sceneRef.background = null; } }
-  return { root, advance, follow, setAltitude, setVisible, fog, sunDir, centerAt, slopeAt, ROAD_X, ROAD_HALF, get trackD() { return trackD; } };
+  return { root, advance, follow, setAltitude, setVisible, setGrassDensity: grass.setDensity, fog, sunDir, centerAt, slopeAt, ROAD_X, ROAD_HALF, get trackD() { return trackD; } };
 }
