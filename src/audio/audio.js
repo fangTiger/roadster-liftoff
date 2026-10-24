@@ -3,7 +3,7 @@ const MUSIC_LEVEL = 0.65;
 const SFX_LEVEL = 0.72;
 const FADE_SECONDS = 2.5;
 const NAMES = ['road', 'space', 'oldfriend'];
-const EVENTS = ['launch', 'land', 'whiteout', 'achievement', 'horn', 'roll'];
+const EVENTS = ['launch', 'land', 'whiteout', 'achievement', 'horn', 'roll', 'coin'];
 const STORE = 'liftoff.audio.v1';
 const clamp = (v, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, Number.isFinite(v) ? v : lo));
 const db = value => 10 ** (value / 20);
@@ -327,7 +327,8 @@ export function createAudio({ urls } = {}) {
     source.start(start); source.stop(start + duration + 0.12);
   }
 
-  function event(name) {
+  // opts.pitch：金币连吃时逐个升调（半音数）
+  function event(name, opts = {}) {
     if (!EVENTS.includes(name)) throw new RangeError(`未知音效事件：${name}`);
     if (!ready) return;
     if (name === 'launch') {
@@ -343,6 +344,12 @@ export function createAudio({ urls } = {}) {
       shot({ kind: 'pink', duration: 1.8, level: 0.8, type: 'highpass', cutoff: 400, cutoffEnd: 7000 });
     } else if (name === 'achievement') {
       [880, 1108.73, 1318.51, 1760].forEach((frequency, i) => shot({ frequency, duration: 1.1, level: 0.14, delay: i * 0.11, cutoff: 6000 }));
+    } else if (name === 'coin') {
+      // 金币：两个上行的明亮短音（B5 → E6），连吃时逐个升高
+      const k = Math.pow(2, (opts.pitch || 0) / 12);
+      shot({ kind: 'square', frequency: 987.77 * k, duration: 0.08, level: 0.06, cutoff: 5200 });
+      shot({ kind: 'square', frequency: 1318.51 * k, duration: 0.32, level: 0.06, delay: 0.065, cutoff: 5200 });
+      shot({ frequency: 1318.51 * k * 2, duration: 0.3, level: 0.05, delay: 0.065, cutoff: 9000 });
     } else if (name === 'roll') {
       // 翻滚：一阵掠过车身的风声
       shot({ kind: 'pink', duration: 1.1, level: 0.55, type: 'bandpass', cutoff: 300, cutoffEnd: 2600 });

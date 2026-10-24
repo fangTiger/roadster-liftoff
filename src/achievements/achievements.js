@@ -122,6 +122,12 @@ const DEFS = [
     name: '桶滚',
     desc: '在空中完成一次 360° 翻滚',
   },
+  {
+    id: 'coin_hunter',
+    index: 20,
+    name: '金币猎人',
+    desc: '一局里吃到 100 枚金币',
+  },
 ];
 
 // 全部 5 个机位名称（用于 director 成就追踪）
@@ -511,6 +517,11 @@ export function createAchievements({ storageKey = 'liftoff.achievements.v1' } = 
 
       case 'roll':
         unlock('barrel_roll');
+        break;
+
+      case 'coin':
+        // data.count：本局累计金币数
+        if (data && data.count >= 100) unlock('coin_hunter');
         break;
 
       default:

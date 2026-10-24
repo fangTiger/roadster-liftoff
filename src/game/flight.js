@@ -77,7 +77,7 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
     aimEarth();
     space.atm.material.uniforms.fade.value = ramp(alt, 60000, 140000);
     space.skyLight.intensity = 1.3 * (1 - ramp(alt, 2000, 40000));
-    sky.setAltitude(alt); sky.uniforms.sunDir.value.copy(space.sunDir); sky.uniforms.opacity.value = 1;
+    sky.setAltitude(alt); sky.uniforms.sunDir.value.copy(space.sunDir); sky.uniforms.opacity.value = 1; sky.uniforms.groundK.value = 0;
     cloudSea.update(dt, Math.hypot(asc.vz, s.v) / 1000, car.root.position, alt, space.sunDir, sky.uniforms.hor.value);
     // 低空保留沙漠 HDR 的环境反射，30 km 后换成太空环境（黑色宇宙 + 蓝色地球）
     if (alt < 30000) scene.environmentIntensity = lerp(1, .25, ramp(alt, 1000, 30000));
@@ -85,10 +85,9 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
   }
   function updateDesertLook(alt, dt) {
     car.root.position.y = alt;
-    desert.advance(s.v * dt); desert.follow(car.root.position); desert.setAltitude(alt);
-    desert.fog.density = .0011 + Math.max(0, alt - 15) * .000012;
+    sky.setAltitude(alt); sky.uniforms.sunDir.value.copy(desert.sunDir); sky.uniforms.opacity.value = ramp(alt, 20, 160); sky.uniforms.groundK.value = 1;
+    desert.advance(s.v * dt); desert.follow(car.root.position, camera); desert.setAltitude(alt, sky.uniforms.hor.value);
     clouds.follow(car.root.position.x, 0); clouds.group.visible = alt > 250;
-    sky.setAltitude(alt); sky.uniforms.sunDir.value.copy(desert.sunDir); sky.uniforms.opacity.value = ramp(alt, 20, 160);
   }
 
   // —— 触发：悬停 8 米以上、推进剂过半、持续按住空格 0.8 秒 ——
@@ -109,7 +108,7 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
       hud.toast('冲向太空', '按住空格持续爬升 · W 加力 · A/D 侧移 · R 翻滚 · 松开会降落', 4200);
     }
     if (mode === 'orbit') { st.orbitT = 0; st.meetCooldown = 3; st.shown.meet = false; onEvent('orbit'); }
-    if (mode === 'reentry') { music?.cue('road'); }
+    if (mode === 'reentry') { music?.cue('road'); asc.world = 'space'; asc.alt = 412000; asc.vz = 0; st.shown.home = false; sky.dome.visible = true; }
   }
   // 放弃爬升：交还给公路驾驶的物理，从当前高度自由下落（按住空格可缓冲）
   function abortToDrive() {
@@ -224,44 +223,65 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
     if (inp.brake) start('reentry');
   }
 
+  // —— 再入返回（约 24 秒，与爬升对称）——
+  //   离轨：机头下压、反推点火（2.5 秒）
+  //   太空段：高度按指数衰减从 395 km 落到云顶，等离子火光在 140–20 km 之间最亮，脚下的云海越来越近，天空由黑转蓝
+  //   沙漠段：从云层里穿出，下降速度随高度递减（v = 0.38·h + 3），车底推进器点火减速，看着沙漠和弯道一点点放大，
+  //           落到 6 米交还公路驾驶（之后由公路段的缓降物理接着落地）
+  const RE = { deorbit: 2.5, k: .6, a0: 395000, k2: .38, c2: 3, hand: 6 };
   function updateReentry(dt, inp, now) {
     const t = (st.t += dt);
     let altM;
-    if (t < 4.1) {
-      // 第 1 段：机头下压，等离子火光包裹车头，地球越来越近，天空由黑转蓝
-      const u = ease(t / 4.1); altM = lerp(412000, 9000, u * u);
-      space.place(car.root.position, lerp(900, 90, u * u), FWD); aimEarth();
-      sky.setAltitude(altM); sky.uniforms.opacity.value = 1;
-      car.chassis.rotation.x = lerp(.04, -.32, ease(t / 1.5)); car.root.rotation.y *= .95;
-      st.plasma = ease(t / 2.2); car.setThrust(0, now); car.setLift(0, now); car.setPlasma(st.plasma, now);
-      tmpP.set(lerp(4.6, 5.5, u), lerp(1.9, 1.4, u), lerp(8.6, 7, u)); tmpL.set(0, lerp(-1.6, -.4, u), lerp(-2.5, -4, u));
-      moveCam(dt, tmpP, tmpL, 2); shake(.05 + .12 * ease(t / 3), now);
-      setFlash(ramp(t, 3.7, 4.05));
-      if (t + dt >= 4.1) { x0 = s.x; toDesertWorld(430); }
+    if (asc.world === 'space') {
+      if (t < RE.deorbit) {
+        const u = ease(t / RE.deorbit);
+        altM = lerp(412000, RE.a0, u); asc.vz = -lerp(0, RE.k * RE.a0, u);
+        car.setThrust(.7 * bell(t, 0, RE.deorbit), now);
+      } else {
+        altM = RE.a0 * Math.exp(-RE.k * (t - RE.deorbit)); asc.vz = -RE.k * altM;
+        car.setThrust(0, now);
+      }
+      asc.alt = altM; updateSpaceLook(altM, dt);
+      car.chassis.rotation.x = lerp(car.chassis.rotation.x, -.32, Math.min(1, dt * 1.2)); car.root.rotation.y *= Math.exp(-dt * 2); car.root.rotation.z *= Math.exp(-dt * 2);
+      st.plasma = ramp(altM, 140000, 95000) * (1 - ramp(altM, 45000, 18000)); car.setLift(0, now); car.setPlasma(st.plasma, now);
+      const u = ease(t / 6);
+      tmpP.set(lerp(4.6, 5.2, u), lerp(1.9, 1.5, u), lerp(8.6, 7.4, u)); tmpL.set(0, lerp(-1.6, -.6, u), lerp(-2.5, -4, u));
+      moveCam(dt, tmpP, tmpL, 2); shake(.03 + .14 * st.plasma, now);
+      setFlash(altM < CLOUD_HI + 250 ? bell(altM, CLOUD_LO + 150, CLOUD_HI + 250) * .92 : 0);
+      if (altM <= SWITCH_ALT) {
+        x0 = desert.centerAt(0) + 9; toDesertWorld(SWITCH_ALT); asc.alt = SWITCH_ALT;          // 出云时偏在路旁，下降途中再对准车道
+        offP.copy(camPos).sub(car.root.position); offL.copy(camLook).sub(car.root.position);
+      }
     } else {
-      // 第 2 段：回到沙漠上空，穿出云层，车底推进器点火减速，回到 12 米交还给公路驾驶
-      const u = ease((t - 4.1) / 4.4), y = lerp(430, 12, 1 - Math.pow(1 - clamp01((t - 4.1) / 4.4), 2.2));
-      car.root.position.set(x0, y, 0); updateDesertLook(y, dt);
-      car.chassis.rotation.x = lerp(-.32, 0, ease((t - 4.4) / 2.5));
-      st.plasma = 1 - ramp(t, 4.1, 5.2); car.setPlasma(st.plasma, now); car.setLift(ramp(t, 5.6, 6.2), now); car.setThrust(0, now);
-      // 这一段每秒下降近百米，同样用相对偏移跟随，否则车会掉出画面
-      if (t - dt < 4.1) { offP.copy(camPos).sub(car.root.position); offL.copy(camLook).sub(car.root.position); }
-      tmpP.set(lerp(3.5, .6, u), lerp(1.2, 1.5, u), lerp(8, 6.6, u)); tmpL.set(0, .5, -8);
-      moveRel(dt, tmpP, tmpL, 3); shake(.12 * (1 - ramp(t, 4.1, 6)), now);
-      setFlash(1 - ramp(t, 4.12, 4.6));
-      altM = y;
-      if (t > 8.5) {
-        // 交还：从 12 米开始自然落下，推进剂已用掉大半
-        Object.assign(s, { y: 12, vy: -2, airborne: true, fuel: .25, lift: 0, x: x0 });
-        car.chassis.rotation.x = 0; hud.setOverride(null); st.mode = 'drive'; st.jetHold = 0; sky.dome.visible = false;
+      // 沙漠段：dh/dt = -(k2·h + c2)，高处快、近地慢
+      const vz = RE.k2 * asc.alt + RE.c2;
+      asc.alt = Math.max(RE.hand, asc.alt - vz * dt); asc.vz = -vz; altM = asc.alt;
+      s.v += (33 - s.v) * Math.min(1, dt * .25);                         // 水平速度收到约 120 km/h，落地时正好接着开
+      // 横向慢慢对准公路右侧车道
+      const tx = desert.centerAt(-s.v * .5) + 1.8; car.root.position.x += (tx - car.root.position.x) * Math.min(1, dt * lerp(.5, 3, ramp(asc.alt, 400, 40)));
+      x0 = car.root.position.x;
+      updateDesertLook(altM, dt);
+      const low = ramp(altM, 260, 20);                                 // 0：刚出云层，1：贴近地面
+      car.chassis.rotation.x = lerp(car.chassis.rotation.x, lerp(-.18, 0, low), Math.min(1, dt * 1.5)); car.root.rotation.y = 0;
+      st.plasma = Math.max(0, st.plasma - dt * 1.5); car.setPlasma(st.plasma, now); car.setThrust(0, now);
+      car.setLift(lerp(.35, 1, ramp(altM, 300, 60)), now, altM + .16);
+      // 镜头：先在车后上方俯瞰脚下的沙漠与弯道，越接近地面越回到平常的追随机位
+      tmpP.set(lerp(2.8, .6, low), lerp(3.4, 1.5, low), lerp(10, 6.6, low)); tmpL.set(0, lerp(-3.5, .5, low), lerp(-10, -8, low));
+      moveRel(dt, tmpP, tmpL, 2.5); shake(.04 * (1 - low), now);
+      setFlash(bell(altM, CLOUD_LO + 150, CLOUD_HI + 250) * .92);
+      if (altM <= RE.hand) {
+        // 交还：从 6 米接着缓降落地，推进剂已用掉大半
+        Object.assign(s, { y: altM, vy: -vz, airborne: true, fuel: .25, lift: 0, x: car.root.position.x, yaw: 0 });
+        car.chassis.rotation.x = 0; hud.setOverride(null); st.mode = 'drive'; st.jetHold = 0; sky.dome.visible = false; setFlash(0); st.plasma = 0;
         toast('home', '安全返航', '再入大气层，平稳回到公路');
         return;
       }
     }
     st.alt = altM;
-    setFov(lerp(48, 56, ease(t / 3)) - ramp(t, 6, 8.5) * 6, dt);
+    setFov(lerp(48, 56, ease(t / 3)) - (asc.world === 'desert' ? ramp(altM, 200, 10) * 6 : 0), dt);
     engine.blur.uniforms.strength.value = 0;
-    hud.setOverride({ label: '再入高度', value: fmtAlt(altM), alt: fmtAlt(altM), spd: Math.round(lerp(27600, s.v * 3.6, ease(t / 8))).toLocaleString() });
+    const kmh = asc.world === 'space' ? Math.max(Math.abs(asc.vz), 7800 * Math.exp(-t / 8)) * 3.6 : Math.hypot(asc.vz, s.v) * 3.6;
+    hud.setOverride({ label: '再入高度', value: fmtAlt(altM), alt: fmtAlt(altM), spd: Math.round(kmh).toLocaleString() });
   }
 
   function update(dt, inp, now) {

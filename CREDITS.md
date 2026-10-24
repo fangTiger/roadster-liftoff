@@ -17,6 +17,8 @@
 | `public/assets/hdri/goegap_bg_8k.jpg`、`goegap_front_16k.jpg` | Goegap Road 16K HDR 经 ACES（曝光 0.85）色调映射后，导出 8K 全景背景与前方 16K 精度高清块 | [Poly Haven](https://polyhaven.com/a/goegap_road) | CC0 |
 | `public/assets/tex/asphalt_02_*.webp` | Asphalt 02（转为 1K WebP） | [Poly Haven](https://polyhaven.com/a/asphalt_02) | CC0 |
 | `public/assets/tex/dry_ground_rocks_*.webp` | Dry Ground Rocks（转为 1K WebP） | [Poly Haven](https://polyhaven.com/a/dry_ground_rocks) | CC0 |
+| `public/assets/tex/grass_ground_diff.webp` | Grass Ground 干草地（1K 颜色贴图转 WebP，用于车旁地面细节） | [Poly Haven](https://polyhaven.com/a/grass_ground) | CC0 |
+| `public/assets/tex/aerial_grass_rock_diff.webp` | Aerial Grass Rock 航拍草地碎石（1K 颜色贴图转 WebP，用于高空俯瞰的地面） | [Poly Haven](https://polyhaven.com/a/aerial_grass_rock) | CC0 |
 | `public/assets/props/didelta_spinosa.glb` | Didelta Spinosa 灌木（网格精简到约 5%，meshopt 压缩） | [Poly Haven](https://polyhaven.com/a/didelta_spinosa) | CC0 |
 | `public/assets/props/boulder_01.glb` | Boulder 01 石头（网格精简，meshopt 压缩） | [Poly Haven](https://polyhaven.com/a/boulder_01) | CC0 |
 | `public/assets/props/dead_quiver_trunk.glb` | Dead Quiver Trunk 枯树干（meshopt 压缩） | [Poly Haven](https://polyhaven.com/a/dead_quiver_trunk) | CC0 |

@@ -146,6 +146,7 @@ ach.report('horn');
 | `screenshot` | — | 摄影师 |
 | `horn` | — | （无，预留） |
 | `roll` | — | `barrel_roll` 桶滚 |
+| `coin` | `{ count }` 本局累计金币数 | `coin_hunter` 金币猎人（≥ 100） |
 
 ---
 
@@ -175,7 +176,7 @@ ach.report('horn');
 
 ### `instance.list() → Achievement[]`
 
-返回所有 19 个成就的快照数组：
+返回所有 20 个成就的快照数组：
 
 ```ts
 {
@@ -247,7 +248,7 @@ ach.onUnlock(({ id, name, desc, date }) => {
 
 ### 成就面板
 
-- 居中磨砂玻璃面板，顶部进度条 `n / 19`。
+- 居中磨砂玻璃面板，顶部进度条 `n / 20`。
 - 三列网格（≤720px 两列，≤420px 单列）。
 - 已解锁：金色高亮，显示日期；未解锁：暗淡 + 锁图标，描述显示"？？？"。
 - 关闭方式：点击右上角 ✕、按 Escape、点击半透明背景。
@@ -255,7 +256,7 @@ ach.onUnlock(({ id, name, desc, date }) => {
 
 ### #bag 计数器
 
-若页面存在 `#bag .ach b` 元素，解锁时自动更新为 `n / 19`。
+若页面存在 `#bag .ach b` 元素，解锁时自动更新为 `n / 20`。
 
 ---
 
