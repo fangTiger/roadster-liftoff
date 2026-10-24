@@ -41,7 +41,10 @@ function atmosphereMaterial(sunDir, center) {
     vertexShader: 'varying vec3 vW; void main(){ vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }',
     fragmentShader: `uniform vec3 sd, ec; uniform float r0, r1, fade; varying vec3 vW;
       void main(){
-        vec3 rd=normalize(vW-cameraPosition); float tc=dot(ec-cameraPosition,rd); vec3 P=cameraPosition+rd*tc; float h=length(P-ec);
+        vec3 rd=normalize(vW-cameraPosition);
+        // 视线上离地心最近的点；视线朝外（离开地球）时最近点就是相机本身。
+        // 原先不夹到 0：人在大气层里往上看时会把最近点算到身后，在头顶镜像出第二条光带，上沿被 discard 切出带锯齿的硬边
+        float tc=max(dot(ec-cameraPosition,rd),0.); vec3 P=cameraPosition+rd*tc; float h=length(P-ec);
         if(h<r0) discard;
         float alt=(h-r0)/(r1-r0); float dens=exp(-alt*5.5)*(1.-smoothstep(.85,1.,alt));
         vec3 n=normalize(P-ec); float l=dot(n,sd); float lit=smoothstep(-.28,.3,l);
