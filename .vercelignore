@@ -1,0 +1,7 @@
+# 不上传到 Vercel：本地环境文件、录像、提示词与缓存（线上只需要源码与 public 素材，由 Vercel 构建）
+.env*
+recordings/
+.studio/
+docs/
+dist/
+node_modules/

@@ -9,3 +9,6 @@ log/
 recordings/
 .studio/
 docs/studio/
+.vercel/
+.vercel
+.env*
