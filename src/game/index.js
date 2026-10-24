@@ -17,6 +17,7 @@ import { createCoins } from './coins.js';
 import { createAudio } from '../audio/audio.js';
 import { createAchievements } from '../achievements/achievements.js';
 import { createUI } from '../ui/ui.js';
+import { createShare } from '../share/share.js';
 import { createTouch } from '../mobile/touch.js';
 import { createPerf, QUALITY_PRESETS, getDefaultPreset } from '../mobile/perf.js';
 
@@ -38,7 +39,7 @@ function setMobilePreset(preset) {
   perf?.refresh();
 }
 let started = CAPTURE, touch = null;
-const ui = CAPTURE ? null : createUI({ engine, audio, onQualityChange: setMobilePreset, onStart() {
+const ui = CAPTURE ? null : createUI({ engine, audio, onQualityChange: setMobilePreset, onSummary: () => openShare(), isOverlayOpen: () => sharing, onStart() {
   started = true;
   if (touch?.active) hud.toast('按住加速起步', '左侧拖动转向 · 按住推进器升空', 4500);
   else hud.toast('按 W 起步', '0–100 km/h 只要 0.8 秒，A / D 转向，S 刹车', 4500);
@@ -68,7 +69,34 @@ const cloudSea = createCloudSea(space.group);
 const ach = createAchievements();
 const coins = createCoins(desert.root);
 let coinStreak = 0, coinStreakT = 0, lastMode = 'drive';
-const flight = createFlight({ scene, camera, desert, space, clouds, cloudSea, sky, car, vehicle, hud, flash: document.getElementById('flash'), music: null, engine, onEvent: (e, d) => ach.report(e, d) });
+const flight = createFlight({ scene, camera, desert, space, clouds, cloudSea, sky, car, vehicle, hud, flash: document.getElementById('flash'), music: null, engine, onEvent: (e, d) => { ach.report(e, d); onFlightEvent(e); } });
+
+// 本局成绩：供结算面板与分享卡使用
+const run = { topSpeedKmh: 0, launchSec: null, maxAltM: 0, reachedSpace: false, metOldFriend: false, home: false };
+const share = CAPTURE ? null : createShare({ logoUrl: '/logo.svg', injectCss: false });
+let sharing = false, shareTimer = 0;
+share?.onClose(() => { sharing = false; });
+function onFlightEvent(e) {
+  if (e === 'karman') run.reachedSpace = true;
+  if (e === 'meet') run.metOldFriend = true;
+  if (e === 'reentry_home') { run.home = true; shareTimer = 3.2; }      // 安全返航后稍等片刻自动弹出本局成绩
+}
+function trackRun() {
+  const s = vehicle.state, f = flight.state;
+  if (f.mode === 'drive') run.topSpeedKmh = Math.max(run.topSpeedKmh, s.v * KMH);
+  run.maxAltM = Math.max(run.maxAltM, f.mode === 'drive' ? s.y : f.alt);
+  if (s.launch.last != null) run.launchSec = run.launchSec == null ? s.launch.last : Math.min(run.launchSec, s.launch.last);
+}
+function openShare() {
+  if (!share || sharing) return;
+  // 截图：必须在同一任务里先渲染再拷贝（WebGL 不保留绘图缓冲区）
+  engine.render();
+  const src = renderer.domElement, shot = document.createElement('canvas');
+  shot.width = src.width; shot.height = src.height; shot.getContext('2d').drawImage(src, 0, 0);
+  const s = vehicle.state;
+  sharing = true;
+  share.open({ ...run, distanceKm: s.dist / 1000, coins: coins.count, hops: s.hops, achievements: { unlocked: ach.unlocked, total: ach.total }, date: new Date() }, shot);
+}
 
 // 扬尘：起步烧胎或开上路肩时从后轮扬起
 const dustTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); const r = g.createRadialGradient(64, 64, 0, 64, 64, 64); r.addColorStop(0, 'rgba(150,125,95,.55)'); r.addColorStop(1, 'rgba(150,125,95,0)'); g.fillStyle = r; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); })();
@@ -243,6 +271,8 @@ function frame(dt, inp) {
   hud.update(s);
   updateAudio(dt, inp);
   updateAchievements();
+  trackRun();
+  if (shareTimer > 0 && (shareTimer -= dt) <= 0 && flight.state.mode === 'drive') openShare();
   engine.render();
 }
 
@@ -260,7 +290,7 @@ if (CAPTURE) {
   let last = performance.now();
   renderer.setAnimationLoop(now => {
     const elapsed = (now - last) / 1000; last = now;
-    const playing = started && !ui.paused && !document.hidden;
+    const playing = started && !ui.paused && !sharing && !document.hidden;
     touch?.setEnabled(playing);
     if (!playing) { perf?.reset(); engine.render(); return; }    // 开始前与暂停时只渲染画面
     perf?.update(elapsed);

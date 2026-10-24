@@ -1,0 +1,451 @@
+/*
+ * Mars Roadster — 成绩分享模块样式
+ * 与主游戏 HUD 共用设计语言：磨砂玻璃、渐变橙色、金色金币、青色数值。
+ * 不依赖任何外部 CSS；主页面 .g 类声明已单独兼容。
+ */
+
+/* ── CSS 变量 ────────────────────────────────────────────────────────────────── */
+:root {
+  --sh-glass:  rgba(14, 16, 22, 0.52);
+  --sh-glass2: rgba(14, 16, 22, 0.80);
+  --sh-line:   rgba(255, 255, 255, 0.14);
+  --sh-txt:    #f4f6fa;
+  --sh-dim:    rgba(244, 246, 250, 0.6);
+  --sh-acc1:   #ff8a5c;
+  --sh-acc2:   #ff4d3a;
+  --sh-cy:     #7fe3ff;
+  --sh-gold:   #ffd36a;
+  --sh-radius: 16px;
+  --sh-blur:   blur(14px) saturate(150%);
+}
+
+/* ── 全屏遮罩 ────────────────────────────────────────────────────────────────── */
+#share-wrap {
+  position:        fixed;
+  inset:           0;
+  z-index:         10000;   /* 高于成就解锁提示（9999），避免提示盖住面板 */
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  padding:         16px;
+  background:      rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+
+  /* 默认隐藏 */
+  opacity:        0;
+  pointer-events: none;
+  transition:     opacity 0.28s ease;
+
+  /* 允许面板内部滚动但遮罩本身不溢出 */
+  overflow-y:     auto;
+  overscroll-behavior: contain;
+}
+
+#share-wrap.share-visible {
+  opacity:        1;
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #share-wrap { transition: none; }
+}
+
+/* ── 面板主体 ────────────────────────────────────────────────────────────────── */
+.share-panel {
+  position:         relative;
+  width:            min(760px, 100%);
+  max-height:       calc(100vh - 32px);
+  overflow-y:       auto;
+  overscroll-behavior: contain;
+  outline:          none; /* 接受焦点但不显示外框 */
+
+  background:             var(--sh-glass2);
+  backdrop-filter:        blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border:                 1px solid var(--sh-line);
+  border-radius:          var(--sh-radius);
+  box-shadow:             0 24px 60px rgba(0, 0, 0, 0.65);
+  color:                  var(--sh-txt);
+  font-family:            -apple-system, "PingFang SC", "SF Pro Display", sans-serif;
+
+  /* 入场缩放 */
+  transform:   scale(0.93);
+  transition:  transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.15) transparent;
+}
+
+.share-panel::-webkit-scrollbar       { width: 5px; }
+.share-panel::-webkit-scrollbar-track { background: transparent; }
+.share-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 3px; }
+
+#share-wrap.share-visible .share-panel {
+  transform: scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .share-panel { transform: none; transition: none; }
+}
+
+/* ── 顶部 header ─────────────────────────────────────────────────────────────── */
+.share-header {
+  display:       flex;
+  align-items:   center;
+  gap:           12px;
+  padding:       18px 20px 16px;
+  border-bottom: 1px solid var(--sh-line);
+  flex-shrink:   0;
+}
+
+.share-header-brand {
+  display:     flex;
+  align-items: center;
+  gap:         12px;
+  flex:        1;
+  min-width:   0;
+}
+
+.share-logo {
+  width:         36px;
+  height:        36px;
+  border-radius: 9px;
+  flex-shrink:   0;
+  display:       block;
+}
+
+.share-title {
+  display:        block;
+  font-size:      17px;
+  font-weight:    700;
+  letter-spacing: 2px;
+  white-space:    nowrap;
+}
+
+.share-subtitle {
+  display:    block;
+  font-size:  11.5px;
+  color:      var(--sh-dim);
+  margin-top: 1px;
+}
+
+.share-date {
+  font-size:   12.5px;
+  color:       var(--sh-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.share-close {
+  flex-shrink:     0;
+  width:           32px;
+  height:          32px;
+  border:          1px solid var(--sh-line);
+  border-radius:   8px;
+  background:      rgba(255, 255, 255, 0.06);
+  color:           var(--sh-dim);
+  font-size:       15px;
+  cursor:          pointer;
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  transition:      background 0.18s, color 0.18s;
+}
+
+.share-close:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color:      var(--sh-txt);
+}
+
+/* ── 英雄区 ──────────────────────────────────────────────────────────────────── */
+.share-hero {
+  padding:        24px 20px 16px;
+  display:        flex;
+  flex-direction: column;
+  gap:            6px;
+}
+
+.share-hero-title {
+  font-size:   14px;
+  color:       var(--sh-dim);
+  font-weight: 400;
+}
+
+.share-hero-value {
+  font-size:   52px;
+  font-weight: 800;
+  line-height: 1;
+  background:  linear-gradient(90deg, var(--sh-acc1), var(--sh-acc2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -1px;
+}
+
+/* ── 统计网格 ─────────────────────────────────────────────────────────────────── */
+.share-stat-grid {
+  display:               grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap:                   1px;
+  margin:                0 20px;
+  border:                1px solid var(--sh-line);
+  border-radius:         12px;
+  overflow:              hidden;
+  background:            var(--sh-line);
+}
+
+@media (max-width: 640px) {
+  .share-stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.share-stat-cell {
+  display:        flex;
+  flex-direction: column;
+  gap:            5px;
+  padding:        14px 16px;
+  background:     rgba(255, 255, 255, 0.04);
+}
+
+.share-stat-label {
+  font-size:  11.5px;
+  color:      var(--sh-dim);
+}
+
+.share-stat-value {
+  font-size:   18px;
+  font-weight: 700;
+  color:       var(--sh-txt);
+  display:     flex;
+  align-items: center;
+  gap:         5px;
+}
+
+.share-stat-gold { color: var(--sh-gold); }
+.share-stat-cy   { color: var(--sh-cy);   }
+
+/* 金色金币点 */
+.share-coin {
+  display:       inline-block;
+  width:         11px;
+  height:        11px;
+  border-radius: 50%;
+  background:    radial-gradient(circle at 35% 30%, #fff2b8, #ffc23a 45%, #b87a0a);
+  box-shadow:    0 0 6px rgba(255, 200, 80, 0.6);
+  flex-shrink:   0;
+}
+
+/* ── 徽章行 ──────────────────────────────────────────────────────────────────── */
+.share-badges {
+  display:   flex;
+  flex-wrap: wrap;
+  gap:       8px;
+  padding:   16px 20px;
+}
+
+.share-badge {
+  padding:       6px 14px;
+  border-radius: 20px;
+  font-size:     12.5px;
+  font-weight:   600;
+  border:        1px solid rgba(255, 255, 255, 0.15);
+  background:    rgba(255, 255, 255, 0.05);
+  color:         rgba(255, 255, 255, 0.3);
+  pointer-events: none;
+}
+
+.share-badge-earned {
+  border-color: rgba(127, 227, 255, 0.5);
+  background:   rgba(127, 227, 255, 0.10);
+  color:        var(--sh-cy);
+}
+
+.share-badge-earned:nth-child(2) {
+  border-color: rgba(255, 211, 106, 0.5);
+  background:   rgba(255, 211, 106, 0.10);
+  color:        var(--sh-gold);
+}
+
+.share-badge-earned:nth-child(3) {
+  border-color: rgba(127, 255, 154, 0.5);
+  background:   rgba(127, 255, 154, 0.08);
+  color:        #7fff9a;
+}
+
+/* ── 卡片预览区 ──────────────────────────────────────────────────────────────── */
+.share-preview-wrap {
+  margin:        0 20px 16px;
+  border:        1px solid var(--sh-line);
+  border-radius: 12px;
+  overflow:      hidden;
+  background:    rgba(0, 0, 0, 0.3);
+}
+
+.share-preview-header {
+  display:         flex;
+  align-items:     center;
+  justify-content: space-between;
+  padding:         10px 14px;
+  border-bottom:   1px solid var(--sh-line);
+}
+
+.share-preview-label {
+  font-size: 12px;
+  color:     var(--sh-dim);
+}
+
+/* 格式切换按钮组 */
+.share-fmt-toggle {
+  display:       flex;
+  gap:           2px;
+  background:    rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding:       2px;
+}
+
+.share-fmt-btn {
+  padding:       4px 12px;
+  font-size:     12px;
+  font-weight:   600;
+  border:        none;
+  border-radius: 6px;
+  background:    transparent;
+  color:         var(--sh-dim);
+  cursor:        pointer;
+  font-family:   inherit;
+  transition:    background 0.15s, color 0.15s;
+}
+
+.share-fmt-btn.active {
+  background: linear-gradient(135deg, var(--sh-acc1), var(--sh-acc2));
+  color:      #fff;
+}
+
+.share-fmt-btn:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.10);
+  color:      var(--sh-txt);
+}
+
+/* 预览画布容器 */
+.share-preview-canvas-wrap {
+  position:        relative;
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  padding:         16px;
+  min-height:      120px;
+}
+
+/* 预览 canvas 本身（JS 动态设置 width/height style） */
+.share-preview-canvas {
+  border-radius:  8px;
+  display:        block;
+  max-width:      100%;
+  box-shadow:     0 4px 20px rgba(0, 0, 0, 0.5);
+  /* 预览限高，保证桌面端不用滚动就能看到下面的按钮 */
+  max-height:     30vh;
+  width:          auto !important;
+  height:         auto !important;
+}
+
+/* 渲染中提示 */
+.share-preview-loading {
+  display:         none; /* 默认隐藏；JS 切换为 flex */
+  position:        absolute;
+  inset:           0;
+  align-items:     center;
+  justify-content: center;
+  font-size:       13px;
+  color:           var(--sh-dim);
+  background:      rgba(8, 9, 20, 0.6);
+  border-radius:   8px;
+}
+
+/* ── 底部操作按钮 ─────────────────────────────────────────────────────────────── */
+.share-actions {
+  display:    flex;
+  flex-wrap:  wrap;
+  gap:        8px;
+  padding:    14px 20px 20px;
+  border-top: 1px solid var(--sh-line);
+}
+
+.share-btn {
+  flex:          1;
+  min-width:     100px;
+  padding:       10px 18px;
+  font-size:     13.5px;
+  font-weight:   600;
+  font-family:   inherit;
+  border-radius: 10px;
+  border:        1px solid var(--sh-line);
+  background:    rgba(255, 255, 255, 0.07);
+  color:         var(--sh-txt);
+  cursor:        pointer;
+  transition:    background 0.15s, transform 0.1s;
+  white-space:   nowrap;
+}
+
+.share-btn:hover  { background: rgba(255, 255, 255, 0.14); }
+.share-btn:active { transform: scale(0.96); }
+
+/* 主要按钮（继续驾驶） */
+.share-btn-primary {
+  background: linear-gradient(135deg, var(--sh-acc1), var(--sh-acc2));
+  border-color: transparent;
+  color: #fff;
+}
+
+.share-btn-primary:hover {
+  background: linear-gradient(135deg, #ffaa7a, #ff6050);
+}
+
+/* ── 响应式（≤ 640px） ───────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .share-hero-value {
+    font-size: 40px;
+  }
+
+  .share-actions {
+    flex-direction: column;
+  }
+
+  .share-btn {
+    width: 100%;
+  }
+}
+
+/* ── 375px 及以下（小手机） ────────────────────────────────────────────────────── */
+@media (max-width: 390px) {
+  .share-hero-value {
+    font-size: 34px;
+  }
+
+  .share-header {
+    padding: 14px 14px 12px;
+  }
+
+  .share-hero {
+    padding: 18px 14px 12px;
+  }
+
+  .share-stat-grid,
+  .share-preview-wrap,
+  .share-badges {
+    margin-left:  14px;
+    margin-right: 14px;
+  }
+
+  .share-actions {
+    padding: 12px 14px 16px;
+  }
+}
+
+/* 矮屏幕（笔记本 800 高左右）：预览图和大数值收紧，保证按钮不用滚动就能看到 */
+@media (max-height: 860px) and (min-width: 641px) {
+  .share-preview-canvas { max-height: 24vh; }
+  .share-preview-canvas-wrap { padding: 10px; }
+  #share-hero-value { font-size: 40px; }
+}

@@ -8,7 +8,7 @@ const CONTROLS = [
 ];
 const controlsHTML = () => `<dl class="ui-controls">${CONTROLS.map(([key, text]) => `<div><dt><kbd>${key}</kbd></dt><dd>${text}</dd></div>`).join('')}</dl>`;
 
-export function createUI({ engine, audio = null, onStart = () => {}, onPauseChange = () => {}, onQualityChange = () => {} }) {
+export function createUI({ engine, audio = null, onStart = () => {}, onPauseChange = () => {}, onQualityChange = () => {}, onSummary = null, isOverlayOpen = () => false }) {
   const settings = { quality: getDefaultPreset(), volume: .8, muted: audio?.muted ?? false, shake: true, hints: true };
   try {
     const saved = JSON.parse(localStorage.getItem(STORE));
@@ -36,7 +36,7 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
     </section>
     <section class="ui-overlay ui-modal" hidden role="dialog" aria-modal="true" aria-labelledby="ui-panel-title" tabindex="-1">
       <div class="g ui-card"><header><div><p class="ui-eyebrow">Mars Roadster</p><h2 id="ui-panel-title">已暂停</h2></div><button class="ui-close" aria-label="关闭">×</button></header>
-        <div data-panel="pause"><p class="ui-note">旅程停在这里，随时继续。</p><div class="ui-actions"><button class="ui-primary" data-action="resume">继续</button><button data-action="settings">设置</button><button data-action="help">操作说明</button></div><p class="ui-footnote">P / Esc 继续旅程</p></div>
+        <div data-panel="pause"><p class="ui-note">旅程停在这里，随时继续。</p><div class="ui-actions"><button class="ui-primary" data-action="resume">继续</button><button data-action="summary">本局成绩 · 分享</button><button data-action="settings">设置</button><button data-action="help">操作说明</button></div><p class="ui-footnote">P / Esc 继续旅程</p></div>
         <div data-panel="settings" hidden>
           <fieldset><legend>画质</legend><div class="ui-quality">${PRESETS.map(p => `<button data-quality="${p}" aria-pressed="false">${p}</button>`).join('')}</div></fieldset>
           <label class="ui-setting ui-volume"><span>音量 <output id="ui-volume-output"></output></span><input aria-label="音量" type="range" min="0" max="1" step="0.01" data-setting="volume"></label>
@@ -176,7 +176,7 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
   root.addEventListener('click', e => {
     const button = e.target.closest('button'); if (!button) return;
     if (button.dataset.quality) { settings.quality = button.dataset.quality; applyQuality(); persist(); paintSettings(); }
-    const actions = { resume: () => setPaused(false), settings: showSettings, help: toggleHelp, back: () => openPanel('pause'), 'help-close': closePanel };
+    const actions = { resume: () => setPaused(false), summary: () => { setPaused(false); onSummary?.(); }, settings: showSettings, help: toggleHelp, back: () => openPanel('pause'), 'help-close': closePanel };
     actions[button.dataset.action]?.();
     if (button.classList.contains('ui-close')) closePanel();
   });
@@ -203,6 +203,7 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
       if (e.target.closest?.('a')) return;
       e.preventDefault(); e.stopImmediatePropagation(); if (!e.repeat) start(); return;
     }
+    if (isOverlayOpen()) return;                              // 成绩分享面板打开时，按键交给面板自己处理
     const editing = e.target.matches?.('input,select,textarea,[contenteditable="true"]');
     if (e.code === 'Escape' || (!editing && e.code === 'KeyP')) {
       e.preventDefault(); e.stopImmediatePropagation(); if (!e.repeat) { if (panel) closePanel(); else setPaused(!paused); } return;
