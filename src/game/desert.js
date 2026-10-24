@@ -194,25 +194,25 @@ export async function createDesert(scene, renderer) {
         // 同一张贴图按互不整除的尺度、不同角度各取一次再平均，高空俯瞰时看不出重复的方格
         vec3 mid=(texture2D(aerial,q/15.+so[1]).rgb+texture2D(aerial,mat2(.6,.8,-.8,.6)*q/23.7+so[2]).rgb)*.5/ma;
         vec3 mac=(texture2D(aerial,mat2(.8,-.6,.6,.8)*q/170.+so[3]).rgb/ma+texture2D(grass,mat2(.28,.96,-.96,.28)*q/61.+so[4]).rgb/mg)*.5;
-        float kf=1.-smoothstep(25.,180.,dist), kf2=smoothstep(20.,90.,dist)*(1.-smoothstep(250.,900.,dist)), km=1.-smoothstep(300.,4000.,dist), kM=1.-smoothstep(1500.,20000.,dist);
+        float kf=1.-smoothstep(25.,180.,dist), kf2=smoothstep(20.,90.,dist)*(1.-smoothstep(mix(250.,600.,air),mix(900.,1600.,air),dist)), km=1.-smoothstep(300.,4000.,dist), kM=1.-smoothstep(1500.,20000.,dist);
         vec3 ratio=mix(vec3(1.),clamp(fine,.25,2.2),kf*.9)
-                  *mix(vec3(1.),clamp(fine2,.4,1.8),kf2*.7*(1.-air))
-                  *mix(vec3(1.),clamp(mid,.35,2.),km*mix(.4,.6,air))
+                  *mix(vec3(1.),clamp(fine2,.4,1.8),kf2*mix(.7,.3,air))
+                  *mix(vec3(1.),clamp(mid,.3,2.2),km*mix(.4,.85,air))
                   *mix(vec3(1.),clamp(mac,.5,1.7),kM*mix(.45,.8,air));
         // 太阳打光：细节层（2.5 米）给土块与草根的明暗，航拍层（15 米）给缓坡起伏；傍晚太阳低，受光面与背光面差别明显
         vec2 g1=slope(grass,q/2.5+so[0],1.5/1024.)/2.5, g2=slope(aerial,q/15.+so[1],2./1024.)/15.;
         vec3 n=normalize(vec3(-(g1.x*.012*kf+g2.x*.12*km), 1., -(g1.y*.012*kf+g2.y*.12*km)));
         vec3 L=normalize(sunL); float flat0=max(L.y,.12);
-        float shade=clamp(max(dot(n,L),0.)/flat0, .7, 1.35);
-        ratio*=mix(1., shade, (1.-air)*.7);
+        float shade=clamp(max(dot(n,L),0.)/flat0, .7, 1.35);   // 空中只剩 15 米缓坡层（细节层随距离淡出）
+        ratio*=mix(1., shade, mix(.7, .5, air));
         vec3 lin=min(invACES(base)*ratio,vec3(40.));
         // 高空的空气透视：越远越融进与天空穹顶地平线同色的雾霭
         lin=mix(lin,invACES(haze),hazeK*(1.-exp(-dist/7000.)));
         gl_FragColor=vec4(lin,1.);
       }`,
   });
-  // 4 万米见方、跟随镜头；着色全按世界坐标计算，平面移动不影响画面
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(40000, 40000, 80, 80), groundMat);
+  // 20 万米见方、跟随镜头（边缘在 100 公里外，几百米高度俯看也看不到边）；着色全按世界坐标计算，平面移动不影响画面
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(200000, 200000, 80, 80), groundMat);
   ground.rotation.x = -Math.PI / 2; ground.position.set(ROAD_X, -.01, 0); ground.renderOrder = .5; ground.frustumCulled = false;
   scene.add(ground);
   if (/noflow/.test(location.search)) ground.visible = false;
@@ -286,7 +286,7 @@ export async function createDesert(scene, renderer) {
   const fogCol = fog.color.clone();
   function setAltitude(y, hazeColor) {
     const air = Math.max(0, Math.min(1, (y - 12) / 140));
-    gu.hazeK.value = air; if (hazeColor) gu.haze.value.copy(hazeColor);      // 不传颜色时沿用上一次的雾霭色
+    gu.hazeK.value = air * Math.min(1, .35 + y / 1500);                   // 几百米的低空雾霭较薄，越高越浓 if (hazeColor) gu.haze.value.copy(hazeColor);      // 不传颜色时沿用上一次的雾霭色
     fog.density = .0011 / (1 + Math.max(0, y - 10) / 60);
     grass.mesh.visible = y < 150 && !NOGRASS;                                          // 高空看不见半米高的草，省掉绘制
     fog.color.copy(fogCol).lerp(gu.haze.value, air);
@@ -295,6 +295,9 @@ export async function createDesert(scene, renderer) {
   function follow(carPos, cam) {
     sun.target.position.copy(carPos); sun.position.copy(carPos).addScaledVector(sunDir, 60); catcher.position.x = carPos.x; catcher.position.z = carPos.z;
     if (cam) ground.position.set(cam.position.x, -.01, cam.position.z);
+    // 升空后照片天空跟着相机抬高：远山保持在正确的仰角，不会随视点升高而下沉变形（贴地时不动）。
+    // 只抬到 95.5%：照片地平线略低于视平线，盖住地面平面远边（受相机 4 万米远裁剪面限制）与视平线之间那道露出黑底的缝
+    if (cam) sky.position.y = 1.59 + Math.max(0, cam.position.y - 3) * .955;
   }
   // 显示/隐藏整个沙漠：同时切换环境光照贴图与雾
   function setVisible(on) { root.visible = on; sceneRef.fog = on ? fog : null; if (on) { sceneRef.environment = hdr; sceneRef.environmentRotation.y = ROT; sceneRef.background = null; } }

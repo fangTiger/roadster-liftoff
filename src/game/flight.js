@@ -86,7 +86,7 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
   }
   function updateDesertLook(alt, dt) {
     car.root.position.y = alt;
-    sky.setAltitude(alt); sky.uniforms.sunDir.value.copy(desert.sunDir); sky.uniforms.opacity.value = ramp(alt, 20, 160); sky.uniforms.groundK.value = 1;
+    sky.setAltitude(alt); sky.uniforms.sunDir.value.copy(desert.sunDir); sky.uniforms.opacity.value = ramp(alt, 350, 800);   // 几百米高度实拍照片里的远山依然成立，留到进云层前再换成程序天空 sky.uniforms.groundK.value = 1;
     desert.advance(s.v * dt, dt); desert.follow(car.root.position, camera); desert.setAltitude(alt, sky.uniforms.hor.value);
     clouds.follow(car.root.position.x, 0); clouds.group.visible = alt > 250;
   }
