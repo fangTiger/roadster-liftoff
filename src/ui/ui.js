@@ -24,7 +24,7 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
     <section class="ui-overlay ui-loading" aria-labelledby="ui-title" role="dialog" aria-modal="true" tabindex="-1">
       <div class="ui-start-content">
         <div class="ui-eyebrow">沙漠公路 → 太空轨道</div>
-        <h1 id="ui-title">离地 <span>LIFTOFF</span></h1>
+        <h1 id="ui-title">Mars <span>Roadster</span></h1>
         <p class="ui-subtitle">推进器超跑 · 从沙漠公路冲上太空</p>
         <div class="ui-launch-status">
           <div class="ui-progress-wrap"><div class="ui-progress-label"><span role="status">准备起飞…</span><span class="ui-percent">0%</span></div><div class="ui-progress" role="progressbar" aria-label="加载进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div></div>
@@ -35,7 +35,7 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
       </div>
     </section>
     <section class="ui-overlay ui-modal" hidden role="dialog" aria-modal="true" aria-labelledby="ui-panel-title" tabindex="-1">
-      <div class="g ui-card"><header><div><p class="ui-eyebrow">离地 LIFTOFF</p><h2 id="ui-panel-title">已暂停</h2></div><button class="ui-close" aria-label="关闭">×</button></header>
+      <div class="g ui-card"><header><div><p class="ui-eyebrow">Mars Roadster</p><h2 id="ui-panel-title">已暂停</h2></div><button class="ui-close" aria-label="关闭">×</button></header>
         <div data-panel="pause"><p class="ui-note">旅程停在这里，随时继续。</p><div class="ui-actions"><button class="ui-primary" data-action="resume">继续</button><button data-action="settings">设置</button><button data-action="help">操作说明</button></div><p class="ui-footnote">P / Esc 继续旅程</p></div>
         <div data-panel="settings" hidden>
           <fieldset><legend>画质</legend><div class="ui-quality">${PRESETS.map(p => `<button data-quality="${p}" aria-pressed="false">${p}</button>`).join('')}</div></fieldset>
@@ -144,7 +144,7 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
         engine.renderer.domElement.toBlob(blob => {
           if (!blob) { toast('截图失败，请重试'); resolve(false); return; }
           const now = new Date(), pad = n => String(n).padStart(2, '0');
-          const filename = `liftoff-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.png`;
+          const filename = `mars-roadster-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.png`;
           const url = URL.createObjectURL(blob), link = document.createElement('a');
           link.href = url; link.download = filename; link.click();
           setTimeout(() => URL.revokeObjectURL(url), 1000);
