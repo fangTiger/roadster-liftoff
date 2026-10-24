@@ -47,10 +47,11 @@ export function createCameraRig(camera, canvas) {
   function fov(f, dt) { camera.fov += (f - camera.fov) * Math.min(1, dt * 4); camera.updateProjectionMatrix(); }
 
   function cockpit(dt, car, speed) {
-    car.chassis.updateWorldMatrix(true, false);
-    camera.position.copy(EYE).applyMatrix4(car.chassis.matrixWorld);
-    tmp.set(EYE.x, EYE.y - .12, -20).applyMatrix4(car.chassis.matrixWorld);
-    camera.up.set(0, 1, 0).applyQuaternion(car.chassis.getWorldQuaternion(new THREE.Quaternion()));
+    // 跟随 body（含翻滚），视线略向下压，让方向盘露出在画面下沿
+    car.body.updateWorldMatrix(true, false);
+    camera.position.copy(EYE).applyMatrix4(car.body.matrixWorld);
+    tmp.set(EYE.x, EYE.y - .75, -20).applyMatrix4(car.body.matrixWorld);
+    camera.up.set(0, 1, 0).applyQuaternion(car.body.getWorldQuaternion(new THREE.Quaternion()));
     camera.lookAt(tmp); camera.up.set(0, 1, 0);
     pos.copy(camera.position); look.copy(tmp);
     fov(62 + speed * 10, dt);

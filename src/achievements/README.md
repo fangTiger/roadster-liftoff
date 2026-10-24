@@ -145,6 +145,7 @@ ach.report('horn');
 | `camera` | `mode: string` | 全 5 个 → 导演（持久化） |
 | `screenshot` | — | 摄影师 |
 | `horn` | — | （无，预留） |
+| `roll` | — | `barrel_roll` 桶滚 |
 
 ---
 
@@ -174,7 +175,7 @@ ach.report('horn');
 
 ### `instance.list() → Achievement[]`
 
-返回所有 18 个成就的快照数组：
+返回所有 19 个成就的快照数组：
 
 ```ts
 {
@@ -246,7 +247,7 @@ ach.onUnlock(({ id, name, desc, date }) => {
 
 ### 成就面板
 
-- 居中磨砂玻璃面板，顶部进度条 `n / 18`。
+- 居中磨砂玻璃面板，顶部进度条 `n / 19`。
 - 三列网格（≤720px 两列，≤420px 单列）。
 - 已解锁：金色高亮，显示日期；未解锁：暗淡 + 锁图标，描述显示"？？？"。
 - 关闭方式：点击右上角 ✕、按 Escape、点击半透明背景。
@@ -254,7 +255,7 @@ ach.onUnlock(({ id, name, desc, date }) => {
 
 ### #bag 计数器
 
-若页面存在 `#bag .ach b` 元素，解锁时自动更新为 `n / 18`。
+若页面存在 `#bag .ach b` 元素，解锁时自动更新为 `n / 19`。
 
 ---
 

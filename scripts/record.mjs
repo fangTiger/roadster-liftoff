@@ -16,6 +16,9 @@ const PLANS = {
   // 五个机位轮流展示
   cams: [[0, 0, 'cam:low'], [1, 20, 'throttle'], [5, 0, 'cam:cine'], [17, 0, 'cam:cockpit'], [22, 0, 'cam:free'], [22, 23, 'jet'], [26, 34, 'jet'], [30, 0, 'cam:cockpit']],
   climb: [[1, 7, 'throttle'], [4, 33, 'jet'], [17, 23, 'throttle'], [52, 52.5, 'brake'], [61, 66, 'throttle']],
+  // 第二版演示：起跳 → 空中翻滚 → 自动缓降、悬架落地 → 刹车灯 → 驾驶舱看方向盘 → 冲上太空（途中翻滚）→ 轨道翻滚 → 再入返航
+  v2: [[1, 9, 'throttle'], [5.5, 7.2, 'jet'], [7.6, 7.7, 'roll'], [9.6, 10.6, 'brake'], [11, 0, 'cam:cockpit'], [11, 16.5, 'throttle'], [12.4, 13.4, 'left'], [14, 15, 'right'],
+    [16.5, 0, 'cam:chase'], [17, 47, 'jet'], [24, 30, 'throttle'], [21.5, 21.6, 'roll'], [57, 57.1, 'roll'], [66, 66.5, 'brake'], [76, 82, 'throttle']],
 };
 const plan = PLANS[process.env.PLAN || 'drive'];
 // 默认用本机 Chrome 的新版无头模式走 GPU（Metal）；SOFT=1 时退回 SwiftShader 软件渲染（很慢）

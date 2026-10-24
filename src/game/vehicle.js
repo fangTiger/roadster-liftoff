@@ -9,13 +9,17 @@ const BRAKE = 14, ROLL = .35;
 // 离地：底部推进器提供向上推力，推进剂有限、落地回充
 // 普通跳跃限高约 12 米：全景照片投影的地面只在低空成立，冲上太空由第三段的爬升流程接管
 const G = 9.81, LIFT = 21, FUEL_BURN = .16, FUEL_REGEN = .09, ALT_CAP = 10;
+// 下降辅助：松开空格后不再自由落体，车底推进器自动托住车身，下降速度随高度递减（高处快、近地慢），
+// 落地前再收一次速度做缓冲；不消耗推进剂。爬升中止后从几百米落回也走同一条速度曲线
+const DESC_V0 = 2.2, DESC_K = .7, ASSIST_MAX = 30;
+export const descentSpeed = y => (DESC_V0 + DESC_K * Math.max(0, y)) * (1 + Math.max(0, y) / 20000);
 
 const THREE_clamp = x => Math.max(0, Math.min(1, x));
 
 export function createVehicle({ roadX, roadHalf }) {
   const s = {
     v: 0, a: 0, x: roadX + 1.8, yaw: 0, steer: 0, dist: 0, wheelAngle: 0, offroad: 0,
-    y: 0, vy: 0, fuel: 1, lift: 0, airborne: false, airTime: 0, hops: 0, landing: 0, maxAlt: 0,
+    y: 0, vy: 0, fuel: 1, lift: 0, assist: 0, airborne: false, airTime: 0, hops: 0, landing: 0, impact: 0, touchdown: false, maxAlt: 0, rolling: false,
     launch: { timing: false, t: 0, best: null, last: null },
   };
   function step(dt, input) {
@@ -43,18 +47,24 @@ export function createVehicle({ roadX, roadHalf }) {
     s.x -= Math.sin(s.yaw) * s.v * dt;
     const lim = roadHalf + 7;
     if (Math.abs(s.x - roadX) > lim) { s.x = roadX + Math.sign(s.x - roadX) * lim; s.yaw *= .5; }
-    // 垂直：按住空格且有推进剂时点火，接近高度上限推力衰减；着地时记录冲击用于回弹与震动
+    // 垂直：按住空格且有推进剂时点火，接近高度上限推力衰减
     const firing = jet && s.fuel > 0;
     s.lift += ((firing ? 1 : 0) - s.lift) * Math.min(1, dt * 10);
     // 推力：低空全力；接近限高时按位置与速度收推力，平稳悬停而不是冲过头
     const hover = G + 4 * (ALT_CAP - s.y) - 2.6 * s.vy;
     const lift = s.lift * Math.max(0, Math.min(LIFT, s.y < ALT_CAP * .45 ? LIFT : hover));
-    s.vy += (lift - G) * dt;
+    // 下降辅助：下落快于目标速度时自动补推力；翻滚期间额外托住，保证车身转一圈不会擦地
+    const vt = -descentSpeed(s.y);
+    let assist = s.y > .01 && s.vy < vt ? Math.min(ASSIST_MAX, G + 4 * (vt - s.vy)) : 0;
+    if (s.rolling && s.y > .01) assist = Math.max(assist, G + 3 * (0 - s.vy));
+    s.assist += (assist / LIFT - s.assist) * Math.min(1, dt * 12);
+    s.vy += (Math.max(lift, assist) - G) * dt;
     if (firing) s.fuel = Math.max(0, s.fuel - FUEL_BURN * dt);
     s.y += s.vy * dt;
     s.landing = Math.max(0, s.landing - dt * 2.5);
+    s.touchdown = false;
     if (s.y <= 0) {
-      if (s.airborne && s.vy < -1) s.landing = Math.min(1, -s.vy / 14);
+      if (s.airborne && s.vy < -.3) { s.landing = Math.min(1, -s.vy / 6); s.impact = -s.vy; s.touchdown = true; }
       s.y = 0; s.vy = Math.max(0, s.vy);
       if (s.airborne) { s.airborne = false; s.airTime = 0; }
       if (!firing) s.fuel = Math.min(1, s.fuel + FUEL_REGEN * dt);

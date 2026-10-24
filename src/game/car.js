@@ -3,6 +3,9 @@ import * as THREE from 'three';
 import { loadGLTF } from './assets.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const ROLL_H = .62;                  // 翻滚轴离地高度（车身中心）
+const TAIL_K = 1.6, BRAKE_K = 14;    // 尾灯常亮 / 踩刹车时的发光强度
+const WHEEL_TURN = 1.05;             // 方向盘最大转角（弧度，约 60°，yoke 方向盘不需要转满圈）
 
 // 模型坐标系（米，车头 +Z）下四个车轮的中心
 const WHEELS = [
@@ -16,6 +19,7 @@ function restyle(mesh) {
   else if (/Glass_Tint_max|Glass_mid_tint/.test(nm)) mesh.material = new THREE.MeshPhysicalMaterial({ name: nm, color: '#050608', metalness: .2, roughness: .02, clearcoat: 1, transparent: true, opacity: .93 });
   else if (nm === 'calipers') mesh.material = new THREE.MeshStandardMaterial({ name: nm, color: '#c9c9c9', metalness: .8, roughness: .35 });
   else if (/headlights|Glass_Clear/.test(nm) && mesh.material.emissive) { mesh.material = mesh.material.clone(); mesh.material.emissive.set('#eaf3ff'); mesh.material.emissiveIntensity = 1.2; }
+  else if (/rear_lights_main/.test(nm)) { mesh.material = mesh.material.clone(); mesh.material.name = 'brake_light'; mesh.material.emissive.set('#ff1020'); mesh.material.emissiveIntensity = TAIL_K; }
   else if (/rear_lights/.test(nm)) { mesh.material = mesh.material.clone(); mesh.material.emissive.set('#ff1020'); mesh.material.emissiveIntensity = 3; }
 }
 
@@ -40,8 +44,10 @@ function flameMaterial(color) {
 
 export async function createCar() {
   const { scene: model } = await loadGLTF('/assets/models/roadster-2020.glb');
-  const root = new THREE.Group(), chassis = new THREE.Group();
-  root.add(chassis); chassis.add(model);
+  // 层级：root（位置、航向）→ chassis（俯仰、侧倾、悬架起伏）→ roller（绕车身纵轴翻滚，轴心在车身中心）→ body（车身与所有附件）
+  const root = new THREE.Group(), chassis = new THREE.Group(), roller = new THREE.Group(), body = new THREE.Group();
+  roller.position.y = ROLL_H; body.position.y = -ROLL_H;
+  root.add(chassis); chassis.add(roller); roller.add(body); body.add(model);
   model.rotation.y = Math.PI;                       // 车头转向 -Z（前进方向）
   model.traverse(o => { if (o.isMesh) { restyle(o); o.castShadow = o.receiveShadow = true; } });
   model.updateMatrixWorld(true);
@@ -51,7 +57,7 @@ export async function createCar() {
   const meshes = []; model.traverse(o => o.isMesh && meshes.push(o));
   const wheels = WHEELS.map(w => {
     const center = model.localToWorld(w.c.clone());
-    const steer = new THREE.Group(); steer.position.copy(center); chassis.add(steer);   // 挂在车身下，随俯仰与侧倾一起转
+    const steer = new THREE.Group(); steer.position.copy(center); body.add(steer);      // 挂在车身下，随俯仰、侧倾与翻滚一起转
     const spin = new THREE.Group(); steer.add(spin); root.updateMatrixWorld(true);
     return { ...w, center, steer, spin, radius: w.c.y + model.position.y };
   });
@@ -66,7 +72,7 @@ export async function createCar() {
   function thrusterSet(spots, rotX, sizes) {
     const flames = [];
     for (const [x, y, z] of spots) {
-      const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.x = rotX; chassis.add(g);
+      const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.x = rotX; body.add(g);
       for (const [r, len, col] of sizes) {
         const f = new THREE.Mesh(new THREE.ConeGeometry(r, len, 20, 1, true), flameMaterial(col));
         f.position.y = len / 2; f.userData.len = len; g.add(f); flames.push(f);
@@ -91,7 +97,7 @@ export async function createCar() {
         gl_FragColor=vec4(clamp(col*f*front*front*flick*k*3.,0.,8.),1.);
       }`,
   }));
-  plasma.scale.set(1.35, .9, 2.7); plasma.position.set(0, .62, -.3); plasma.visible = false; chassis.add(plasma);
+  plasma.scale.set(1.35, .9, 2.7); plasma.position.set(0, .62, -.3); plasma.visible = false; body.add(plasma);
   // 尾迹：从车身两侧向后拖出的长条火焰
   const trail = new THREE.Mesh(new THREE.ConeGeometry(.95, 7, 32, 1, true), new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, uniforms: { k: { value: 0 }, t: { value: 0 } },
@@ -103,7 +109,7 @@ export async function createCar() {
         float edge=sin(vUv.x*6.2832*3.)*.5+.5;                         // 沿圆周明暗相间，像一缕缕火舌
         gl_FragColor=vec4(clamp(col*pow(along,3.)*n*(.35+.65*edge)*k*.55,0.,6.),1.); }`,
   }));
-  trail.rotation.x = -Math.PI / 2; trail.position.set(0, .62, 1.2 + 3.5); trail.visible = false; chassis.add(trail);
+  trail.rotation.x = -Math.PI / 2; trail.position.set(0, .62, 1.2 + 3.5); trail.visible = false; body.add(trail);
   // 尾迹在多数镜头下像探照灯光柱，暂不显示，只保留包裹车头的等离子火光
   const setPlasma = (k, t) => { for (const m of [plasma]) { m.visible = k > .01; m.material.uniforms.k.value = k; m.material.uniforms.t.value = t; } };
   // 车灯亮度：太空纯黑背景里大灯泛光过强，需要压低
@@ -125,7 +131,31 @@ export async function createCar() {
         gl_FragColor=vec4(vec3(.96,.97,1.),clamp(a*.85,0.,1.));
       }`,
   }));
-  vapor.rotation.x = -Math.PI / 2; vapor.position.set(0, .62, .6);   // 锥尖朝车头（-Z），开口向后 vapor.visible = false; chassis.add(vapor);
+  vapor.rotation.x = -Math.PI / 2; vapor.position.set(0, .62, .6);   // 锥尖朝车头（-Z），开口向后
+  vapor.visible = false; body.add(vapor);
   const setVapor = (k, t) => { vapor.visible = k > .01; vapor.material.uniforms.k.value = k; vapor.material.uniforms.t.value = t; vapor.scale.setScalar(.85 + .3 * k); };
-  return { root, chassis, wheels, setThrust, setLift, setPlasma, setHeadlights, setVapor };
+  // 方向盘：模型里的 yoke 是独立网格，按顶点求出盘面法线作为转轴，挂到以盘心为原点的枢轴上
+  const yoke = meshes.find(m => /roadster014/.test(m.name));
+  const yokePivot = new THREE.Group(), yokeAxis = V(0, 0, 1);
+  if (yoke) {
+    body.updateMatrixWorld(true);
+    const inv = body.matrixWorld.clone().invert(), pos = yoke.geometry.attributes.position, p = V(), pts = [];
+    for (let i = 0; i < pos.count; i += 3) pts.push(p.fromBufferAttribute(pos, i).applyMatrix4(yoke.matrixWorld).applyMatrix4(inv).clone());
+    const c = pts.reduce((a, q) => a.add(q), V()).multiplyScalar(1 / pts.length);
+    // 这个网格连着向前伸进仪表台的转向柱，Y-Z 平面里方差最大的方向就是转向柱，直接拿它当转轴
+    let yy = 0, zz = 0, yz = 0;
+    for (const q of pts) { const dy = q.y - c.y, dz = q.z - c.z; yy += dy * dy; zz += dz * dz; yz += dy * dz; }
+    const ang = .5 * Math.atan2(2 * yz, yy - zz);
+    yokeAxis.set(0, Math.cos(ang), Math.sin(ang)).normalize();
+    if (yokeAxis.z < 0) yokeAxis.negate();                 // 统一指向驾驶员（车尾 +Z）
+    yokePivot.position.copy(c); body.add(yokePivot); yokePivot.attach(yoke);
+  }
+  const setSteer = k => { yokePivot.quaternion.setFromAxisAngle(yokeAxis, k * WHEEL_TURN); };
+  const setRoll = a => { roller.rotation.z = a; };
+  // 刹车灯：尾灯主灯组（含高位第三刹车灯）踩刹车时大幅提亮
+  const brakeMats = []; model.traverse(o => { if (o.isMesh && o.material.name === 'brake_light') brakeMats.push(o.material); });
+  const setBrake = k => { for (const m of brakeMats) m.emissiveIntensity = TAIL_K + (BRAKE_K - TAIL_K) * k; };
+  // 悬架：comp 为车身相对车轮的下压量（米，负值表示车轮下垂）。车身由调用方整体下移，这里把车轮反向抬回，保持贴地
+  const setSuspension = comp => { for (const w of wheels) w.steer.position.y = w.center.y + comp; };
+  return { root, chassis, body, wheels, setThrust, setLift, setPlasma, setHeadlights, setVapor, setSteer, setRoll, setBrake, setSuspension, ROLL_H };
 }

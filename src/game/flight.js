@@ -1,10 +1,11 @@
 // 飞行导演：公路驾驶之外的三段流程
-//   ascent  冲向太空（玩家操控）：按住空格爬升、W 加力、A/D 侧移；松开会减速下坠，推进剂耗尽或放弃则落回公路。
+//   ascent  冲向太空（玩家操控）：按住空格爬升、W 加力、A/D 侧移；松开会减速并缓缓降落，推进剂耗尽或放弃则落回公路。
 //           沿途：突破音障（蒸汽锥 + 音爆）→ 穿云 → 云海 → 平流层天空变暗 → 卡门线（100 km）进入太空
 //   insert  入轨：自动把高度推到轨道，镜头转到巡航机位
 //   orbit   轨道巡航：地球在脚下转动，老前辈迎面飘来，近距离时环绕运镜
 //   reentry 再入返回：机头下压、等离子火光 → 穿云回到沙漠上空 → 推进器减速、交还公路驾驶
 import * as THREE from 'three';
+import { descentSpeed } from './vehicle.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const clamp01 = x => Math.max(0, Math.min(1, x));
@@ -37,6 +38,14 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
   const setFlash = k => { st.flash = clamp01(k); flash.style.opacity = st.flash.toFixed(3); };
   function moveCam(dt, pos, look, k = 3) {
     const a = 1 - Math.exp(-dt * k); camPos.lerp(pos, a); camLook.lerp(look, a);
+    camera.position.copy(camPos); camera.lookAt(camLook);
+  }
+  // 爬升专用：镜头相对车身的偏移做平滑，镜头本身随车移动。直接追绝对位置时车每秒上升几百米，弹簧镜头会被甩掉、车飞出画面
+  const offP = V(), offL = V();
+  function moveRel(dt, p, l, k = 3) {
+    const a = 1 - Math.exp(-dt * k); offP.lerp(p, a); offL.lerp(l, a);
+    const c = car.root.position;
+    camPos.copy(c).add(offP); camLook.copy(c).add(offL);
     camera.position.copy(camPos); camera.lookAt(camLook);
   }
   function shake(amount, t) { camera.position.x += Math.sin(t * 61) * amount; camera.position.y += Math.sin(t * 47 + 1) * amount; }
@@ -85,7 +94,7 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
   // —— 触发：悬停 8 米以上、推进剂过半、持续按住空格 0.8 秒 ——
   function checkAscent(dt, inp) {
     if (st.mode !== 'drive') return false;
-    st.jetHold = inp.jet && s.y > 8 && s.fuel > .5 ? st.jetHold + dt : 0;
+    st.jetHold = inp.jet && s.y > 8 && s.vy > -1 && s.fuel > .5 ? st.jetHold + dt : 0;   // 下降途中不触发，避免刚中止又被拉回去
     if (st.jetHold > .8) { start('ascent'); return true; }
     return false;
   }
@@ -94,9 +103,10 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
     if (mode === 'ascent') {
       Object.assign(asc, { alt: s.y, vz: 12, roll: 0, world: 'desert', mach: 0, boom: 0 });
       x0 = s.x; camPos.copy(camera.position); camLook.copy(car.root.position).add(V(0, .6, -8));
+      offP.copy(camPos).sub(car.root.position); offL.copy(camLook).sub(car.root.position);
       sky.dome.visible = true;
       for (const k of ['clouds', 'strato', 'karman', 'boom', 'lowfuel', 'home']) st.shown[k] = false;
-      hud.toast('冲向太空', '按住空格持续爬升 · W 加力 · A/D 侧移 · 松开会下坠', 4200);
+      hud.toast('冲向太空', '按住空格持续爬升 · W 加力 · A/D 侧移 · R 翻滚 · 松开会降落', 4200);
     }
     if (mode === 'orbit') { st.orbitT = 0; st.meetCooldown = 3; st.shown.meet = false; onEvent('orbit'); }
     if (mode === 'reentry') { music?.cue('road'); }
@@ -104,18 +114,20 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
   // 放弃爬升：交还给公路驾驶的物理，从当前高度自由下落（按住空格可缓冲）
   function abortToDrive() {
     sky.dome.visible = false; setFlash(0);
-    Object.assign(s, { y: asc.alt, vy: Math.max(asc.vz, -30), airborne: true, lift: 0, x: car.root.position.x });
+    Object.assign(s, { y: asc.alt, vy: Math.max(asc.vz, -descentSpeed(asc.alt) * 1.1), airborne: true, lift: 0, x: car.root.position.x });
     car.chassis.rotation.set(0, 0, 0); car.root.rotation.z = 0; car.setVapor(0, 0);
     hud.setOverride(null); st.mode = 'drive'; st.jetHold = 0;
     onEvent('ascent_abort', { fuelEmpty: s.fuel <= 0 });
-    hud.toast('爬升中止', s.fuel <= 0 ? '推进剂耗尽，正在下坠——按住空格缓冲落地' : '松开了推进器，正在下坠——按住空格缓冲落地', 3600);
+    hud.toast('爬升中止', s.fuel <= 0 ? '推进剂耗尽，推进器自动托底缓降' : '松开了推进器，正在缓缓降落', 3600);
   }
 
   // —— 爬升（玩家操控）——
   function updateAscent(dt, inp, now) {
     const t = (st.t += dt);
     const firing = inp.jet && s.fuel > 0, boost = firing && inp.throttle;
-    const a = firing ? (40 + .3 * Math.max(asc.vz, 0)) * (boost ? 1.5 : 1) : -60 - .02 * Math.abs(asc.vz);
+    // 松开推进器：先减速，再按与公路段相同的下降速度曲线落回（高处快、近地慢），不再瞬间猛坠
+    const vt = -Math.min(descentSpeed(asc.alt), 3000);
+    const a = firing ? (40 + .3 * Math.max(asc.vz, 0)) * (boost ? 1.5 : 1) : THREE.MathUtils.clamp(1.5 * (vt - asc.vz), -150, 40);
     asc.vz = Math.min(asc.vz + a * dt, V_CAP * (boost ? 1.04 : 1));
     if (firing) s.fuel = Math.max(0, s.fuel - BURN * (boost ? 1.8 : 1) * dt);
     asc.alt += asc.vz * dt;
@@ -127,7 +139,7 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
     const pitch = lerp(.15, .95, ease(t / 2.2)) * (firing ? 1 : .7);
     car.chassis.rotation.x += (pitch - car.chassis.rotation.x) * Math.min(1, dt * 3);
     car.root.rotation.z = asc.roll * .8; car.root.rotation.y *= Math.exp(-dt * 2);
-    car.setThrust(firing ? (boost ? 1 : .8) : 0, now); car.setLift(firing ? lerp(1, .3, ease(t / 3)) : 0, now);
+    car.setThrust(firing ? (boost ? 1 : .8) : 0, now); car.setLift(firing ? lerp(1, .3, ease(t / 3)) : asc.vz < 0 ? .4 : 0, now);   // 下降时车底推进器小火托底
     // 音障：竖直速度接近 340 m/s 时出现蒸汽锥，跨过 1 马赫的瞬间音爆
     const mach = asc.alt < 15000 ? asc.vz / 340 : 0;
     if (asc.mach < 1 && mach >= 1) { asc.boom = 1; toast('boom', '突破音障', '1 马赫 · 音爆！'); }
@@ -148,9 +160,11 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
     // 镜头：起飞头 2 秒在车后下方仰拍；之后转到车的左侧、略高于车，平视略俯，
     // 车头朝上像火箭一样爬升，脚下的云海与地球弧线留在画面下半部
     const sp = clamp01(asc.vz / 2500), sw = ease((t - 1.2) / 2.2);
-    tmpP.copy(car.root.position).add(V(lerp(2.6, -7.5 - sp * 2, sw) + asc.roll * 2, lerp(-3.4, 1.6 + sp * .8, sw), lerp(8.2, 3.2, sw)));
-    tmpL.copy(car.root.position).add(V(lerp(0, 1.2, sw), lerp(4.5, -.6, sw), lerp(-4, -.8, sw)));
-    moveCam(dt, tmpP, tmpL, 3);
+    // 推力越大镜头越往下“掉”一点，表现推背；车始终留在画面里
+    const lag = clamp01(a / 160) * 1.4;
+    tmpP.set(lerp(2.6, -7.5 - sp * 2, sw) + asc.roll * 2, lerp(-3.4, 1.6 + sp * .8, sw) - lag, lerp(8.2, 3.2, sw));
+    tmpL.set(lerp(0, 1.2, sw), lerp(4.5, -.6, sw) + lag * .4, lerp(-4, -.8, sw));
+    moveRel(dt, tmpP, tmpL, 3);
     shake(.02 + clamp01(a / 160) * .05 + asc.boom * .35, now);
     setFov(52 + sp * 16 + (boost ? 4 : 0), dt);
     engine.blur.uniforms.strength.value = asc.world === 'desert' ? clamp01((asc.vz - 80) / 500) * .06 : clamp01(asc.vz / 7000) * .03;
@@ -230,8 +244,10 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
       car.root.position.set(x0, y, 0); updateDesertLook(y, dt);
       car.chassis.rotation.x = lerp(-.32, 0, ease((t - 4.4) / 2.5));
       st.plasma = 1 - ramp(t, 4.1, 5.2); car.setPlasma(st.plasma, now); car.setLift(ramp(t, 5.6, 6.2), now); car.setThrust(0, now);
-      tmpP.set(x0 + lerp(3.5, .6, u), y + lerp(1.2, 1.5, u), lerp(8, 6.6, u)); tmpL.set(x0, y + .5, -8);
-      moveCam(dt, tmpP, tmpL, 3); shake(.12 * (1 - ramp(t, 4.1, 6)), now);
+      // 这一段每秒下降近百米，同样用相对偏移跟随，否则车会掉出画面
+      if (t - dt < 4.1) { offP.copy(camPos).sub(car.root.position); offL.copy(camLook).sub(car.root.position); }
+      tmpP.set(lerp(3.5, .6, u), lerp(1.2, 1.5, u), lerp(8, 6.6, u)); tmpL.set(0, .5, -8);
+      moveRel(dt, tmpP, tmpL, 3); shake(.12 * (1 - ramp(t, 4.1, 6)), now);
       setFlash(1 - ramp(t, 4.12, 4.6));
       altM = y;
       if (t > 8.5) {

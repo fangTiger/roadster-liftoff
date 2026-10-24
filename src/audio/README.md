@@ -69,7 +69,9 @@ void audio.cue('oldfriend');
 | `unlock(): Promise<void>` | 首次手势创建上下文、启动流式播放并淡入 road；同时激活三个媒体元素的权限。重复调用恢复上下文，保留当前音乐；首次失败可重试。 |
 | `cue(name): Promise<boolean>` | road、space、oldfriend。使用音频时钟调度约 2.5 秒的等功率交叉淡化。成功切换返回 true；未解锁、当前曲或播放失败返回 false。未知名称同步抛出 RangeError。 |
 | `update(dt, s)` | 每帧读取状态，不修改传入对象；缺失/非法数字按安全默认值处理。dt 单位为秒；平滑使用音频时钟，不依赖游戏帧率。 |
-| `event(name)` | launch、land、whiteout、achievement、horn；未解锁时忽略，未知名称抛出 RangeError。 |
+| `event(name)` | launch、land、whiteout、achievement、horn（单次短鸣）、roll（翻滚风声）；未解锁时忽略，未知名称抛出 RangeError。 |
+| `horn(on)` | 按住鸣笛：`true` 开始持续鸣响，`false` 松开衰减。 |
+| `update` 额外字段 | `boost`（尾部推进器 0–1，叠加推进器轰鸣）、`accel`（归一化加速度 0–1，控制起步涌动声）。电机啸叫随车速 300 Hz→2.6 kHz。 |
 | `setMuted(bool)` | 平滑静音或恢复原音量，立即尝试保存状态。 |
 | `toggleMuted(): boolean` | 切换并返回新的静音状态。 |
 | `setVolume(value)` | 主音量截断至 0…1；非法数字视为 0；不改变静音标志。 |

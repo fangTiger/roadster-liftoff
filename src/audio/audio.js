@@ -3,7 +3,7 @@ const MUSIC_LEVEL = 0.65;
 const SFX_LEVEL = 0.72;
 const FADE_SECONDS = 2.5;
 const NAMES = ['road', 'space', 'oldfriend'];
-const EVENTS = ['launch', 'land', 'whiteout', 'achievement', 'horn'];
+const EVENTS = ['launch', 'land', 'whiteout', 'achievement', 'horn', 'roll'];
 const STORE = 'liftoff.audio.v1';
 const clamp = (v, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, Number.isFinite(v) ? v : lo));
 const db = value => 10 ** (value / 20);
@@ -23,7 +23,7 @@ export function createAudio({ urls } = {}) {
   } catch { /* 隐私模式及禁用存储时继续使用内存状态。 */ }
 
   let ctx, master, musicBus, musicDuck, sfxBus, musicHP, wet, panDepth;
-  let motor, motorSine, whine, motorFilter, motorGain;
+  let motor, motorSine, whine, motorFilter, motorGain, evWhine, evWhine2, evGain, surge, hornGain, hornTimer;
   let road, gravel, wind, hiss, roar, thrustGain, plasmaRumble, plasmaCrackle;
   let buffers, tracks, current = null, pendingCue = null, requestId = 0, ready = false, unlocking;
   let state = { mode: 'drive', landing: 0 };
@@ -165,6 +165,17 @@ export function createAudio({ urls } = {}) {
     motor = oscillator('sawtooth', 80, sawLevel); motor.detune.value = -7;
     motorSine = oscillator('sine', 80, sineLevel); motorSine.detune.value = 7;
     whine = oscillator('sine', 240, gain(0.065, motorFilter));
+    // 电机啸叫：电动超跑加速时最有辨识度的声音。频率随车速从约 300 Hz 升到 2.6 kHz，
+    // 落在小扬声器也能放出来的频段（原有的 80–140 Hz 低频电机声在笔记本上几乎听不到）
+    evGain = gain(0, sfxBus);
+    evWhine = oscillator('sine', 300, evGain);
+    evWhine2 = oscillator('triangle', 450, gain(0.32, evGain));
+    // 起步推背的“涌动”声：中频噪声，只在大加速度时出现
+    surge = noiseLayer('pink', 'bandpass', 700, sfxBus, 0.8);
+    // 喇叭：两只方波双音（约 F#4 + A#4）经带通塑形，按住持续鸣响
+    hornGain = gain(0, sfxBus);
+    const hornTone = filter('lowpass', 3200, filter('bandpass', 1050, hornGain, 0.6));
+    for (const f of [370, 466]) oscillator('square', f, gain(0.5, hornTone));
     road = noiseLayer('pink', 'bandpass', 900);
     gravel = noiseLayer('crackle', 'bandpass', 1900, sfxBus, 0.9);
     wind = noiseLayer('pink', 'lowpass', 450);
@@ -263,7 +274,8 @@ export function createAudio({ urls } = {}) {
     const throttle = clamp(s.throttle), brake = clamp(s.brake), lift = clamp(s.lift);
     const offroad = clamp(s.offroad), plasma = clamp(s.plasma), altitude = clamp(s.altitude, 0, 1000000);
     const orbit = state.mode === 'orbit', ascent = state.mode === 'ascent', reentry = state.mode === 'reentry';
-    const thrust = Math.max(lift, s.jet ? Math.max(throttle, 0.35) : 0);
+    const boost = clamp(s.boost), accel = clamp(s.accel);
+    const thrust = Math.max(lift, boost * 0.8, s.jet ? Math.max(throttle, 0.35) : 0);
     const duck = lift > 0.1 || Boolean(s.jet);
     if (ascent || orbit || (reentry && previousMode !== 'reentry')) landed = false;
     if (state.landing > 0 && previousLanding === 0) landed = true;
@@ -281,6 +293,13 @@ export function createAudio({ urls } = {}) {
     smooth(motor.frequency, pitch, 0.08); smooth(motorSine.frequency, pitch, 0.08);
     smooth(whine.frequency, pitch * 3, 0.1); smooth(motorFilter.frequency, pitch * 1.7, 0.12);
     smooth(motorGain.gain, orbit ? 0 : (0.015 + 0.17 * throttle) * (1 - 0.4 * brake), 0.07);
+    const sp = clamp(speed / 400), wf = 300 + 2300 * Math.pow(sp, 0.8);
+    smooth(evWhine.frequency, wf, 0.05); smooth(evWhine2.frequency, wf * 1.5, 0.05);
+    // 踩电门时最响；松开滑行时很轻；刹车时能量回收，啸叫随车速下降
+    const evLevel = orbit ? 0 : throttle * (0.05 + 0.13 * Math.min(1, speed / 30)) + brake * 0.05 * clamp(speed / 120) + 0.012 * clamp(speed / 40);
+    smooth(evGain.gain, evLevel, 0.06);
+    smooth(surge.output.gain, orbit ? 0 : accel * throttle * 0.32, 0.05);
+    smooth(surge.tone.frequency, 500 + sp * 1500, 0.1);
     smooth(road.output.gain, orbit ? 0 : clamp(speed / 250) * 0.14, 0.15);
     smooth(gravel.output.gain, orbit ? 0 : offroad * clamp(speed / 80) * 0.48, 0.08);
     smooth(wind.output.gain, orbit ? 0 : clamp(speed / 350) * 0.2 + (ascent ? 0.23 : 0), 0.25);
@@ -324,14 +343,24 @@ export function createAudio({ urls } = {}) {
       shot({ kind: 'pink', duration: 1.8, level: 0.8, type: 'highpass', cutoff: 400, cutoffEnd: 7000 });
     } else if (name === 'achievement') {
       [880, 1108.73, 1318.51, 1760].forEach((frequency, i) => shot({ frequency, duration: 1.1, level: 0.14, delay: i * 0.11, cutoff: 6000 }));
+    } else if (name === 'roll') {
+      // 翻滚：一阵掠过车身的风声
+      shot({ kind: 'pink', duration: 1.1, level: 0.55, type: 'bandpass', cutoff: 300, cutoffEnd: 2600 });
     } else {
-      [220, 277.18].forEach(frequency => shot({ kind: 'triangle', frequency, duration: 0.5, level: 0.24, cutoff: 1700 }));
+      // 单次鸣笛（触屏或旧调用）：按下 0.35 秒后松开
+      horn(true); clearTimeout(hornTimer); hornTimer = setTimeout(() => horn(false), 350);
     }
+  }
+
+  // 喇叭：按下时持续鸣响，松开后短暂衰减
+  function horn(on) {
+    if (!ready || !hornGain) return;
+    smooth(hornGain.gain, on ? 0.34 : 0, on ? 0.008 : 0.035);
   }
 
   function setMuted(value) { muted = Boolean(value); persist(); if (ctx) smooth(master.gain, muted ? 0 : volume, 0.025); }
   function toggleMuted() { setMuted(!muted); return muted; }
   function setVolume(value) { volume = clamp(value); persist(); if (ctx) smooth(master.gain, muted ? 0 : volume, 0.04); }
 
-  return { unlock, cue, update, event, setMuted, toggleMuted, setVolume, get muted() { return muted; } };
+  return { unlock, cue, update, event, horn, setMuted, toggleMuted, setVolume, get muted() { return muted; } };
 }
