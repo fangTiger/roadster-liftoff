@@ -57,7 +57,7 @@ const rig = createCameraRig(camera, renderer.domElement);
 rig.onChange(m => ach?.report('camera', { mode: m }));
 const hud = createHUD();
 const input = createInput();
-touch = CAPTURE ? null : createTouch({ input, onCamera: () => rig.cycle() });
+touch = CAPTURE ? null : createTouch({ input, onCamera: () => rig.cycle(), onRoll: () => tryRoll(input.state()) });
 perf = CAPTURE ? null : createPerf({ engine, getPreset: () => mobilePreset, setPreset: setMobilePreset });
 const space = await createSpace(scene, renderer);
 const clouds = createClouds(scene);
@@ -97,7 +97,9 @@ blob.rotation.x = -Math.PI / 2; blob.position.y = .02; blob.renderOrder = 3; sce
 // 音频：录制模式下不创建；首次按键或点击时解锁（浏览器自动播放规则）
 flight.setMusic(audio);
 if (audio) {
-  addEventListener('keydown', e => { if (e.code === 'KeyM') audio.toggleMuted(); if (e.code === 'KeyH') { audio.event('horn'); ach.report('horn'); } });
+  addEventListener('keydown', e => { if (e.code === 'KeyM') audio.toggleMuted(); if (e.code === 'KeyH' && !e.repeat && started && !ui.paused) { audio.horn(true); ach.report('horn'); } });
+  addEventListener('keyup', e => { if (e.code === 'KeyH') audio.horn(false); });
+  addEventListener('blur', () => audio.horn(false));
   const note = document.querySelector('#tools span:nth-child(2)'); note.style.cursor = 'pointer'; note.style.pointerEvents = 'auto';
   note.parentElement.style.pointerEvents = 'auto';
   const paint = () => { note.style.opacity = audio.muted ? .35 : 1; };
@@ -105,11 +107,13 @@ if (audio) {
   ach.onUnlock(() => audio.event('achievement'));        // 成就解锁时播放提示音
 }
 const aud = { landing: 0, flash: 0, timing: false };
+const A_REF = 34;                 // 起步最大加速度，用于把加速度归一化给音频
 function updateAudio(dt, inp) {
   if (!audio) return;
   const s = vehicle.state, f = flight.state, drive = f.mode === 'drive';
   audio.update(dt, { mode: drive ? 'drive' : f.mode, speedKmh: s.v * KMH, throttle: !!inp.throttle, brake: !!inp.brake, jet: !!inp.jet,
-    lift: drive ? s.lift : (f.mode === 'ascent' && inp.jet ? 1 : 0), altitude: drive ? s.y : f.alt, offroad: s.offroad, landing: s.landing, plasma: f.plasma });
+    lift: drive ? Math.max(s.lift, s.assist * .6) : (f.mode === 'ascent' && inp.jet ? 1 : 0), altitude: drive ? s.y : f.alt, offroad: s.offroad, landing: s.landing, plasma: f.plasma,
+    boost: drive ? fx.boost : 0, accel: drive ? THREE.MathUtils.clamp(s.a / A_REF, 0, 1) : 0 });
   if (s.landing > .3 && aud.landing <= .3) audio.event('land');
   if (s.launch.timing && !aud.timing) audio.event('launch');
   if (f.flash > .6 && aud.flash <= .6) audio.event('whiteout');
@@ -131,27 +135,69 @@ function updateAchievements() {
 
 const clock = { t: 0 };
 const rear = car.wheels.filter(w => !w.front);
+const fx = { boost: 0, steer: 0 };
+// 悬架：comp 为车身相对车轮的下压量（米）。弹簧阻尼，落地时以触地速度冲击；空中车轮自然下垂 5 厘米
+const susp = { comp: 0, v: 0 };
+function updateSuspension(dt, s) {
+  if (s.touchdown) { susp.v += s.impact * .85; car.chassis.rotation.x -= Math.min(.05, s.impact * .008); }   // 触地：车身继续下沉、车头轻点
+  const rest = s.airborne ? -.05 : 0, K = 260, C = 13;
+  susp.v += (-K * (susp.comp - rest) - C * susp.v) * dt;
+  susp.comp += susp.v * dt;
+  if (susp.comp > .12) { susp.comp = .12; susp.v = Math.min(0, susp.v); }       // 压到限位块
+  if (susp.comp < -.07) { susp.comp = -.07; susp.v = Math.max(0, susp.v); }
+  car.setSuspension(susp.comp);
+  return susp.comp;
+}
+// 翻滚：R 键绕车身纵轴转一整圈，方向跟随当前转向（默认向左）；公路上需离地 1.2 米以上，爬升和太空中随时可用
+const roll = { t: -1, dir: 1, dur: 1.15 };
+function tryRoll(inp) {
+  const m = flight.state.mode, s = vehicle.state;
+  if (roll.t >= 0 || !(m === 'drive' ? s.y > 1.2 : m === 'ascent' || m === 'insert' || m === 'orbit')) return;
+  roll.t = 0; roll.dir = inp.right && !inp.left ? -1 : 1;
+  if (m === 'drive') { s.rolling = true; s.vy = Math.max(s.vy, 2.5); }
+  audio?.event('roll');
+}
+function updateRoll(dt) {
+  if (roll.t < 0) return 0;
+  roll.t += dt; const u = Math.min(1, roll.t / roll.dur), e = u * u * u * (u * (u * 6 - 15) + 10);
+  car.setRoll(roll.dir * e * Math.PI * 2);
+  if (u >= 1) { roll.t = -1; car.setRoll(0); vehicle.state.rolling = false; ach.report('roll'); if (!rollShown) { rollShown = true; hud.toast('桶滚！', '空中 360° 翻滚', 2600); } }
+  return Math.sin(Math.PI * u);             // 0→1→0：翻滚中段最强
+}
+let rollShown = false;
+// 方向盘与刹车灯：公路上跟随转向/刹车，飞行中跟随左右与 S 键
+function updateCockpitBits(dt, inp, steer) {
+  fx.steer += (steer - fx.steer) * Math.min(1, dt * 10);
+  car.setSteer(fx.steer);
+  car.setBrake(inp.brake ? 1 : 0);
+}
 // 公路驾驶：车辆物理、车身姿态、推进器、扬尘、世界滚动与追随镜头
 function driveFrame(dt, inp) {
   const s = vehicle.state;
   const dz = vehicle.step(dt, inp);
+  const rollK = updateRoll(dt);
+  if (rollK > 0) s.x -= roll.dir * rollK * 3.2 * dt;          // 翻滚时向翻滚一侧横移一点，像飞机的副翼滚转
   // 车身：位置、朝向、加速抬头/刹车点头、转弯侧倾
   car.root.position.set(s.x, s.y, 0); car.root.rotation.y = s.yaw;
   const pitchT = THREE.MathUtils.clamp(s.a * .0016, -.03, .045) + (s.airborne ? THREE.MathUtils.clamp(s.vy * .006, -.08, .06) : 0), rollT = -s.steer * Math.min(1, s.v / 30) * (s.airborne ? .06 : .022);
   car.chassis.rotation.x += (pitchT - car.chassis.rotation.x) * Math.min(1, dt * 8);
   car.chassis.rotation.z += (rollT - car.chassis.rotation.z) * Math.min(1, dt * 6);
-  car.chassis.position.y = s.offroad * Math.sin(clock.t * 40) * .012 * Math.min(1, s.v / 15) - s.landing * .09 * Math.max(0, Math.cos((1 - s.landing) * 9));   // 落地压缩回弹
+  const comp = updateSuspension(dt, s);
+  car.chassis.position.y = s.offroad * Math.sin(clock.t * 40) * .012 * Math.min(1, s.v / 15) - comp;
   for (const w of car.wheels) { w.spin.rotation.x -= s.v / w.radius * dt; if (w.front) w.steer.rotation.y = s.steer * .3; }
-  // 推进器：起步与高加速度时点火
+  updateCockpitBits(dt, inp, s.steer);
+  // 推进器：起步与高加速度时点火；车底推进器包括自动缓降时的小火
   const thrust = inp.throttle ? THREE.MathUtils.clamp((s.a - 6) / 22, 0, 1) : 0;
+  fx.boost = thrust;
+  const liftVis = Math.max(s.lift, Math.min(1, s.assist * 1.4));
   car.setThrust(DBG.includes('noflame') ? 0 : thrust, clock.t);
-  car.setLift(DBG.includes('noflame') ? 0 : s.lift, clock.t);
+  car.setLift(DBG.includes('noflame') ? 0 : liftVis, clock.t);
   // 扬尘
   const launchDust = inp.throttle && s.v < 25 ? THREE.MathUtils.clamp((s.a - 10) / 20, 0, 1) : 0;
   const dustRate = launchDust * 40 + s.offroad * Math.min(1, s.v / 10) * 50;
   // 推进器贴近地面时吹起一圈尘土；落地瞬间再扬一次
-  const jetDust = s.lift * Math.max(0, 1 - s.y / 7);
-  jetAcc += (jetDust * 70 + (s.landing > .6 ? 120 : 0)) * dt;
+  const jetDust = liftVis * Math.max(0, 1 - s.y / 7);
+  jetAcc += jetDust * 70 * dt + (s.touchdown ? 28 * Math.min(1, s.impact / 3) : 0);
   while (jetAcc > 1) { jetAcc--; emitRing(s.x, Math.max(jetDust, s.landing)); }
   dustAcc += dustRate * dt;
   if (DBG.includes('nodust')) dustAcc = 0;
@@ -171,6 +217,8 @@ function frame(dt, inp) {
   else {
     blob.visible = false;
     flight.update(dt, inp, clock.t);
+    updateRoll(dt);
+    updateCockpitBits(dt, inp, (inp.left ? 1 : 0) - (inp.right ? 1 : 0));
     rig.updateFlight(dt, car);
     for (const w of car.wheels) w.spin.rotation.x -= s.v / w.radius * dt;
     updateDust(dt, 0);
@@ -183,13 +231,14 @@ function frame(dt, inp) {
 }
 
 if (CAPTURE) {
-  window.__frame = (dt, inp) => frame(dt, { throttle: false, brake: false, left: false, right: false, ...inp });
-  window.__cam = m => rig.setMode(m);
+  window.__frame = (dt, inp) => { const i = { throttle: false, brake: false, left: false, right: false, ...inp }; if (i.roll) tryRoll(i); frame(dt, i); };
+  window.__cam = m => rig.setMode(m); window.__car = car; window.__THREE = THREE;
+  window.__st = () => { const v = vehicle.state, f = flight.state; return { mode: f.mode, y: +v.y.toFixed(2), vy: +v.vy.toFixed(2), v: +(v.v * KMH).toFixed(1), fuel: +v.fuel.toFixed(2), alt: Math.round(f.alt) }; };
   frame(1 / 30, {});
   document.title = 'ready';
 } else {
   // 截图成就：K 键或 ◎ 图标
-  addEventListener('keydown', e => { if (e.code === 'KeyK' && started) ach.report('screenshot'); });
+  addEventListener('keydown', e => { if (e.code === 'KeyK' && started) ach.report('screenshot'); if (e.code === 'KeyR' && !e.repeat && started && !ui.paused) tryRoll(input.state()); });
   document.querySelector('#tools span:nth-child(1)')?.addEventListener('click', () => ach.report('screenshot'));
   engine.render(); ui.showLoading(1, '准备起飞…'); ui.hideLoading();
   let last = performance.now();

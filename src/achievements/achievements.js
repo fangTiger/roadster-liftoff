@@ -116,6 +116,12 @@ const DEFS = [
     name: '太空常客',
     desc: '累计进入轨道 3 次',
   },
+  {
+    id: 'barrel_roll',
+    index: 19,
+    name: '桶滚',
+    desc: '在空中完成一次 360° 翻滚',
+  },
 ];
 
 // 全部 5 个机位名称（用于 director 成就追踪）
@@ -258,7 +264,7 @@ export function createAchievements({ storageKey = 'liftoff.achievements.v1' } = 
   function _updateBagCounter() {
     if (typeof document === 'undefined') return;
     const el = document.querySelector('#bag .ach b');
-    if (el) el.textContent = `${Object.keys(saved.unlocked).length} / 18`;
+    if (el) el.textContent = `${Object.keys(saved.unlocked).length} / ${DEFS.length}`;
   }
 
   // ── Toast 系统 ────────────────────────────────────────────────────────────────
@@ -501,6 +507,10 @@ export function createAchievements({ storageKey = 'liftoff.achievements.v1' } = 
 
       case 'horn':
         // 彩蛋占位，目前无成就绑定喇叭
+        break;
+
+      case 'roll':
+        unlock('barrel_roll');
         break;
 
       default:

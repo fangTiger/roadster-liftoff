@@ -1,5 +1,5 @@
 // 每个触点独立持有动作，捕获指针后即使移出按钮也能正确释放。
-export function createTouch({ input, onCamera = () => {} }) {
+export function createTouch({ input, onCamera = () => {}, onRoll = () => {} }) {
   const media = matchMedia('(pointer: coarse)');
   const forced = new URLSearchParams(location.search).has('touch');
   const root = document.createElement('div'); root.id = 'mobile-touch';
@@ -10,6 +10,7 @@ export function createTouch({ input, onCamera = () => {} }) {
     </div>
     <div class="mobile-pedals">
       <button type="button" class="mobile-camera mobile-glass" data-touch="camera">镜头</button>
+      <button type="button" class="mobile-roll mobile-glass" data-touch="roll">翻滚</button>
       <button type="button" class="mobile-brake mobile-glass" data-touch="brake" aria-pressed="false">刹车</button>
       <button type="button" class="mobile-throttle mobile-glass" data-touch="throttle" aria-pressed="false">加速<small>按住</small></button>
       <button type="button" class="mobile-jet mobile-glass" data-touch="jet" aria-pressed="false">
@@ -77,6 +78,7 @@ export function createTouch({ input, onCamera = () => {} }) {
       steer(p, e.clientX); paint();
     });
     if (el.dataset.touch === 'camera') listen(el, 'click', onCamera);
+    if (el.dataset.touch === 'roll') listen(el, 'click', onRoll);
   }
   function release(e) {
     const p = pointers.get(e.pointerId);

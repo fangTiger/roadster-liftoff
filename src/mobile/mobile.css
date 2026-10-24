@@ -13,6 +13,7 @@
 .mobile-knob{position:absolute;left:calc(50% - 23px);top:27px;width:46px;height:46px;border-radius:50%;background:linear-gradient(160deg,#ffffff48,#ffffff16);border:1px solid #ffffff60;box-shadow:0 3px 10px #0003;pointer-events:none}
 .mobile-pedals{position:absolute;right:calc(var(--mobile-edge) + env(safe-area-inset-right,0px));bottom:calc(20px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:64px 76px 84px;grid-template-rows:44px 84px;gap:10px;align-items:end}
 #mobile-touch .mobile-camera{grid-column:3;grid-row:1;justify-self:center;width:64px;height:44px;font-size:12px;border-radius:22px}
+#mobile-touch .mobile-roll{grid-column:2;grid-row:1;justify-self:center;width:64px;height:44px;font-size:12px;border-radius:22px;color:#d8c8ff}
 #mobile-touch .mobile-brake{grid-column:1;grid-row:2;width:64px;height:64px;color:#ffccba}
 #mobile-touch .mobile-throttle{grid-column:2;grid-row:2;width:76px;height:84px;background:linear-gradient(160deg,#ff8a5c50,#ff4d3a24);border-color:#ff9a5c80}
 #mobile-touch .mobile-jet{position:relative;grid-column:3;grid-row:2;width:84px;height:84px;border-radius:50%;color:#b8efff;border-color:#7fe3ff70}
@@ -52,7 +53,8 @@
  #toast{top:calc(184px + env(safe-area-inset-top,0px));max-width:210px}
  #mobile-touch .mobile-steering{width:112px;height:76px;bottom:calc(24px + env(safe-area-inset-bottom,0px))}
  .mobile-pedals{grid-template-columns:64px 76px;grid-template-rows:84px 84px;gap:10px}
- #mobile-touch .mobile-camera{grid-column:1;grid-row:1;align-self:center}
+ #mobile-touch .mobile-camera{grid-column:1;grid-row:1;align-self:start}
+ #mobile-touch .mobile-roll{grid-column:1;grid-row:1;align-self:end}
  #mobile-touch .mobile-jet{grid-column:2;grid-row:1;justify-self:center}
  #mobile-touch .mobile-brake{grid-column:1;grid-row:2}#mobile-touch .mobile-throttle{grid-column:2;grid-row:2}
 }

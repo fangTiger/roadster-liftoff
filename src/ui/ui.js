@@ -3,7 +3,7 @@ const STORE = 'liftoff.ui.v1';
 import { QUALITY_PRESETS as PRESETS, getDefaultPreset } from '../mobile/perf.js';
 const CONTROLS = [
   ['W', '加速'], ['S', '刹车 / 再入'], ['A / D', '转向'], ['空格', '推进器（按住冲上太空）'],
-  ['C', '切换镜头'], ['M', '静音'], ['H', '喇叭'], ['P / Esc', '暂停'],
+  ['R', '空中翻滚'], ['C', '切换镜头'], ['M', '静音'], ['H', '喇叭（按住）'], ['P / Esc', '暂停'],
   ['F', '全屏'], ['K', '截图'], ['/', '操作说明'],
 ];
 const controlsHTML = () => `<dl class="ui-controls">${CONTROLS.map(([key, text]) => `<div><dt><kbd>${key}</kbd></dt><dd>${text}</dd></div>`).join('')}</dl>`;
@@ -45,7 +45,7 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
           <label class="ui-setting"><span>显示操作提示</span><input type="checkbox" role="switch" data-setting="hints"><i></i></label>
           <p class="ui-footnote">设置自动保存到此设备</p><button class="ui-back" data-action="back">返回暂停菜单</button>
         </div>
-        <div data-panel="help" hidden>${controlsHTML()}<p class="ui-howto">推进剂满格以上时，离地 8 米后一直按住空格即可冲向太空；松开会下坠。按 S 从轨道再入。</p><button class="ui-back" data-action="help-close">返回</button></div>
+        <div data-panel="help" hidden>${controlsHTML()}<p class="ui-howto">推进剂过半时，离地 8 米后一直按住空格即可冲向太空；松开后推进器自动托底，缓缓降落。空中按 R 翻滚，按 S 从轨道再入。</p><button class="ui-back" data-action="help-close">返回</button></div>
       </div>
     </section>
     <div class="ui-flash" aria-hidden="true"></div><div class="g ui-toast" role="status" hidden></div>`;
