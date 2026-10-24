@@ -17,6 +17,8 @@ const PLANS = {
   cams: [[0, 0, 'cam:low'], [1, 20, 'throttle'], [5, 0, 'cam:cine'], [17, 0, 'cam:cockpit'], [22, 0, 'cam:free'], [22, 23, 'jet'], [26, 34, 'jet'], [30, 0, 'cam:cockpit']],
   climb: [[1, 7, 'throttle'], [4, 33, 'jet'], [17, 23, 'throttle'], [52, 52.5, 'brake'], [61, 66, 'throttle']],
   // 第二版演示：起跳 → 空中翻滚 → 自动缓降、悬架落地 → 刹车灯 → 驾驶舱看方向盘 → 冲上太空（途中翻滚）→ 轨道翻滚 → 再入返航
+  // 弯道 + 金币 + 驾驶舱看方向盘自动打 + 跳起翻滚 → 冲上太空 → 与老前辈同框 → 再入缓降落回公路
+  v3: [[1, 30, 'throttle'], [10, 0, 'cam:cockpit'], [14, 0, 'cam:low'], [17.5, 0, 'cam:chase'], [21, 22, 'jet'], [22.2, 22.3, 'roll'], [31, 58, 'jet'], [76, 76.3, 'brake'], [101, 108, 'throttle']],
   v2: [[1, 9, 'throttle'], [5.5, 7.2, 'jet'], [7.6, 7.7, 'roll'], [9.6, 10.6, 'brake'], [11, 0, 'cam:cockpit'], [11, 16.5, 'throttle'], [12.4, 13.4, 'left'], [14, 15, 'right'],
     [16.5, 0, 'cam:chase'], [17, 47, 'jet'], [24, 30, 'throttle'], [21.5, 21.6, 'roll'], [57, 57.1, 'roll'], [66, 66.5, 'brake'], [76, 82, 'throttle']],
 };
