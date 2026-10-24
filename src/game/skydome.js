@@ -21,7 +21,7 @@ export async function createSkyDome(scene, renderer) {
   const cols = cs => new THREE.Matrix3().set(cs[0][0], cs[1][0], cs[2][0], cs[0][1], cs[1][1], cs[2][1], cs[0][2], cs[1][2], cs[2][2]);
   const u = {
     zen: { value: new THREE.Color() }, hor: { value: new THREE.Color() }, sunDir: { value: new THREE.Vector3(0, .3, -1) },
-    sunK: { value: 1 }, opacity: { value: 0 }, stars: { value: tex }, starK: { value: 0 }, starRot: { value: new THREE.Matrix3() },
+    sunK: { value: 1 }, opacity: { value: 0 }, groundK: { value: 0 }, stars: { value: tex }, starK: { value: 0 }, starRot: { value: new THREE.Matrix3() },
     invIn: { value: cols([[.59719, .07600, .02840], [.35458, .90834, .13383], [.04823, .01566, .83777]]).invert() },
     invOut: { value: cols([[1.60475, -.10208, -.00327], [-.53108, 1.10813, -.07276], [-.07367, -.00605, 1.07602]]).invert() },
     exposure: { value: renderer.toneMappingExposure },
@@ -29,7 +29,7 @@ export async function createSkyDome(scene, renderer) {
   const mat = new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, transparent: true, fog: false, uniforms: u,
     vertexShader: 'varying vec3 vW; void main(){ vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }',
-    fragmentShader: `uniform vec3 zen, hor, sunDir; uniform float sunK, opacity, starK, exposure; uniform sampler2D stars; uniform mat3 starRot, invIn, invOut; varying vec3 vW;
+    fragmentShader: `uniform vec3 zen, hor, sunDir; uniform float sunK, opacity, groundK, starK, exposure; uniform sampler2D stars; uniform mat3 starRot, invIn, invOut; varying vec3 vW;
       vec3 invACES(vec3 c){
         vec3 y=clamp(invOut*c,0.,.995);
         vec3 A=1.-.983729*y, B=.0245786-.4329510*y, C=-(.000090537+.238081*y);
@@ -49,7 +49,8 @@ export async function createSkyDome(scene, renderer) {
         // 星空：NASA 星图（贴图存的是线性亮度 ×4）
         vec3 sd=starRot*d; vec2 uv=vec2(atan(sd.z,sd.x)/6.28318+.5, asin(clamp(sd.y,-1.,1.))/3.14159+.5);
         lin+=texture2D(stars,uv).rgb*.45*starK*smoothstep(-.05,.1,e+.2);
-        gl_FragColor=vec4(lin,opacity);
+        // groundK：沙漠场景里地平线以下交给流动地面（它自己做空气透视），穹顶只在地平线附近留一圈雾霭盖住地面边缘
+        gl_FragColor=vec4(lin,opacity*(1.-groundK*smoothstep(.004,.05,-e)));
       }`,
   });
   const dome = new THREE.Mesh(new THREE.SphereGeometry(20000, 64, 32), mat);

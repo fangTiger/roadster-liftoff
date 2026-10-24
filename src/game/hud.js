@@ -43,5 +43,8 @@ export function createHUD() {
   }
   // 飞行导演接管时，用覆盖值显示轨道高度/速度
   const setOverride = o => { override = o; };
-  return { update, toast, setOverride };
+  // 金币计数：数字跳一下
+  let popTimer = 0;
+  function setCoins(n) { const el = $('coins'); $('coinn').textContent = n; el.classList.add('pop'); clearTimeout(popTimer); popTimer = setTimeout(() => el.classList.remove('pop'), 120); }
+  return { update, toast, setOverride, setCoins };
 }

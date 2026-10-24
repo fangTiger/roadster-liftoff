@@ -13,6 +13,7 @@ import { createClouds } from './clouds.js';
 import { createFlight } from './flight.js';
 import { createSkyDome } from './skydome.js';
 import { createCloudSea } from './cloudsea.js';
+import { createCoins } from './coins.js';
 import { createAudio } from '../audio/audio.js';
 import { createAchievements } from '../achievements/achievements.js';
 import { createUI } from '../ui/ui.js';
@@ -52,7 +53,7 @@ const desert = await createDesert(scene, renderer);
 ui?.showLoading(.35, '加载推进器超跑…');
 const car = await createCar(); scene.add(car.root);
 ui?.showLoading(.5, '加载地球与星空…');
-const vehicle = createVehicle({ roadX: desert.ROAD_X, roadHalf: desert.ROAD_HALF });
+const vehicle = createVehicle({ roadHalf: desert.ROAD_HALF, centerAt: desert.centerAt, slopeAt: desert.slopeAt });
 const rig = createCameraRig(camera, renderer.domElement);
 rig.onChange(m => ach?.report('camera', { mode: m }));
 const hud = createHUD();
@@ -65,6 +66,8 @@ const sky = await createSkyDome(scene, renderer);
 ui?.showLoading(.85, '准备起飞…');
 const cloudSea = createCloudSea(space.group);
 const ach = createAchievements();
+const coins = createCoins(desert.root);
+let coinStreak = 0, coinStreakT = 0, lastMode = 'drive';
 const flight = createFlight({ scene, camera, desert, space, clouds, cloudSea, sky, car, vehicle, hud, flash: document.getElementById('flash'), music: null, engine, onEvent: (e, d) => ach.report(e, d) });
 
 // 扬尘：起步烧胎或开上路肩时从后轮扬起
@@ -183,13 +186,13 @@ function driveFrame(dt, inp) {
   if (rollK > 0) s.x -= roll.dir * rollK * 3.2 * dt;          // 翻滚时向翻滚一侧横移一点，像飞机的副翼滚转
   // 车身：位置、朝向、加速抬头/刹车点头、转弯侧倾
   car.root.position.set(s.x, s.y, 0); car.root.rotation.y = s.yaw;
-  const pitchT = THREE.MathUtils.clamp(s.a * .0016, -.03, .045) + (s.airborne ? THREE.MathUtils.clamp(s.vy * .006, -.08, .06) : 0), rollT = -s.steer * Math.min(1, s.v / 30) * (s.airborne ? .06 : .022);
+  const pitchT = THREE.MathUtils.clamp(s.a * .0016, -.03, .045) + (s.airborne ? THREE.MathUtils.clamp(s.vy * .006, -.08, .06) : 0), rollT = -s.steerVis * Math.min(1, s.v / 30) * (s.airborne ? .06 : .022);
   car.chassis.rotation.x += (pitchT - car.chassis.rotation.x) * Math.min(1, dt * 8);
   car.chassis.rotation.z += (rollT - car.chassis.rotation.z) * Math.min(1, dt * 6);
   const comp = updateSuspension(dt, s);
   car.chassis.position.y = s.offroad * Math.sin(clock.t * 40) * .012 * Math.min(1, s.v / 15) - comp;
-  for (const w of car.wheels) { w.spin.rotation.x -= s.v / w.radius * dt; if (w.front) w.steer.rotation.y = s.steer * .3; }
-  updateCockpitBits(dt, inp, s.steer);
+  for (const w of car.wheels) { w.spin.rotation.x -= s.v / w.radius * dt; if (w.front) w.steer.rotation.y = s.steerVis * .3; }
+  updateCockpitBits(dt, inp, s.steerVis);
   // 推进器：起步与高加速度时点火；车底推进器包括自动缓降时的小火
   const thrust = inp.throttle ? THREE.MathUtils.clamp((s.a - 6) / 22, 0, 1) : 0;
   fx.boost = thrust;
@@ -210,7 +213,12 @@ function driveFrame(dt, inp) {
   updateDust(dt, dz);
   // 世界滚动、阴影跟随、镜头、后期
   blob.position.x = s.x; blob.rotation.z = s.yaw; blob.scale.setScalar(1 + s.y * .06); blob.material.opacity = Math.max(0, 1 - s.y / 12);
-  desert.advance(dz); desert.follow(car.root.position); desert.setAltitude(s.y);
+  desert.advance(dz); desert.follow(car.root.position, camera); desert.setAltitude(s.y);
+  // 金币：连着吃时音调逐个升高，断档 1.2 秒后从头开始
+  const got = coins.update(dt, desert.trackD, dz, { x: s.x, y: s.y }, clock.t);
+  coinStreakT += dt; if (coinStreakT > 1.2) coinStreak = 0;
+  for (let i = 0; i < got; i++) { audio?.event('coin', { pitch: Math.min(coinStreak++, 12) }); coinStreakT = 0; }
+  if (got) { hud.setCoins(coins.count); ach.report('coin', { count: coins.count }); }
   rig.updateDrive(dt, car, s);
   flight.checkAscent(dt, inp);
 }
@@ -218,6 +226,9 @@ function driveFrame(dt, inp) {
 function frame(dt, inp) {
   clock.t += dt;
   const s = vehicle.state;
+  coins.setVisible(flight.state.mode === 'drive');
+  if (flight.state.mode === 'drive' && lastMode !== 'drive') rig.syncChase();
+  lastMode = flight.state.mode;
   if (flight.state.mode === 'drive') { blob.visible = jetGlow.visible = true; driveFrame(dt, inp); }
   else {
     blob.visible = jetGlow.visible = false;
@@ -238,7 +249,7 @@ function frame(dt, inp) {
 if (CAPTURE) {
   window.__frame = (dt, inp) => { const i = { throttle: false, brake: false, left: false, right: false, ...inp }; if (i.roll) tryRoll(i); frame(dt, i); };
   window.__cam = m => rig.setMode(m); window.__car = car; window.__THREE = THREE;
-  window.__st = () => { const v = vehicle.state, f = flight.state; return { mode: f.mode, y: +v.y.toFixed(2), vy: +v.vy.toFixed(2), v: +(v.v * KMH).toFixed(1), fuel: +v.fuel.toFixed(2), alt: Math.round(f.alt) }; };
+  window.__st = () => { const v = vehicle.state, f = flight.state; return { mode: f.mode, y: +v.y.toFixed(2), vy: +v.vy.toFixed(2), v: +(v.v * KMH).toFixed(1), fuel: +v.fuel.toFixed(2), alt: Math.round(f.alt), x: +v.x.toFixed(2), cx: +desert.centerAt(0).toFixed(2), yaw: +v.yaw.toFixed(3), coins: coins.count }; };
   frame(1 / 30, {});
   document.title = 'ready';
 } else {

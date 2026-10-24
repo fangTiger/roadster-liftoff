@@ -107,6 +107,6 @@ export function createCameraRig(camera, canvas) {
     pos.copy(camera.position); return false;
   }
   setMode('chase');
-  const rig = { setMode, cycle, updateDrive, updateFlight, get mode() { return mode; }, onChange: f => listeners.push(f), shake: true };
+  const rig = { setMode, cycle, updateDrive, updateFlight, syncChase: () => chase.reset(camera.position), get mode() { return mode; }, onChange: f => listeners.push(f), shake: true };
   return rig;
 }

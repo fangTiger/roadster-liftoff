@@ -1,5 +1,6 @@
 // 车辆运动：发布会参数（0–100 km/h 约 0.82 秒、极速约 400 km/h）的简化纵向模型 + 车道内横向转向
-// 世界采用“跑步机”方式：车只在 X 方向移动，前进距离交给世界去滚动
+// 世界采用“跑步机”方式：车只在 X 方向移动，前进距离交给世界去滚动；弯道表现为路中心随里程横移，
+// 车头朝向会自动顺着路的走向回正（类似车道保持），玩家用 A/D 换道、吃金币
 export const KMH = 3.6;
 const A_LAUNCH = 34;              // 起步加速度 m/s²（约 3.5g）
 const P_SPEC = A_LAUNCH * 27.78;  // 恒功率段：a = P / v，100 km/h 后衔接
@@ -16,9 +17,9 @@ export const descentSpeed = y => (DESC_V0 + DESC_K * Math.max(0, y)) * (1 + Math
 
 const THREE_clamp = x => Math.max(0, Math.min(1, x));
 
-export function createVehicle({ roadX, roadHalf }) {
+export function createVehicle({ roadHalf, centerAt, slopeAt }) {
   const s = {
-    v: 0, a: 0, x: roadX + 1.8, yaw: 0, steer: 0, dist: 0, wheelAngle: 0, offroad: 0,
+    v: 0, a: 0, x: centerAt(0) + 1.8, yaw: 0, steer: 0, steerVis: 0, roadYaw: 0, dist: 0, wheelAngle: 0, offroad: 0,
     y: 0, vy: 0, fuel: 1, lift: 0, assist: 0, airborne: false, airTime: 0, hops: 0, landing: 0, impact: 0, touchdown: false, maxAlt: 0, rolling: false,
     launch: { timing: false, t: 0, best: null, last: null },
   };
@@ -31,22 +32,27 @@ export function createVehicle({ roadX, roadHalf }) {
     let a = -DRAG * s.v * s.v - (s.v > .1 ? ROLL : 0);
     if (throttle) a += Math.min(A_LAUNCH, P_SPEC / Math.max(s.v, 1));
     if (brake) a -= s.v > .5 ? BRAKE : 0;
-    const edge = Math.abs(s.x - roadX) - roadHalf;            // 驶出路面后进入碎石路肩
+    const roadX = centerAt(0);
+    const edge = Math.abs(s.x - roadX) - roadHalf;            // 驶出路面后进入路肩和草地
     s.offroad = s.y > .2 ? 0 : Math.max(0, Math.min(1, edge / 1.5));
     a -= s.offroad * (2 + .02 * s.v * s.v);
     s.v = Math.max(0, s.v + a * dt); s.a = a;
     if (!throttle && !brake && s.v < .3) s.v = 0;
     if (L.timing) { L.t += dt; if (s.v * KMH >= 100) { L.timing = false; L.last = L.t; L.best = L.best == null ? L.t : Math.min(L.best, L.t); } else if (!throttle) L.timing = false; }
-    // 横向：转向输入平滑，高速时灵敏度降低，松手自动回正
+    // 横向：转向输入平滑，高速时灵敏度降低；松手后车头回正到“路的走向”（取前方约 0.35 秒处的弯道，提前入弯）
     const target = (left ? 1 : 0) - (right ? 1 : 0);
     s.steer += (target - s.steer) * Math.min(1, dt * 6);
-    const gain = 1.1 / (1 + s.v / 22);
-    s.yaw += s.steer * gain * dt * Math.min(1, s.v / 4);
-    s.yaw -= s.yaw * Math.min(1, dt * (target ? .8 : 2.6));
-    s.yaw = Math.max(-.32, Math.min(.32, s.yaw));
+    const gain = 1.1 / (1 + s.v / 22), turnK = gain * Math.min(1, s.v / 4);
+    const roadYaw = -Math.asin(Math.max(-.5, Math.min(.5, slopeAt(-s.v * .35))));
+    s.yaw += s.steer * turnK * dt;
+    s.yaw += (roadYaw - s.yaw) * Math.min(1, dt * (target ? .8 : 2.6));
+    s.yaw = Math.max(roadYaw - .32, Math.min(roadYaw + .32, s.yaw));
+    // 方向盘显示：玩家的转向 + 顺着弯道自动打的那一部分
+    const auto = dt > 0 ? (roadYaw - s.roadYaw) / dt / Math.max(turnK, .08) : 0;
+    s.roadYaw = roadYaw; s.steerVis = Math.max(-1, Math.min(1, s.steer + auto));
     s.x -= Math.sin(s.yaw) * s.v * dt;
     const lim = roadHalf + 7;
-    if (Math.abs(s.x - roadX) > lim) { s.x = roadX + Math.sign(s.x - roadX) * lim; s.yaw *= .5; }
+    if (Math.abs(s.x - roadX) > lim) { s.x = roadX + Math.sign(s.x - roadX) * lim; s.yaw = roadYaw + (s.yaw - roadYaw) * .5; }
     // 垂直：按住空格且有推进剂时点火，接近高度上限推力衰减
     const firing = jet && s.fuel > 0;
     s.lift += ((firing ? 1 : 0) - s.lift) * Math.min(1, dt * 10);

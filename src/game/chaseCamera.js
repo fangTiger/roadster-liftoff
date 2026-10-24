@@ -23,9 +23,11 @@ export function createChaseCamera(camera) {
     camera.position.y += (Math.sin(t * 59) + Math.sin(t * 37)) * j;
     look.set(car.position.x - Math.sin(s.yaw) * 6, car.position.y + .65 + air * .02, car.position.z - 8);
     camera.lookAt(look);
-    camera.rotation.z += -s.steer * .012 * Math.min(1, s.v / 30);  // 转弯时轻微侧倾
+    camera.rotation.z += -(s.steerVis ?? s.steer) * .012 * Math.min(1, s.v / 30);  // 转弯时轻微侧倾
     const fov = 50 + speed * 16 + launchKick * 4;
     if (Math.abs(camera.fov - fov) > .01) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 4); camera.updateProjectionMatrix(); }
   }
-  return { update };
+  // 从飞行镜头切回公路时，从当前镜头位置接着跟，不要从很久以前的位置甩过来
+  function reset(p) { pos.copy(p); }
+  return { update, reset };
 }
