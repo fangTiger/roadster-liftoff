@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mars Roadster — 成绩分享演示</title>
+  <style>
+    /* ── 基础与 HUD 风格 ───────────────────────────────────────────────────── */
+    :root {
+      --glass: rgba(14,16,22,.42);
+      --line:  rgba(255,255,255,.14);
+      --txt:   #f4f6fa;
+      --dim:   rgba(244,246,250,.6);
+      --acc:   #ff5a3c;
+      --cy:    #7fe3ff;
+      --gold:  #ffd36a;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html, body {
+      margin: 0; height: 100%; overflow-x: hidden;
+      background: #050710;
+      font-family: -apple-system, "PingFang SC", "SF Pro Display", sans-serif;
+      color: var(--txt);
+    }
+
+    /* 背景渐变（仿游戏宇宙感） */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse at 25% 15%, rgba(40,60,180,.3) 0%, transparent 55%),
+        radial-gradient(ellipse at 80% 80%, rgba(140,30,60,.2) 0%, transparent 50%);
+      pointer-events: none; z-index: 0;
+    }
+
+    /* .g — 磨砂玻璃面板（与 index.html 一致） */
+    .g {
+      background:              var(--glass);
+      backdrop-filter:         blur(14px) saturate(150%);
+      -webkit-backdrop-filter: blur(14px) saturate(150%);
+      border:                  1px solid var(--line);
+      border-radius:           16px;
+      box-shadow:              0 8px 30px rgba(0,0,0,.25);
+    }
+
+    /* ── 顶部品牌栏 ──────────────────────────────────────────────────────── */
+    #brand {
+      position: fixed; left: 18px; top: 16px;
+      padding: 10px 18px 10px 12px;
+      display: flex; gap: 12px; align-items: center; z-index: 100;
+    }
+    #brand .logo { width: 36px; height: 36px; border-radius: 9px; display: block; }
+    #brand b     { font-size: 17px; letter-spacing: 3px; display: block; }
+    #brand small { font-size: 11.5px; color: var(--dim); }
+
+    /* ── 主内容 ───────────────────────────────────────────────────────────── */
+    main {
+      position: relative; z-index: 1;
+      max-width: 720px; margin: 0 auto;
+      padding: 100px 20px 60px;
+    }
+
+    h1 {
+      font-size: 20px; font-weight: 800; letter-spacing: 2px;
+      margin: 0 0 4px;
+      background: linear-gradient(90deg,#ff8a5c,#ff4d3a);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .subtitle { font-size: 13px; color: var(--dim); margin-bottom: 32px; }
+
+    .section-title {
+      font-size: 10.5px; letter-spacing: 2px; text-transform: uppercase;
+      color: var(--dim); margin: 24px 0 10px; padding-left: 2px;
+    }
+
+    /* 预设卡片网格 */
+    .run-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+
+    .run-card {
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.04);
+      cursor: pointer;
+      transition: background .15s, transform .1s;
+      user-select: none;
+    }
+    .run-card:hover  { background: rgba(255,255,255,.09); }
+    .run-card:active { transform: scale(.97); }
+
+    .run-card-name {
+      font-size: 14px; font-weight: 700;
+      margin-bottom: 4px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .run-card-desc { font-size: 12px; color: var(--dim); line-height: 1.5; }
+
+    .run-card-badge {
+      display: inline-block; font-size: 10px;
+      padding: 2px 8px; border-radius: 10px;
+      background: rgba(127,227,255,.1);
+      border: 1px solid rgba(127,227,255,.3);
+      color: var(--cy); margin-top: 6px;
+    }
+
+    /* 工具按钮 */
+    .btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .btn {
+      padding: 8px 16px; font-size: 13px; font-weight: 600;
+      border-radius: 10px; border: 1px solid var(--line);
+      background: rgba(255,255,255,.07); color: var(--txt);
+      cursor: pointer; transition: background .15s; font-family: inherit;
+    }
+    .btn:hover { background: rgba(255,255,255,.14); }
+    .btn-acc {
+      background: linear-gradient(135deg, rgba(255,138,92,.25), rgba(255,77,58,.25));
+      border-color: rgba(255,100,60,.4);
+    }
+
+    /* 假截图选择 */
+    .screenshot-opts {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      margin-bottom: 16px;
+    }
+    .screenshot-opt {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12.5px; color: var(--dim); cursor: pointer;
+      padding: 6px 12px; border-radius: 8px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.04);
+      transition: background .14s;
+    }
+    .screenshot-opt:hover { background: rgba(255,255,255,.08); }
+    .screenshot-opt input { accent-color: var(--acc); }
+
+    /* 日志 */
+    #log {
+      background: rgba(0,0,0,.45); border: 1px solid var(--line);
+      border-radius: 10px; padding: 12px 14px;
+      font-size: 11.5px; font-family: "SF Mono","Fira Code",monospace;
+      color: var(--dim); max-height: 130px; overflow-y: auto;
+      margin-top: 20px; white-space: pre-wrap; word-break: break-all;
+    }
+    #log .e  { display: block; margin-bottom: 2px; }
+    #log .ok { color: var(--gold); }
+    #log .info { color: var(--cy); }
+  </style>
+</head>
+<body>
+
+<!-- 顶部品牌栏 -->
+<div class="g" id="brand">
+  <img class="logo" src="/logo.svg" alt="">
+  <div><b>Mars Roadster</b><small>成绩分享模块演示</small></div>
+</div>
+
+<main>
+  <h1>🏆 成绩 & 分享卡片演示</h1>
+  <p class="subtitle">选择一条预设赛跑成绩，查看成绩面板和生成分享卡片。</p>
+
+  <!-- ── 预设成绩 ────────────────────────────────────────────────────────── -->
+  <div class="section-title">预设成绩（点击打开面板）</div>
+  <div class="run-grid" id="run-grid"></div>
+
+  <!-- ── 截图背景选择 ─────────────────────────────────────────────────────── -->
+  <div class="section-title">分享卡片背景</div>
+  <div class="screenshot-opts">
+    <label class="screenshot-opt">
+      <input type="radio" name="ss" value="space" checked>
+      深空渐变（无截图）
+    </label>
+    <label class="screenshot-opt">
+      <input type="radio" name="ss" value="desert">
+      沙漠公路（生成渐变）
+    </label>
+    <label class="screenshot-opt">
+      <input type="radio" name="ss" value="orbit">
+      轨道星空（生成渐变）
+    </label>
+  </div>
+
+  <!-- ── 工具按钮 ────────────────────────────────────────────────────────── -->
+  <div class="section-title">工具</div>
+  <div class="btn-row">
+    <button class="btn" id="btn-close">关闭面板</button>
+    <button class="btn" id="btn-render-land">仅渲染横版卡片</button>
+    <button class="btn" id="btn-render-port">仅渲染竖版卡片</button>
+  </div>
+
+  <!-- ── 单独渲染预览 ─────────────────────────────────────────────────────── -->
+  <div id="standalone-wrap" style="display:none; margin-top:16px;">
+    <div class="section-title">独立渲染结果</div>
+    <canvas id="standalone-canvas" style="max-width:100%;border-radius:8px;display:block;box-shadow:0 4px 20px rgba(0,0,0,.5)"></canvas>
+  </div>
+
+  <!-- 日志 -->
+  <div id="log"><span class="e info">// 操作日志</span></div>
+</main>
+
+<script type="module">
+  import { createShare, formatAltitude, formatSpeed, formatDuration, formatDate, pickHeadline } from './share.js';
+
+  // ── 创建分享实例 ──────────────────────────────────────────────────────────
+  const share = createShare({
+    logoUrl: '/logo.svg',
+    author:  'Captain@mycndota',
+    siteUrl: 'mars-roadster.example.com',
+    credit:  'Built with Arc Studio + Claude Code',
+  });
+
+  share.onClose(() => log('面板关闭，游戏恢复输入。', 'info'));
+
+  // ── 日志工具 ──────────────────────────────────────────────────────────────
+  const logEl = document.getElementById('log');
+  function log(msg, cls = '') {
+    const span = document.createElement('span');
+    span.className = 'e' + (cls ? ' ' + cls : '');
+    span.textContent = `[${new Date().toLocaleTimeString('zh-CN')}] ${msg}`;
+    logEl.appendChild(span);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  // ── 预设成绩定义 ──────────────────────────────────────────────────────────
+  const RUNS = [
+    {
+      name: '完整旅程',
+      icon: '🚀',
+      desc: '返回太空并安全着陆',
+      stats: {
+        topSpeedKmh: 27600,
+        launchSec:   0.82,
+        maxAltM:     412000,
+        distanceKm:  8.4,
+        coins:       47,
+        hops:        3,
+        flightSec:   324,
+        reachedSpace: true,
+        metOldFriend: true,
+        home:         true,
+        achievements: { unlocked: 14, total: 18 },
+        date:         new Date(2026, 9, 24, 18, 42),
+      },
+    },
+    {
+      name: '遇见老前辈',
+      icon: '🌏',
+      desc: '到达轨道，与老前辈同框',
+      stats: {
+        topSpeedKmh: 27600,
+        launchSec:   0.85,
+        maxAltM:     408000,
+        distanceKm:  7.1,
+        coins:       38,
+        hops:        2,
+        flightSec:   290,
+        reachedSpace: true,
+        metOldFriend: true,
+        home:         false,
+        achievements: { unlocked: 11, total: 18 },
+        date:         new Date(2026, 9, 24, 16, 30),
+      },
+    },
+    {
+      name: '冲出大气层',
+      icon: '🌤',
+      desc: '越过卡门线进入太空',
+      stats: {
+        topSpeedKmh: 12400,
+        launchSec:   0.91,
+        maxAltM:     148000,
+        distanceKm:  5.5,
+        coins:       22,
+        hops:        4,
+        flightSec:   185,
+        reachedSpace: true,
+        metOldFriend: false,
+        home:         false,
+        achievements: { unlocked: 8, total: 18 },
+        date:         new Date(2026, 9, 24, 14, 15),
+      },
+    },
+    {
+      name: '穿出云层',
+      icon: '☁',
+      desc: '海拔超过 450 m',
+      stats: {
+        topSpeedKmh: 820,
+        launchSec:   1.02,
+        maxAltM:     1800,
+        distanceKm:  3.2,
+        coins:       14,
+        hops:        2,
+        flightSec:   38,
+        reachedSpace: false,
+        metOldFriend: false,
+        home:         false,
+        achievements: { unlocked: 5, total: 18 },
+        date:         new Date(2026, 9, 24, 12, 0),
+      },
+    },
+    {
+      name: '离地起飞',
+      icon: '🚗',
+      desc: '用推进器短暂离地',
+      stats: {
+        topSpeedKmh: 320,
+        launchSec:   0.88,
+        maxAltM:     12,
+        distanceKm:  1.8,
+        coins:       5,
+        hops:        1,
+        flightSec:   6,
+        reachedSpace: false,
+        metOldFriend: false,
+        home:         false,
+        achievements: { unlocked: 3, total: 18 },
+        date:         new Date(2026, 9, 24, 10, 5),
+      },
+    },
+    {
+      name: '纯公路驾驶',
+      icon: '🏜',
+      desc: '没有启动推进器',
+      stats: {
+        topSpeedKmh: 385,
+        launchSec:   0.79,
+        maxAltM:     0,
+        distanceKm:  12.6,
+        coins:       8,
+        hops:        0,
+        flightSec:   0,
+        reachedSpace: false,
+        metOldFriend: false,
+        home:         false,
+        achievements: { unlocked: 4, total: 18 },
+        date:         new Date(2026, 9, 24, 9, 0),
+      },
+    },
+  ];
+
+  // ── 生成假截图 Canvas ──────────────────────────────────────────────────────
+  function makeScreenshot(type) {
+    const c = document.createElement('canvas');
+    c.width = 1200; c.height = 630;
+    const ctx = c.getContext('2d');
+
+    if (type === 'desert') {
+      // 沙漠公路渐变
+      const g = ctx.createLinearGradient(0, 0, 0, 630);
+      g.addColorStop(0,   '#c97b35');
+      g.addColorStop(0.5, '#d4965a');
+      g.addColorStop(1,   '#8a4a20');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, 1200, 630);
+      // 公路
+      ctx.fillStyle = '#6b6b6b';
+      ctx.fillRect(480, 0, 240, 630);
+      // 公路线
+      ctx.strokeStyle = '#fff9';
+      ctx.lineWidth = 6;
+      ctx.setLineDash([40, 40]);
+      ctx.beginPath(); ctx.moveTo(600, 0); ctx.lineTo(600, 630); ctx.stroke();
+    } else if (type === 'orbit') {
+      // 轨道星空渐变
+      const g = ctx.createRadialGradient(600, 315, 0, 600, 315, 700);
+      g.addColorStop(0,   '#0a1535');
+      g.addColorStop(0.6, '#030815');
+      g.addColorStop(1,   '#000005');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, 1200, 630);
+      // 星星
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      const stars = [
+        [0.1,0.1],[0.25,0.05],[0.42,0.18],[0.6,0.08],[0.8,0.15],[0.92,0.22],
+        [0.15,0.45],[0.35,0.55],[0.55,0.38],[0.75,0.62],[0.88,0.48],[0.05,0.72],
+        [0.48,0.75],[0.65,0.85],[0.82,0.78],[0.3,0.88],[0.72,0.3],
+      ];
+      for (const [rx, ry] of stars) {
+        ctx.beginPath();
+        ctx.arc(rx*1200, ry*630, 2, 0, Math.PI*2);
+        ctx.fill();
+      }
+      // 地球弧线（底部）
+      ctx.strokeStyle = 'rgba(127,227,255,0.3)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(600, 1200, 900, 0, Math.PI, true);
+      ctx.stroke();
+    } else {
+      // 深空默认：返回 null 让模块自己画
+      return null;
+    }
+    return c;
+  }
+
+  // ── 读取截图类型选择 ──────────────────────────────────────────────────────
+  function getScreenshot() {
+    const val = document.querySelector('input[name="ss"]:checked').value;
+    return makeScreenshot(val);
+  }
+
+  // ── 渲染预设卡片列表 ──────────────────────────────────────────────────────
+  const grid = document.getElementById('run-grid');
+  for (const run of RUNS) {
+    const card = document.createElement('div');
+    card.className = 'run-card';
+    const hl = pickHeadline(run.stats);
+    card.innerHTML = `
+      <div class="run-card-name">${run.icon} ${run.name}</div>
+      <div class="run-card-desc">${run.desc}<br>
+        <small style="color:#aaa">${hl.title}：${hl.value}</small>
+      </div>
+      <span class="run-card-badge">${formatDate(run.stats.date)}</span>
+    `;
+    card.addEventListener('click', async () => {
+      log(`打开成绩面板：${run.name}`);
+      await share.open(run.stats, getScreenshot());
+      log(`面板已渲染`, 'ok');
+    });
+    grid.appendChild(card);
+  }
+
+  // ── 工具按钮 ──────────────────────────────────────────────────────────────
+  document.getElementById('btn-close').addEventListener('click', () => {
+    share.close();
+    log('close() 已调用');
+  });
+
+  async function doRender(fmt) {
+    const run = RUNS[0]; // 默认用完整旅程
+    log(`renderCard("${fmt}") 渲染中…`);
+    const card = await share.renderCard(run.stats, getScreenshot(), fmt);
+    const wrap = document.getElementById('standalone-wrap');
+    const cv   = document.getElementById('standalone-canvas');
+    cv.width  = card.width;
+    cv.height = card.height;
+    cv.style.maxWidth = '100%';
+    cv.getContext('2d').drawImage(card, 0, 0);
+    wrap.style.display = '';
+    log(`renderCard 完成，尺寸 ${card.width}×${card.height}`, 'ok');
+  }
+
+  document.getElementById('btn-render-land').addEventListener('click', () => doRender('landscape'));
+  document.getElementById('btn-render-port').addEventListener('click', () => doRender('portrait'));
+
+  // ── 初始日志 ──────────────────────────────────────────────────────────────
+  log(`formatAltitude(412000) → ${formatAltitude(412000)}`, 'info');
+  log(`formatSpeed(27600)     → ${formatSpeed(27600)}`, 'info');
+  log(`formatDuration(185)    → ${formatDuration(185)}`, 'info');
+  log(`formatDate(new Date()) → ${formatDate(new Date())}`, 'info');
+</script>
+</body>
+</html>
