@@ -82,7 +82,7 @@ export function createFlight({ scene, camera, desert, space, clouds, cloudSea, s
     cloudSea.update(dt, Math.hypot(asc.vz, s.v) / 1000, car.root.position, alt, space.sunDir, sky.uniforms.hor.value);
     // 低空保留沙漠 HDR 的环境反射，30 km 后换成太空环境（黑色宇宙 + 蓝色地球）
     if (alt < 30000) scene.environmentIntensity = lerp(1, .25, ramp(alt, 1000, 30000));
-    else if (!asc.envSwapped) { asc.envSwapped = true; scene.environment = space.bakeEnv(); scene.environmentRotation.set(0, 0, 0); scene.environmentIntensity = 1; }
+    else if (!asc.envSwapped) { asc.envSwapped = true; scene.environment = space.bakeEnv(true); scene.environmentRotation.set(0, 0, 0); scene.environmentIntensity = 1; }
   }
   function updateDesertLook(alt, dt) {
     car.root.position.y = alt;

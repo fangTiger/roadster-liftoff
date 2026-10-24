@@ -111,7 +111,8 @@ export async function createSpace(scene, renderer) {
   const eRep = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 48), new THREE.MeshBasicMaterial({ map: surf, color: new THREE.Color(.75, .82, 1) })); envS.add(eRep);
   const sb = new THREE.Mesh(new THREE.SphereGeometry(1.4, 16, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 2.9, 2.7) })); sb.position.copy(sunDir).multiplyScalar(55);   // 环境里的太阳只给柔和反光，高光交给平行光 envS.add(sb);
   let envTex = null;
-  function bakeEnv() { const k = 60 / center.length(); eRep.scale.setScalar(EARTH_R * k); eRep.position.copy(center).multiplyScalar(k); eRep.quaternion.copy(earth.quaternion); envTex?.dispose(); envTex = pm.fromScene(envS, .01).texture; return envTex; }
+  // reuse：已经烘焙过就直接复用（加载时预热烘焙一次，爬升途中不再现场烘焙，避免卡顿）
+  function bakeEnv(reuse = false) { if (reuse && envTex) return envTex; const k = 60 / center.length(); eRep.scale.setScalar(EARTH_R * k); eRep.position.copy(center).multiplyScalar(k); eRep.quaternion.copy(earth.quaternion); envTex?.dispose(); envTex = pm.fromScene(envS, .01).texture; return envTex; }
 
   const oldFriend = await createOldFriend(); oldFriend.visible = false; group.add(oldFriend);
 
