@@ -1,7 +1,7 @@
 // 自动档只调整像素比与底档泛光，保留用户选择的质量上限。
 export const QUALITY_PRESETS = Object.freeze(['自动', '低', '中', '高', '极致']);
 export function getDefaultPreset() {
-  return globalThis.matchMedia?.('(pointer: coarse)').matches || new URLSearchParams(globalThis.location?.search).has('touch') ? '自动' : '高';
+  return globalThis.matchMedia?.('(pointer: coarse)').matches || new URLSearchParams(globalThis.location?.search).has('touch') ? '自动' : '极致';
 }
 
 export function createPerf({ engine, getPreset, setPreset }) {
