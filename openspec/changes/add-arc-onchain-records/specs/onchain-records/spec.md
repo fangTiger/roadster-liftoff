@@ -68,8 +68,18 @@
 
 #### Scenario: 钱包读取 NFT
 - **WHEN** 钱包或区块浏览器请求某枚 NFT 的元数据
-- **THEN** 返回名称、描述（含非隶属声明）、图片地址和属性（编号、往返用时、成就数、铸造日期）
+- **THEN** 返回名称、描述（含非隶属声明）、图片地址和属性（往返用时、毫秒用时、成就数、铸造日期、网络），名称包含至少四位补零编号
 
 #### Scenario: 成绩更新后图片变化
 - **WHEN** 持有者更新了最好成绩
 - **THEN** 之后请求的图片显示新的往返用时
+
+#### Scenario: 无效或不存在的编号
+- **WHEN** 请求编号不是正整数字符串，或 ownerOf 因 token 不存在而回退
+- **THEN** 元数据与图片接口分别返回 JSON 400 或 JSON 404；RPC 故障返回不缓存的 JSON 503
+
+#### Scenario: 版本图片与缓存
+- **WHEN** 请求 `/api/nft/[id]`
+- **THEN** 返回英文元数据、玩家自报 / 不可转让 / 非商业粉丝致敬与 Tesla、SpaceX 非隶属声明，图片地址为 `/api/nft/image/[id]?v=updatedAt`，缓存为 `public, s-maxage=60, stale-while-revalidate=300` 且允许跨域读取
+- **WHEN** 请求上述图片地址
+- **THEN** 返回 1024×1024 PNG，底图铺满、显示用时、成就数、UTC 铸造日期、钱包缩写和网络声明，缓存为 `public, s-maxage=86400, immutable`

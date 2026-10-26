@@ -5,3 +5,5 @@ recordings/
 docs/
 dist/
 node_modules/
+# 保留本地接口测试，避免被发现为 Vercel Function。
+api/nft.test.mjs

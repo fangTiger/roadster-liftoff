@@ -241,7 +241,7 @@ export default {
   'chain.testFunds': 'Fees use testnet USDC. Get some from the faucet.',
   'chain.mainFunds': 'Fees use Arc mainnet USDC. Fund this wallet with USDC on Arc mainnet.',
   'chain.faucet': 'Get test USDC ↗',
-  'chain.selfReported': 'Player-reported times · Arc · Non-transferable souvenir NFT',
+  'chain.selfReported': 'Player-reported times · {network} · Non-transferable souvenir NFT',
   'chain.myNFT': 'My souvenir NFT',
   'chain.connectHint': 'Connect to see your NFT and achievements.',
   'chain.noNFT': 'No NFT yet. Complete a round trip, then mint from your results.',
