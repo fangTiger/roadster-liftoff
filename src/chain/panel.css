@@ -1,0 +1,39 @@
+/* 与分享面板共用深色玻璃、暖橙按钮和青色成绩。 */
+.chain-wrap { position: fixed; inset: 0; z-index: 10001; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.62); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); overscroll-behavior: contain; }
+.chain-wrap[hidden] { display: none; }
+.chain-panel { box-sizing: border-box; width: min(720px, 100%); max-height: calc(100dvh - 32px); overflow-y: auto; overscroll-behavior: contain; padding: 28px; border: 1px solid rgba(255,255,255,.14); border-radius: 16px; color: #f4f6fa; background: rgba(14,16,22,.88); backdrop-filter: blur(14px) saturate(150%); -webkit-backdrop-filter: blur(14px) saturate(150%); box-shadow: 0 24px 80px #0008; font: inherit; }
+.chain-panel header { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.chain-panel h2 { margin: 0; font-size: 24px; }
+.chain-panel h3, .chain-submit h3 { font-size: 16px; margin: 0 0 12px; }
+.chain-mine, .chain-board { border-top: 1px solid rgba(255,255,255,.14); padding-top: 22px; margin-top: 22px; }
+.chain-dim, .chain-status { color: rgba(244,246,250,.6); font-size: 13px; line-height: 1.6; }
+.chain-time { color: #7fe3ff; font-size: 24px; font-variant-numeric: tabular-nums; margin: 12px 0; }
+.chain-panel button, .chain-submit button { padding: 11px 18px; border-radius: 9px; border: 1px solid rgba(255,255,255,.14); background: linear-gradient(135deg,#ff8a5c,#ff4d3a); color: #fff; font: inherit; font-weight: 600; cursor: pointer; min-height: 44px; }
+.chain-panel button:hover, .chain-submit button:hover { filter: brightness(1.12); }
+.chain-panel button:disabled, .chain-submit button:disabled { opacity: .5; cursor: default; filter: none; }
+.chain-panel .chain-close { background: transparent; font-size: 24px; padding: 4px 12px; }
+.chain-panel a, .chain-submit a { color: #7fe3ff; text-underline-offset: 3px; }
+.chain-panel :focus-visible, .chain-submit :focus-visible, .chain-tool:focus-visible { outline: 2px solid #7fe3ff; outline-offset: 3px; }
+.chain-nft { display: grid; grid-template-columns: 140px 1fr; align-items: center; gap: 22px; }
+.chain-nft-placeholder { min-height: 120px; border: 1px solid rgba(127,227,255,.2); border-radius: 12px; background: radial-gradient(ellipse at top right,rgba(127,227,255,.12),transparent 70%),rgba(255,255,255,.03); display: grid; place-items: center; text-align: center; color: rgba(244,246,250,.6); font-size: 13px; overflow: hidden; }
+.chain-nft-placeholder img { width: 100%; height: auto; display: block; }
+.chain-count { font-size: 14px; color: #ffd36a; }
+.chain-table-scroll { overflow-x: auto; }
+.chain-panel table { width: 100%; border-collapse: collapse; white-space: nowrap; text-align: left; font-size: 13px; font-variant-numeric: tabular-nums; }
+.chain-panel th { color: rgba(244,246,250,.6); font-weight: 400; }
+.chain-panel td, .chain-panel th { padding: 12px 8px; border-bottom: 1px solid rgba(255,255,255,.08); }
+.chain-panel td:first-child { color: #ffd36a; }
+.chain-self { background: rgba(127,227,255,.09); color: #7fe3ff; }
+.chain-submit { padding: 20px; margin: 16px 0; border: 1px solid rgba(255,255,255,.14); border-radius: 12px; background: rgba(14,16,22,.52); }
+.chain-submit[hidden] { display: none; }
+.chain-submit button { display: block; margin-top: 12px; }
+.chain-submit .chain-status:empty { display: none; }
+#tools .chain-tool { font: inherit; color: inherit; background: none; border: 0; padding: 4px; cursor: pointer; pointer-events: auto; min-width: 32px; }
+@media (max-width: 480px) {
+  .chain-wrap { padding: 8px; }
+  .chain-panel { padding: 18px 14px; max-height: calc(100dvh - 16px); }
+  .chain-panel h2 { font-size: 21px; }
+  .chain-nft { grid-template-columns: 100px 1fr; gap: 14px; }
+  .chain-panel td, .chain-panel th { padding: 10px 5px; font-size: 12px; }
+  .chain-time { font-size: 21px; }
+}

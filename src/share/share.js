@@ -488,6 +488,7 @@ export function createShare({
   author  = 'Captain@mycndota',
   siteUrl = '',
   credit  = 'Built with Arc Studio + Claude Code',
+  onRender = null,    // 可选扩展插槽，业务逻辑由调用者管理
   injectCss = true,   // 页面已用 <link> 引入 share.css 时传 false（打包后按模块地址找不到 css）
 } = {}) {
 
@@ -561,6 +562,7 @@ export function createShare({
         <div class="share-stat-grid" id="share-stat-grid"></div>
 
         <div class="share-badges" id="share-badges"></div>
+        <div id="share-slot" hidden></div>
 
         <div class="share-preview-wrap">
           <div class="share-preview-header">
@@ -813,6 +815,11 @@ export function createShare({
 
     // 显示面板
     wrap.classList.add('share-visible');
+
+    // 扩展区先挂载，不等待分享卡预览生成。
+    const slot = wrap.querySelector('#share-slot');
+    slot.replaceChildren(); slot.hidden = true;
+    onRender?.(slot, stats);
 
     // 填充内容（异步）
     await populatePanel(stats, screenshot);

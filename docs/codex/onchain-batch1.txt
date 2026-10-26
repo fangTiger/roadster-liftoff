@@ -1,0 +1,38 @@
+你在 Mars Roadster 仓库（Vite + three.js 浏览器 3D 游戏，纯 ES 模块）里实现「往返纪念 NFT 与 Arc 链上记录」的游戏侧。先读：
+- openspec/changes/add-arc-onchain-records/（proposal.md、design.md、specs/onchain-records/spec.md）——需求以这里为准
+- src/game/index.js（run 本局成绩、onFlightEvent、openShare、createUI 的 isOverlayOpen）
+- src/game/flight.js（flight.state.mode：drive / ascent / insert / orbit / reentry；事件 ascent_abort、reentry_home）
+- src/share/share.js（成绩面板，Arc Studio 写的模块，尽量少改）、src/ui/ui.js、src/achievements/achievements.js（list() 每项有 index 1..20）
+- src/i18n/zh.js、en.js（测试会检查两边键完全一致）
+
+合约（已定，Arc Studio 正在部署到 Arc 测试网，地址稍后通过环境变量给出）：MarsRoadsterRecords
+  struct Record { uint32 tokenId; uint32 bestMs; uint32 achievements; uint40 mintedAt; uint40 updatedAt; }  tokenId 0 = 还没有 NFT
+  submit(uint32 roundTripMs, uint32 achievements)
+  recordOf(address) view returns (Record)
+  totalSupply() / playerCount() view returns (uint256)
+  players(uint256 start, uint256 count) view returns (address[] addrs, Record[] recs)
+  minRoundTripMs() view returns (uint32)
+  tokenURI(uint256) view returns (string)
+  event Recorded(address indexed player, uint256 indexed tokenId, uint32 roundTripMs, bool improved, uint32 achievements, uint32 bestMs)
+  errors: TooFast(uint32 got, uint32 min), InvalidAchievements(uint32 bits), NothingToUpdate(), Soulbound(), MinCanOnlyIncrease()
+  每个钱包最多一枚 NFT、不可转让；成就位图第 i 位 = 成就 index i+1（共 20 个，只用第 0..19 位）。
+
+要做的事：
+1. src/chain/config.js：按 import.meta.env.VITE_ARC_NETWORK（'testnet' 默认 | 'mainnet'）选网络；合约地址 import.meta.env.VITE_RECORDS_ADDRESS（为空时链上功能显示「即将开放」，游戏其他部分完全不受影响）。
+   测试网：chainId 5042002，名称 Arc Testnet，RPC https://rpc.testnet.arc.io，浏览器 https://testnet.arcscan.app，水龙头 https://faucet.circle.com
+   主网：chainId 5042，名称 Arc，RPC https://rpc.mainnet.arc.io，浏览器 https://explorer.arc.io
+   两网原生币都是 USDC（18 位小数）。ABI 手写在这里（只含上面列出的项）。
+2. src/chain/records.js（纯函数，可在 Node 里测试）：achievementsToBits(list)、bitsToCount、needsUpdate(record, ms, bits)（无 NFT / 更快 / 有新成就 → true）、formatMs（如 46.83 s）、shortAddr、sortLeaderboard(addrs, recs, limit=50)（按 bestMs 升序，同成绩按 updatedAt 早者在前，跳过 tokenId 0）、errorKind(err)（user_rejected / insufficient_funds / too_fast / nothing_to_update / wrong_network / no_wallet / unknown，能从 viem 的 ContractFunctionRevertedError 读出 errorName）。
+3. src/chain/wallet.js：用 viem 和浏览器注入钱包 window.ethereum（EIP-1193）。connect()（eth_requestAccounts，自动 wallet_switchEthereumChain，不存在则 wallet_addEthereumChain）；readRecord(addr)（publicClient 走 http RPC，不依赖钱包）；submit(ms, bits)（先 simulateContract 拿到自定义错误，再 writeContract，等回执，返回 tx hash）；readLeaderboard()（players 分页每页 100，最多读 2000 个）。账户或网络在钱包里切换时更新状态。
+4. 往返计时：抽成纯模块 src/chain/roundtrip.js（createRoundTrip()：onMode(prev, next)、tick(dt)、onEvent(name)、best、last），在 src/game/index.js 接入：flight.state.mode 从 drive 变为 ascent 时开始（用游戏模拟时间，即每帧 dt 累加，暂停时不计），ascent_abort 作废，reentry_home 结束并记入本局最快 run.roundTripMs（毫秒整数）。从再入中止又冲回太空不算新开始，继续计时。
+5. 成绩面板：本局有 run.roundTripMs 时，在 share 面板里加一块「链上记录」区：显示本局往返用时；按钮「连接钱包」→ 连接后读链上记录 → 显示「铸造纪念 NFT」（无 NFT）/「更新链上记录」（needsUpdate 为真）/「链上记录已是最新」（不发交易）。交易中禁用按钮显示进度；成功显示区块浏览器交易链接；失败按 errorKind 显示原因（余额不足时附水龙头或获取 USDC 的说明）。对 share.js 只做最小改动（例如增加一个可选的 slot / onRender 钩子），保证 src/share/share.test.mjs 仍然全过。
+6. 链上记录面板：src/chain/panel.js + panel.css，在右上角 #tools 加一个按钮（图标用 ⛓ 或类似），打开居中毛玻璃面板（风格参照 share / achievements 面板）：我的纪念 NFT（编号、最好成绩、铸造日期、tokenURI 指向的图片若加载失败就显示占位卡）、我的链上成就 n/20、往返榜前 50（名次、钱包缩写、用时、日期，自己高亮），顶部注明「玩家自报成绩」。Esc / 关闭按钮 / 点背景关闭。打开时必须让游戏的按键监听让路：把它并入 createUI 的 isOverlayOpen（现在只判断 sharing），并且面板自己在捕获阶段拦截按键，参照 share.js 的做法。手机窄屏可用。
+7. 所有新文字加到 src/i18n/zh.js 和 en.js（键一致，英文简短自然）。
+8. 测试：src/chain/records.test.mjs、src/chain/roundtrip.test.mjs（node --test，不依赖浏览器；注意 Node 21+ 有全局 navigator，别用它判断环境）。
+
+要求：
+- 代码注释中文，标识符英文；代码风格和周围文件一致。
+- 不改 src/game 里与本任务无关的逻辑，不改 openspec、docs/studio、CREDITS.md、README.md。
+- 不部署、不创建密钥或 .env 文件、不安装新依赖（viem 已装好）、不 git commit。
+- 完成后运行：node --test src/**/*.test.mjs 与 npx vite build，都必须通过。
+- 最后用中文回复：改动文件列表、对 share.js 和 ui.js 的改动说明、测试与构建结果、没做到的事。

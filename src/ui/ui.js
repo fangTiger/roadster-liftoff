@@ -209,7 +209,7 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
       if (e.target.closest?.('a')) return;
       e.preventDefault(); e.stopImmediatePropagation(); if (!e.repeat) start(); return;
     }
-    if (isOverlayOpen()) return;                              // 成绩分享面板打开时，按键交给面板自己处理
+    if (isOverlayOpen()) return;                              // 外部面板打开时，按键交给面板自己处理
     const editing = e.target.matches?.('input,select,textarea,[contenteditable="true"]');
     if (e.code === 'Escape' || (!editing && e.code === 'KeyP')) {
       e.preventDefault(); e.stopImmediatePropagation(); if (!e.repeat) { if (panel) closePanel(); else setPaused(!paused); } return;
