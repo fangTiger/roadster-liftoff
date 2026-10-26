@@ -240,7 +240,7 @@ export default {
   'chain.testFunds': '手续费使用测试网 USDC，可从水龙头领取。',
   'chain.mainFunds': '手续费使用 Arc 主网 USDC，请先向此钱包转入 Arc 主网 USDC。',
   'chain.faucet': '领取测试 USDC ↗',
-  'chain.selfReported': '玩家自报成绩 · Arc · 纪念 NFT 不可转让',
+  'chain.selfReported': '玩家自报成绩 · {network} · 纪念 NFT 不可转让',
   'chain.myNFT': '我的纪念 NFT',
   'chain.connectHint': '连接钱包查看你的链上纪念与成就。',
   'chain.noNFT': '还没有纪念 NFT，完成往返后在成绩面板铸造。',

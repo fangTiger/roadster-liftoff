@@ -238,7 +238,7 @@ export function createChainPanel() {
   function paintText() {
     labelButton();
     if (!wrap) return;
-    title.textContent = t('chain.title'); note.textContent = t('chain.selfReported'); closeButton.setAttribute('aria-label', t('menu.close'));
+    title.textContent = t('chain.title'); note.textContent = t('chain.selfReported', { network: chain.name }); closeButton.setAttribute('aria-label', t('menu.close'));
     paintMine(); paintBoard();
   }
   onLangChange(paintText);

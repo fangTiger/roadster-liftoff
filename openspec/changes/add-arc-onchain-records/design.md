@@ -30,9 +30,17 @@
 - 底图：用游戏真车模型与太空场景离线渲染（沿用 scripts/logo/ 的真模型渲染思路），白车在轨道上、下方地球、喷焰光轨，隐藏车标；输出 2048×2048，先出 2–3 个构图给用户挑。
 - 信息栏：底部科技感半透明条，显示编号 #0001、往返用时、铸造日期、成就 n/20、钱包缩写。
 - /api/nft/[id]：从链上读 ownerOf 与 recordOf，返回元数据 JSON（name、description、image、attributes）。
-- /api/nft/[id]/image：底图 + 信息栏实时合成 PNG，带缓存（成绩更新后图片随之变化）。
+- /api/nft/image/[id]：底图 + 信息栏实时合成 PNG，带缓存（成绩更新后图片随之变化）。
 
 ## 风险
 - 成绩可被伪造：只做下限与「玩家自报」标注，不设奖励。
 - 合成图接口冷启动慢：加 CDN 缓存，元数据里的图片地址带 updatedAt 作为版本参数。
 - 玩家没有 Arc 主网 USDC：面板说明如何获取，测试网阶段提供水龙头链接。
+
+## NFT 接口实现细节（2026-10-27）
+- Node 运行时使用 Web 标准 `GET(request)`，共享 `api/_lib/chain.js` 的 viem 公共客户端；服务器配置为 `ARC_NETWORK`（默认 testnet）、`RECORDS_ADDRESS`、`SITE_URL`。
+- `src/chain/shared.js` 共享 ABI 与链定义，浏览器配置继续由 `src/chain/config.js` 导出；用时、地址缩写与成就计数复用 `records.js`。
+- 元数据图片地址为 `${SITE_URL}/api/nft/image/${id}?v=${updatedAt}`，元数据缓存 60 秒并允许后台重验证 300 秒；PNG 为 1024 方图，缓存 86400 秒且 immutable。
+- 非正整数字符串返回 JSON 400，ownerOf 回退返回 JSON 404，RPC / 配置 / 渲染故障返回不缓存的 JSON 503；成功响应允许任意来源跨域读取。
+- 接口工厂注入 `readToken`；链读取工厂注入 `readContract`；图片工厂可注入 `baseImage` data URL。本地 `node scripts/nft/preview.mjs` 不访问线上图片或链。
+- 已安装 @vercel/og 1.0.3 的 HarfBuzz 打包仍需要 CommonJS 全局量与原始 hb.wasm 路径，`api/_lib/og.js` 在导入前补齐缺失值，保持已有宿主全局值。
