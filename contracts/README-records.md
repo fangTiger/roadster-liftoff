@@ -73,7 +73,7 @@ import { arcTestnet } from 'viem/chains';
 import artifact from '../../contracts/out/MarsRoadsterRecords.sol/MarsRoadsterRecords.json';
 
 const CONTRACT = {
-  address: '0x7dd708e15b21dd0de73e90f8e1fcab3ac0a40aaa' as const,
+  address: '0x18c352faaf9fab68b7c055f22fce77a5da8f6ead' as const,
   abi: artifact.abi,
 } as const;
 
