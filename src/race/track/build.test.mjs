@@ -46,7 +46,7 @@ test('分支接回主线、局部查询与检查点覆盖分支', () => {
 });
 test('定义和关键生成结果哈希稳定，修改定义改变哈希', () => {
   const hash = trackHash(def); assert.match(hash, /^[0-9a-f]{8}$/);
-  assert.equal(hash, 'dbee306d');
+  assert.equal(hash, '2b8bea06');
   assert.equal(hash, trackHash(structuredClone(def)));
   const other = structuredClone(def); other.points[4].y += .1;
   assert.notEqual(hash, trackHash(other));

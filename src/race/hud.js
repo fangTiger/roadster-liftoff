@@ -3,7 +3,7 @@ const format = t => t === null ? '—' : `${Math.floor(t / 60)}:${(t % 60).toFix
 const EVENT_TEXT = { driftBoost: e => `漂移加速 ${'Ⅰ Ⅱ Ⅲ'.split(' ')[e.tier - 1]}`, counterBoost: () => '二次加速！', driftSwitch: () => '连续漂移', boost: () => '加速带', coin: () => '', wall: () => '', land: () => '' };
 export function createHud(track) {
   const style = document.createElement('style');
-  style.textContent = `body{margin:0;overflow:hidden;background:#0b0f14}body> :not(canvas):not(#race-hud):not(script):not(style){display:none!important}
+  style.textContent = `body{margin:0;overflow:hidden;background:#0b0f14}body> :not(canvas):not(#race-hud):not(#race-pick):not(#race-loading):not(script):not(style){display:none!important}
 #race-hud{position:fixed;inset:0;color:#f4eee1;font:16px 'Helvetica Neue','PingFang SC',sans-serif;pointer-events:none;z-index:10;font-variant-numeric:tabular-nums}
 #race-hud .rh-panel{background:#101a20c4;border:1px solid #ffffff1f;border-radius:10px;backdrop-filter:blur(6px)}
 #race-hud header{position:absolute;top:22px;left:24px;padding:14px 18px;min-width:210px}
@@ -24,7 +24,7 @@ export function createHud(track) {
   root.innerHTML = `<header class="rh-panel"><small>MARS ROADSTER · ${track.name?.zh ?? '阿尔卑斯环线'}</small><div class="rh-lap"><b>1</b>/ 3 圈</div><div class="rh-progress"><i></i></div><div class="rh-timing"></div></header>
 <div class="rh-map rh-panel"><canvas></canvas></div><div class="rh-speed rh-panel"><strong>0</strong> km/h<meter min="0" max="1" value="1"></meter><div class="rh-drift"></div></div>
 <div class="rh-notice"></div><div class="rh-flash"></div><div class="rh-result rh-panel" hidden></div>
-<footer>W / ↑ 油门　S / ↓ 刹车 · 倒车　A D 转向　空格 推进器　Shift 漂移（按住反打可连续漂移，结束时松开再按油门二次加速）　R 空中翻滚　T 重置　C 镜头</footer>`;
+<footer>W / ↑ 油门　S / ↓ 刹车 · 倒车　A D 转向　空格 推进器　Shift 漂移（按住反打可连续漂移，结束时松开再按油门二次加速）　T 重置　C 镜头</footer>`;
   document.body.append(root);
   const $ = q => root.querySelector(q);
   // 小地图：北在上；x 取反，使「从车后看的右侧」在地图右侧
