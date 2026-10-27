@@ -11,6 +11,7 @@ import { createGreybox } from './scene/greybox.js';
 import { createRaceCamera } from './camera.js';
 import { createHud } from './hud.js';
 import { createDesertSky } from './scene/sky.js';
+import { createSkidmarks } from './scene/skidmarks.js';
 const capture=new URLSearchParams(location.search).has('capture');
 // 加载画面：素材加载、着色器预编译完成之前盖住页面，倒数从加载完成后才开始
 const loading=document.createElement('div');loading.textContent='加载赛道…';
@@ -18,8 +19,8 @@ Object.assign(loading.style,{position:'fixed',inset:'0',zIndex:'50',display:'gri
 document.body.append(loading);
 const engine=createEngine(capture?{pixelRatio:1}:{}),track=buildTrack(desertLoop),session=createSession(track),recorder=createRecorder(),hash=trackHash(desertLoop);
 engine.camera.far=1800;engine.camera.updateProjectionMatrix();
-const scene=createGreybox(engine.scene,track),hud=createHud(),camera=createRaceCamera(engine.camera,engine.renderer.domElement);
-const sky=await createDesertSky(engine.scene,engine.renderer),car=await createCar();engine.scene.add(car.root);
+const scene=createGreybox(engine.scene,track),hud=createHud(track),camera=createRaceCamera(engine.camera,engine.renderer.domElement);
+const sky=await createDesertSky(engine.scene,engine.renderer),skid=createSkidmarks(engine.scene),car=await createCar();engine.scene.add(car.root);
 let previous=session.snapshot,current=previous,lastBits=0,wheelAngle=0,accumulator=0,lastTime;
 const keys=new Set(),map={KeyW:B.THROTTLE,ArrowUp:B.THROTTLE,KeyS:B.BRAKE,ArrowDown:B.BRAKE,KeyA:B.LEFT,ArrowLeft:B.LEFT,KeyD:B.RIGHT,ArrowRight:B.RIGHT,Space:B.JET,KeyR:B.ROLL,ShiftLeft:B.DRIFT,ShiftRight:B.DRIFT,Backspace:B.RESET,KeyT:B.RESET};
 addEventListener('keydown',e=>{if(map[e.code]){e.preventDefault();keys.add(e.code);}if(e.code==='KeyC'&&!e.repeat)camera.setMode();});
@@ -32,7 +33,7 @@ function render(alpha=1,dt=1/60){const a=previous.car,b=current.car,blend=(x,y)=
  car.setRoll(c.roll);car.setThrust((lastBits&B.THROTTLE)||c.boostTime>0?1:0,current.step*DT);car.setLift(lastBits&B.JET&&c.fuel>0?1:0,current.step*DT);
  const rcs=c.drifting?.65:0;car.setRCS(c.steer<0?rcs:0,c.steer>0?rcs:0,c.steer>0?rcs:0,c.steer<0?rcs:0,current.step*DT);   // 左转时前右、后左喷气
  car.setBrake(lastBits&B.BRAKE?1:0);car.setSteer(c.steer);for(const wheel of car.wheels){wheel.spin.rotation.x=-wheelAngle;if(wheel.front)wheel.steer.rotation.y=c.steer*.35;}
- camera.update(c,dt);sky.update(engine.camera,car.root.position);scene.update(current);hud.update(current);engine.render();
+ camera.update(c,dt);sky.update(engine.camera,car.root.position);skid.update(c);scene.update(current);hud.update(current);engine.render();
 }
 await engine.renderer.compileAsync(engine.scene,engine.camera);render();render();
 loading.style.opacity='0';setTimeout(()=>loading.remove(),700);

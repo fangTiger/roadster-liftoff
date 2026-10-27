@@ -29,7 +29,7 @@ test('翻滚窄缝平放不能穿过、侧立姿态可以通过',()=>{
  run(flat,THROTTLE,240,t);run(side,THROTTLE,240,t);assert.ok(flat.z<0);assert.ok(side.z>8);
 });
 test('翻滚按下沿触发，持续按住只转一次',async()=>{
- const {ROLL}=await import('./input-bits.js');const c=createCarState({});run(c,ROLL|RIGHT,60);assert.ok(c.roll<0);run(c,ROLL|RIGHT,180);assert.equal(c.rollTime,0);assert.equal(c.roll,0);
+ const {ROLL}=await import('./input-bits.js');const c=createCarState({y:4});c.grounded=false;c.groundY=0;c.vy=3;run(c,ROLL|RIGHT,60);assert.ok(c.roll<0);run(c,ROLL|RIGHT,180);assert.equal(c.rollTime,0);assert.equal(c.roll,0);
 });
 test('路面下降形成自然腾空并重新落地',()=>{
  const t=straight();t.nearest=(x,z)=>({path:'main',index:Math.floor(z),s:z,lateral:-x,y:z<3?z*.2:0,w:1000,bank:0,tx:0,tz:1});
@@ -46,7 +46,8 @@ test('七米高翻滚巨石在低空也阻挡平放车身',()=>{
 });
 test('真实翻滚能侧立通过窄缝，错误时机不得由两侧推挤穿透',async()=>{
  const {ROLL}=await import('./input-bits.js');const t=straight();t.features=[{type:'slot',x:0,z:0,y:0,tx:0,tz:1,width:1.35,rockRadius:4,height:7}];t.walls=[-1,1].map(side=>({type:'slot',a:{x:side*.675,z:-4},b:{x:side*.675,z:4}}));
- const good=createCarState({z:-25});good.vz=83;run(good,THROTTLE|ROLL,55,t);assert.ok(good.z>7);
+ // 跳起来在空中侧翻钻过去
+ const good=createCarState({z:-25,y:2});good.grounded=false;good.groundY=0;good.vz=83;run(good,THROTTLE|ROLL,55,t);assert.ok(good.z>7);
  const bad=createCarState({z:-25});bad.vz=83;const ev=run(bad,THROTTLE,55,t);assert.ok(bad.z<-4);assert.ok(ev.some(e=>e.type==='wall'));
 });
 test('翻滚过早结束时阻挡入口，不能被两侧墙挤过去',async()=>{
@@ -72,3 +73,18 @@ test('漂移比抓地转向转得更急、速度保持得住，松开按档位�
  const ev=run(drift,THROTTLE,1);assert.ok(ev.some(e=>e.type==='driftBoost'));assert.ok(drift.boostTime>.9);
 });
 test('不打方向按漂移键不会进入漂移',()=>{const c=createCarState({});c.vz=40;run(c,THROTTLE|DRIFT,120);assert.equal(c.driftDir,0);assert.ok(Math.abs(c.vx)<.01);});
+test('平地按翻滚不会翻，离地后才能翻',async()=>{
+ const {ROLL}=await import('./input-bits.js');
+ const g=createCarState({});g.vz=40;run(g,THROTTLE|ROLL,30);assert.equal(g.rollTime,0);assert.equal(g.roll,0);
+ const a=createCarState({});a.vz=40;run(a,THROTTLE|JET,60);assert.ok(a.y>1.2);run(a,THROTTLE|JET|ROLL,2);assert.ok(a.rollTime>1);
+});
+test('连续漂移：按住漂移键反打方向就切换成反向漂移，并结算上一段',()=>{
+ const c=createCarState({});c.vz=40;c.steer=1;run(c,THROTTLE|LEFT|DRIFT,150);assert.equal(c.driftDir,1);
+ const ev=run(c,THROTTLE|RIGHT|DRIFT,90);assert.equal(c.driftDir,-1);assert.ok(ev.some(e=>e.type==='driftSwitch'));assert.ok(ev.some(e=>e.type==='driftBoost'));
+});
+test('二次加速：漂移结束后窗口内松开再按油门才触发，过了窗口不触发',()=>{
+ const make=()=>{const c=createCarState({});c.vz=40;c.steer=1;run(c,THROTTLE|LEFT|DRIFT,150);run(c,0,6);return c;};
+ const a=make(),v0=Math.hypot(a.vx,a.vz),ev=run(a,THROTTLE,1);assert.ok(ev.some(e=>e.type==='counterBoost'));assert.ok(Math.hypot(a.vx,a.vz)>v0+2);
+ const b=make();run(b,0,90);assert.ok(!run(b,THROTTLE,1).some(e=>e.type==='counterBoost'));
+ const c=createCarState({});c.vz=40;run(c,0,6);assert.ok(!run(c,THROTTLE,1).some(e=>e.type==='counterBoost'));
+});
