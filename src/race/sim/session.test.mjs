@@ -40,3 +40,12 @@ test('远端自定义出生与远端检查点重置使用正确投影提示',()=
  const normal=createSession(track);for(let i=0;i<3000;i++)normal.step(autopilot(normal.snapshot,track));normal.step(RESET);normal.step(0);
  const c=normal.snapshot.car;assert.ok(Math.abs(track.nearest(c.x,c.z).s-c.near.s)<1);assert.ok(c.y>0);
 });
+
+test('分支接口与重叠路幅的高度断层不会把车弹起（只有断桥和台地跳台允许重落地）',()=>{
+ const track=buildTrack(def),session=createSession(track,{laps:1}),sec=s=>track.sections.findIndex(q=>s>=q.from&&s<q.to)+1;
+ let snap=session.snapshot,seen=0,steps=0;const hard=[];
+ while(!snap.race.finished&&steps<120*200){session.step(autopilot(snap,track));snap=session.snapshot;steps++;
+  for(;seen<snap.events.length;seen++){const e=snap.events[seen];if(e.type!=='land'||e.impact<=6)continue;const n=track.nearest(snap.car.x,snap.car.z,snap.car.near),k=n.path==='main'?sec(n.s):n.path;if(k!==4&&k!==7)hard.push([k,e.impact]);}
+ }
+ assert.ok(snap.race.finished);assert.deepEqual(hard,[]);
+});
