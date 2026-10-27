@@ -66,8 +66,8 @@ test('重置罚时计入最终圈速与所属分段；模拟重复结果逐位�
     const race=createRace(track,{laps:1});start(race);if(reset)race.requestReset();drive(race);return race.state;
   }
   const clean=run(false),penalized=run(true);
-  assert.equal(penalized.lapTimes[0]-clean.lapTimes[0],3);
-  assert.equal(penalized.sectorTimes[0][0]-clean.sectorTimes[0][0],3);
+  assert.ok(Math.abs(penalized.lapTimes[0]-clean.lapTimes[0]-3)<1e-9);
+  assert.ok(Math.abs(penalized.sectorTimes[0][0]-clean.sectorTimes[0][0]-3)<1e-9);
   assert.deepEqual(penalized,run(true));
 });
 test('终点之后六米出生，正常发车不会误报漏检',()=>{

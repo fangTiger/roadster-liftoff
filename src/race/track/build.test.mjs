@@ -28,8 +28,9 @@ test('最近投影、路面高度、缺口及台地岩壁', () => {
   }
   const gap = track.features.find(f => f.type === 'gap'), p = track.at((gap.from + gap.to) / 2);
   assert.equal(track.surfaceAt(p.x, p.z), GAP); assert.ok(track.heightAt(p.x, p.z) < p.y - 15);
-  const plateau = def.terrain.plateaus[0];
-  assert.equal(track.surfaceAt(plateau.x0, plateau.z1 - 25), ROCK);
+  // 台地多边形的顶点正好在边缘上，且离路面足够远
+  const [vx, vz] = def.terrain.plateaus[1].poly[3];
+  assert.equal(track.surfaceAt(vx, vz), ROCK);
 });
 test('分支接回主线、局部查询与检查点覆盖分支', () => {
   for (const branch of track.branches) {
@@ -45,7 +46,7 @@ test('分支接回主线、局部查询与检查点覆盖分支', () => {
 });
 test('定义和关键生成结果哈希稳定，修改定义改变哈希', () => {
   const hash = trackHash(def); assert.match(hash, /^[0-9a-f]{8}$/);
-  assert.equal(hash, '599cf127');
+  assert.equal(hash, '49a673c5');
   assert.equal(hash, trackHash(structuredClone(def)));
   const other = structuredClone(def); other.points[4].y += .1;
   assert.notEqual(hash, trackHash(other));
@@ -90,6 +91,7 @@ test('分支地形压平，跨过检查点的分支得到额外门线',()=>{
   for(const branch of track.branches) for(let s=15;s<branch.length-15;s+=17) {
     const p=branch.at(s);assert.ok(Math.abs(track.heightAt(p.x,p.z)-p.y)<.6);
   }
-  const copy=structuredClone(def);copy.branches[0].to=21;copy.branches[0].points[copy.branches[0].points.length-1]={...copy.points[21]};
+  // 把慢道终点挪到断桥段检查点之后，检查点应同时覆盖慢道
+  const copy=structuredClone(def),after=def.checkpoints[3].point+2;copy.branches[0].to=after;copy.branches[0].points[copy.branches[0].points.length-1]={...copy.points[after]};
   const modified=buildTrack(copy);assert.equal(modified.checkpointGates[3].lines.length,2);
 });

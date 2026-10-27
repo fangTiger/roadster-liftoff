@@ -63,3 +63,12 @@ test('按右键向屏幕右侧转：车头朝 +z 时，从车后看右侧是 -x'
 });
 test('推进器有升限：一直按着也飞不高',()=>{const c=createCarState({});let top=0;for(let i=0;i<600;i++){run(c,JET,1);top=Math.max(top,c.y);c.fuel=1;}assert.ok(top>4&&top<6.5,String(top));});
 test('赛道边界在空中也挡得住',()=>{const t=straight();t.walls=[{a:{x:-50,z:10},b:{x:50,z:10}}];const c=createCarState({y:5});c.grounded=false;c.vz=40;run(c,JET,40,t);assert.ok(c.z<9.5);});
+test('漂移比抓地转向转得更急、速度保持得住，松开按档位加速',()=>{
+ const grip=createCarState({}),drift=createCarState({});grip.vz=drift.vz=40;grip.steer=drift.steer=1;
+ run(grip,THROTTLE|LEFT,180);run(drift,THROTTLE|LEFT|DRIFT,180);
+ const heading=c=>Math.atan2(c.vx,c.vz),speed=c=>Math.hypot(c.vx,c.vz);
+ assert.ok(heading(drift)>heading(grip)*1.6,`${heading(drift)} ${heading(grip)}`);
+ assert.ok(speed(drift)>32,String(speed(drift)));assert.ok(drift.drifting&&drift.driftTier>=2);
+ const ev=run(drift,THROTTLE,1);assert.ok(ev.some(e=>e.type==='driftBoost'));assert.ok(drift.boostTime>.9);
+});
+test('不打方向按漂移键不会进入漂移',()=>{const c=createCarState({});c.vz=40;run(c,THROTTLE|DRIFT,120);assert.equal(c.driftDir,0);assert.ok(Math.abs(c.vx)<.01);});

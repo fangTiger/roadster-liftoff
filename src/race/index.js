@@ -12,6 +12,10 @@ import { createRaceCamera } from './camera.js';
 import { createHud } from './hud.js';
 import { createDesertSky } from './scene/sky.js';
 const capture=new URLSearchParams(location.search).has('capture');
+// 加载画面：素材加载、着色器预编译完成之前盖住页面，倒数从加载完成后才开始
+const loading=document.createElement('div');loading.textContent='加载赛道…';
+Object.assign(loading.style,{position:'fixed',inset:'0',zIndex:'50',display:'grid',placeItems:'center',background:'#0b0f14',color:'#cfd8e3',font:'500 15px/1 system-ui,sans-serif',letterSpacing:'.2em',transition:'opacity .6s'});
+document.body.append(loading);
 const engine=createEngine(capture?{pixelRatio:1}:{}),track=buildTrack(desertLoop),session=createSession(track),recorder=createRecorder(),hash=trackHash(desertLoop);
 engine.camera.far=1800;engine.camera.updateProjectionMatrix();
 const scene=createGreybox(engine.scene,track),hud=createHud(),camera=createRaceCamera(engine.camera,engine.renderer.domElement);
@@ -30,7 +34,8 @@ function render(alpha=1,dt=1/60){const a=previous.car,b=current.car,blend=(x,y)=
  car.setBrake(lastBits&B.BRAKE?1:0);car.setSteer(c.steer);for(const wheel of car.wheels){wheel.spin.rotation.x=-wheelAngle;if(wheel.front)wheel.steer.rotation.y=c.steer*.35;}
  camera.update(c,dt);sky.update(engine.camera,car.root.position);scene.update(current);hud.update(current);engine.render();
 }
-render();
+await engine.renderer.compileAsync(engine.scene,engine.camera);render();render();
+loading.style.opacity='0';setTimeout(()=>loading.remove(),700);
 // 普通游玩也全程录制；控制台可导出本局，便于复盘和服务器核实。
 window.__raceReplay=()=>recorder.encode({track:hash,laps:3});
 if(capture){window.__race={step(bits,n=1){for(let i=0;i<n;i++)simulate(bits);render(1,Math.max(DT,n*DT));return current;},auto(n=1){for(let i=0;i<n;i++)simulate(autopilot(current,track));render(1,Math.max(DT,n*DT));return current;},snap:()=>session.snapshot,replay:()=>recorder.encode({track:hash,laps:3}),cam(mode){const value=camera.setMode(mode);render();return value;},render:()=>render()};document.title='ready';}

@@ -14,7 +14,7 @@ export function createRaceCamera(camera,element){
   if(!initialized){camYaw=target;camY=c.y;initialized=true;}
   camYaw+=Math.atan2(Math.sin(target-camYaw),Math.cos(target-camYaw))*Math.min(1,dt*6);
   camY+=(c.y-camY)*Math.min(1,dt*(c.grounded?10:4));
-  const back=6.6+k*.9,height=1.75+k*.2+(c.grounded?0:.5),fx=Math.sin(camYaw),fz=Math.cos(camYaw);
+  const back=7.8+k*.9,height=2.05+k*.2+(c.grounded?0:.5),fx=Math.sin(camYaw),fz=Math.cos(camYaw);
   camera.position.set(c.x-fx*back,camY+height,c.z-fz*back);
   look.set(c.x+Math.sin(c.yaw)*6,camY+.75,c.z+Math.cos(c.yaw)*6);camera.lookAt(look);
   const fov=52+k*14;if(Math.abs(camera.fov-fov)>.01){camera.fov+=(fov-camera.fov)*Math.min(1,dt*4);camera.updateProjectionMatrix();}
