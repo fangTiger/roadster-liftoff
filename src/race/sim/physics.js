@@ -1,11 +1,11 @@
-import { sin, cos, clamp, smoothstep, wrapAngle } from './fmath.js';
+import { sin, cos, atan2, clamp, smoothstep, wrapAngle } from './fmath.js';
 import { THROTTLE,BRAKE,LEFT,RIGHT,JET,ROLL,DRIFT } from './input-bits.js';
 import T from './tuning.js';
 import { SAND,GRAVEL,ROCK,GAP } from '../track/build.js';
 export const SIM_VERSION=1, DT=T.dt;
 export function createCarState(pose={}) {
  return {x:pose.x||0,y:pose.y||0,z:pose.z||0,yaw:pose.yaw||0,vx:0,vy:0,vz:0,steer:0,yawKick:0,
- grounded:true,fuel:T.fuelMax,roll:0,rollTime:0,rollDirection:1,boostTime:0,driftDir:0,driftTime:0,driftTier:0,drifting:false,
+ grounded:true,fuel:T.fuelMax,roll:0,rollTime:0,rollDirection:1,boostTime:0,driftDir:0,driftTime:0,driftSwitch:0,counterWindow:0,groundY:pose.y||0,driftTier:0,drifting:false,
  previousBits:0,lap:1,picked:{},cones:{},boostInside:{},rockHits:{},slotEntry:{},surface:0,near:pose.s===undefined?null:{path:'main',index:Math.floor(pose.s),s:pose.s},pitch:0};
 }
 export function coinPositions(track) {
@@ -39,7 +39,10 @@ function collide(c,a,b,radius,events,type='wall') {
 }
 export function stepCar(c,bits,{track,hazards,step=0,coins}={}) {
  const events=[],edge=bits&~c.previousBits;c.previousBits=bits;
- if((edge&ROLL)&&c.rollTime<=0){c.rollTime=T.rollDuration;c.rollDirection=bits&RIGHT?-1:1;}
+ // 翻滚只能在空中触发（离地 rollMinHeight 以上），与第一版一致；平地翻滚会让车身插进路面
+ if((edge&ROLL)&&c.rollTime<=0&&!c.grounded&&c.y-c.groundY>T.rollMinHeight){c.rollTime=T.rollDuration;c.rollDirection=bits&RIGHT?-1:1;}
+ // 二次加速：漂移结束后的窗口内松开再按油门，往前突一下并获得短加速
+ if(c.counterWindow>0){c.counterWindow=Math.max(0,c.counterWindow-DT);if(edge&THROTTLE){c.counterWindow=0;c.boostTime=Math.max(c.boostTime,T.counterBoost);const k=T.counterKick;c.vx+=sin(c.yaw)*k;c.vz+=cos(c.yaw)*k;events.push({type:'counterBoost'});}}
  if(c.rollTime>0){c.rollTime=Math.max(0,c.rollTime-DT);const elapsed=T.rollDuration-c.rollTime;let i=0;while(i<T.rollKeys.length-2&&elapsed>T.rollKeys[i+1])i++;c.roll=c.rollTime>0?c.rollDirection*Math.PI*(T.rollAngles[i]+(T.rollAngles[i+1]-T.rollAngles[i])*smoothstep(T.rollKeys[i],T.rollKeys[i+1],elapsed)):0;}
  let n=track.nearest(c.x,c.z,c.near);const previousNear=n;c.near=n;c.surface=track.surfaceAt(c.x,c.z);
  const mu=T.grip[c.surface]||.8,fx=sin(c.yaw),fz=cos(c.yaw),rx=fz,rz=-fx;
@@ -47,37 +50,59 @@ export function stepCar(c,bits,{track,hazards,step=0,coins}={}) {
  // steer > 0 为向左转（车头转向 +x；从车后看 +x 在屏幕左侧），与第一版 steerVis 的约定一致
  const target=(bits&LEFT?1:0)-(bits&RIGHT?1:0),rate=target?T.steerRate:T.steerReturn;
  c.steer+=clamp(target-c.steer,-rate*DT,rate*DT);
- // 街机漂移：按住漂移键并转向时进入，方向锁定；车头主动往弯内甩（角速度不受抓地极限约束），速度方向慢慢跟上，
- // 车身斜着滑过弯，速度损失小。往漂移方向打方向更紧，反打更松；松开漂移键按蓄力档位给加速。
+ // 漂移：按住漂移键并转向时进入，方向锁定；松开漂移键按蓄力档位给加速
  if((bits&DRIFT)&&!c.driftDir&&c.grounded&&forward>T.driftMinSpeed&&Math.abs(c.steer)>.3)c.driftDir=c.steer>0?1:-1;
- if(c.driftDir&&(!(bits&DRIFT)||forward<T.driftExitSpeed)){if(c.driftTier){c.boostTime=Math.max(c.boostTime,T.driftDurations[c.driftTier-1]);events.push({type:'driftBoost',tier:c.driftTier});}c.driftDir=0;c.driftTime=0;c.driftTier=0;}
+ // 漂移收尾：按档位给加速；漂得够久就打开二次加速窗口
+ const endDrift=()=>{if(c.driftTier){c.boostTime=Math.max(c.boostTime,T.driftDurations[c.driftTier-1]);events.push({type:'driftBoost',tier:c.driftTier});}if(c.driftTime>=T.counterMinDrift)c.counterWindow=T.counterWindow;c.driftTime=0;c.driftTier=0;c.driftSwitch=0;};
+ // 连续漂移：按住漂移键往反方向打方向，短暂确认后直接切换成反向漂移（先结算本段漂移）
+ // 按反方向键判断（不等方向盘慢慢回正），按住 driftSwitchDelay 即切换
+ const opposite=c.driftDir>0?RIGHT:LEFT,same=c.driftDir>0?LEFT:RIGHT;
+ if(c.driftDir&&(bits&DRIFT)&&(bits&opposite)&&!(bits&same)){c.driftSwitch+=DT;if(c.driftSwitch>=T.driftSwitchDelay){endDrift();c.driftDir=-c.driftDir;events.push({type:'driftSwitch',dir:c.driftDir});}}else c.driftSwitch=0;
+ if(c.driftDir&&(!(bits&DRIFT)||forward<T.driftExitSpeed)){endDrift();c.driftDir=0;}
  const drifting=!!c.driftDir&&c.grounded;
- if(drifting&&Math.abs(lateral)>T.driftSlip){c.driftTime+=DT;c.driftTier=0;for(const threshold of T.driftThresholds)if(c.driftTime>=threshold)c.driftTier++;}
+ if(drifting){c.driftTime+=DT;c.driftTier=0;for(const threshold of T.driftThresholds)if(c.driftTime>=threshold)c.driftTier++;}
  c.drifting=drifting;
- const curvature=c.steer/(6+forward*forward/(mu*T.gravity));
- const yawRate=(drifting?c.driftDir*T.driftYaw*(1+T.driftSteerGain*c.steer*c.driftDir)*Math.min(1,forward/25):forward*curvature)+c.yawKick;
- c.yawKick*=Math.max(0,1-3*DT);c.yaw=wrapAngle(c.yaw+yawRate*DT);
- // 先保留世界惯性，再以新车头投影，横滑由抓地上限逐步消除。
- const newFx=sin(c.yaw),newFz=cos(c.yaw);forward=c.vx*newFx+c.vz*newFz;lateral=c.vx*newFz-c.vz*newFx;
- lateral-=clamp(lateral,-mu*T.gravity*(drifting?T.driftGrip:1)*DT,mu*T.gravity*(drifting?T.driftGrip:1)*DT);
- // 漂移侧滑角上限：超出部分转成前进速度（车身甩出去而不是速度凭空消失）
- if(drifting){const maxLat=forward*T.driftMaxSlip;if(Math.abs(lateral)>maxLat){forward+=(Math.abs(lateral)-maxLat)*T.driftCarry;lateral=Math.sign(lateral)*maxLat;}}
- let acceleration=0;
- if(bits&THROTTLE) acceleration+=Math.min(T.acceleration,T.power/Math.max(1,Math.abs(forward)));
- if(bits&BRAKE) acceleration+=forward>0?-T.brake:-T.reverseAcceleration;
- const resistance=(c.surface===SAND?T.sandResistance:c.surface===GRAVEL?T.gravelResistance:0)+(drifting?T.driftDrag:0);
- acceleration-=Math.sign(forward)*(T.drag*forward*forward+resistance);
- if(c.boostTime>0){acceleration+=T.boostAcceleration;c.boostTime=Math.max(0,c.boostTime-DT);}
- let next=forward+acceleration*DT;
- if(!(bits&(THROTTLE|BRAKE))&&next*forward<0)next=0;
- if((bits&BRAKE)&&forward>0&&next<0)next=0;
+ const resistance=c.surface===SAND?T.sandResistance:c.surface===GRAVEL?T.gravelResistance:0;
  const cap=c.surface===SAND?T.sandSpeed:T.maxSpeed+(c.boostTime>0?T.boostSpeed:0);
- forward=clamp(next,-T.reverseSpeed,cap);c.vx=newFx*forward+newFz*lateral;c.vz=newFz*forward-newFx*lateral;
+ let newFx,newFz;
+ if(drifting){
+  // 卡丁车式漂移：速度方向沿弧线转，弧线半径随车速增大（约为同速抓地转弯半径的 driftRadius 倍，高速时不会一下甩出路面）；
+  // 往漂移方向打方向弧线收紧、反打放宽；车头相对速度方向保持侧滑角，速度损失小
+  let speed=Math.sqrt(c.vx*c.vx+c.vz*c.vz);
+  const into=c.steer*c.driftDir,radius=T.driftRadius*(6+speed*speed/(mu*T.gravity))/(1+T.driftSteerGain*into);
+  const turn=c.driftDir*speed/radius*DT,cs=cos(turn),sn=sin(turn),vx=c.vx*cs+c.vz*sn,vz=c.vz*cs-c.vx*sn;
+  let acceleration=-(T.drag*speed*speed+resistance+T.driftDrag);
+  if(bits&THROTTLE)acceleration+=Math.min(T.acceleration,T.power/Math.max(1,speed));
+  if(bits&BRAKE)acceleration-=T.brake;
+  if(c.boostTime>0){acceleration+=T.boostAcceleration;c.boostTime=Math.max(0,c.boostTime-DT);}
+  const next=clamp(speed+acceleration*DT,0,cap),k=speed>1e-6?next/speed:0;c.vx=vx*k;c.vz=vz*k;speed=next;
+  const heading=atan2(c.vx,c.vz)+c.driftDir*T.driftSlipAngle*(1+T.driftSlipSteer*into);
+  c.yaw=wrapAngle(c.yaw+wrapAngle(heading-c.yaw)*Math.min(1,T.driftYawFollow*DT)+c.yawKick*DT);c.yawKick*=Math.max(0,1-3*DT);
+  newFx=sin(c.yaw);newFz=cos(c.yaw);forward=c.vx*newFx+c.vz*newFz;
+ } else {
+  const curvature=c.steer/(6+forward*forward/(mu*T.gravity));
+  const yawRate=forward*curvature+c.yawKick;
+  c.yawKick*=Math.max(0,1-3*DT);c.yaw=wrapAngle(c.yaw+yawRate*DT);
+  // 先保留世界惯性，再以新车头投影，横滑由抓地上限逐步消除。
+  newFx=sin(c.yaw);newFz=cos(c.yaw);forward=c.vx*newFx+c.vz*newFz;lateral=c.vx*newFz-c.vz*newFx;
+  lateral-=clamp(lateral,-mu*T.gravity*DT,mu*T.gravity*DT);
+  let acceleration=0;
+  if(bits&THROTTLE) acceleration+=Math.min(T.acceleration,T.power/Math.max(1,Math.abs(forward)));
+  if(bits&BRAKE) acceleration+=forward>0?-T.brake:-T.reverseAcceleration;
+  acceleration-=Math.sign(forward)*(T.drag*forward*forward+resistance);
+  if(c.boostTime>0){acceleration+=T.boostAcceleration;c.boostTime=Math.max(0,c.boostTime-DT);}
+  let next=forward+acceleration*DT;
+  if(!(bits&(THROTTLE|BRAKE))&&next*forward<0)next=0;
+  if((bits&BRAKE)&&forward>0&&next<0)next=0;
+  forward=clamp(next,-T.reverseSpeed,cap);c.vx=newFx*forward+newFz*lateral;c.vz=newFz*forward-newFx*lateral;
+ }
  const oldY=c.y,oldGrounded=c.grounded;
  // 推进器限高：以路面（含断桥缺口上方的路面高度）为基准，越接近升限推力越小，飞不过墙、也不能一路飞到终点
  const onRoad=Math.abs(n.lateral)<=n.w/2+1,base=onRoad?n.y:track.heightAt(c.x,c.z),apex=c.y-base+(c.vy>0?c.vy*c.vy/(2*T.gravity):0),lift=T.jetAcceleration*clamp((T.jetCeiling-apex)/T.jetFade,0,1);   // 按惯性还能冲到的高度减推力，不会冲过升限
  if((bits&JET)&&c.fuel>0){c.fuel=Math.max(0,c.fuel-T.fuelBurn*DT);c.vy+=(lift-T.gravity)*DT;c.grounded=c.grounded&&lift<=T.gravity;}
  else if(!c.grounded)c.vy-=T.gravity*DT;
+ // 空中翻滚时缓降，保证翻完再落地
+ if(c.rollTime>0&&!c.grounded&&c.vy<-T.rollSink)c.vy=-T.rollSink;
  c.x+=c.vx*DT;c.z+=c.vz*DT;
  n=track.nearest(c.x,c.z,n);c.near=n;c.surface=track.surfaceAt(c.x,c.z);
  const ground=Math.abs(n.lateral)<=n.w/2+.8&&c.surface!==GAP?n.y+n.lateral*n.bank:track.heightAt(c.x,c.z);
@@ -125,6 +150,7 @@ export function stepCar(c,bits,{track,hazards,step=0,coins}={}) {
  }
  // 水平接触修正不是行驶位移，不能在下一步被误算成坡面向上速度。
  const corrected=track.nearest(c.x,c.z,c.near);c.near=corrected;c.surface=track.surfaceAt(c.x,c.z);
- if(c.grounded)c.y=Math.abs(corrected.lateral)<=corrected.w/2+.8&&c.surface!==GAP?corrected.y+corrected.lateral*corrected.bank:track.heightAt(c.x,c.z);
+ const finalGround=Math.abs(corrected.lateral)<=corrected.w/2+.8&&c.surface!==GAP?corrected.y+corrected.lateral*corrected.bank:track.heightAt(c.x,c.z);
+ if(c.grounded)c.y=finalGround;c.groundY=finalGround;
  return events;
 }
