@@ -25,10 +25,11 @@
 | `public/assets/earth/bm_surface_8k.jpg`、`bm_patch_eastasia.jpg` | Blue Marble Next Generation（2004 年 7 月，地形与海底地形版，21600×10800），缩放为 8K 全球图并裁出东亚高清块 | [NASA Earth Observatory](https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-topography-bathymetry) | NASA 影像，公有领域 |
 | `public/assets/earth/earth_bump_roughness_clouds_4096.jpg`、`earth_night_4096.jpg` | 云层、夜间灯光贴图 | [three.js 示例贴图](https://github.com/mrdoob/three.js/tree/dev/examples/textures/planets)，源自 NASA 公开影像 | 见 three.js 仓库说明；NASA 影像为公有领域 |
 
-## 竞速赛道「沙漠环线」
+## 竞速赛道「阿尔卑斯环线」
 
 | 文件 | 素材 | 来源 | 授权 |
 | --- | --- | --- | --- |
+| `public/assets/race/sky/*` | Alps Field（瑞士阿尔卑斯山谷，Andreas Mischok 摄）：16K HDR 按 ACES（曝光 0.85）色调映射后切成 8 块天空分块与 4K 预览；`alps_field_2k.hdr` 为光照与反射用 2K HDR | [Poly Haven](https://polyhaven.com/a/alps_field) | CC0 |
 | `public/assets/race/tex/asphalt_track_*.webp` | asphalt_track（赛道柏油；1K 颜色、法线、粗糙度转 WebP） | [Poly Haven](https://polyhaven.com/a/asphalt_track) | CC0 |
 | `public/assets/race/tex/asphalt_pit_lane_*.webp` | asphalt_pit_lane（起终点区柏油；1K 颜色、法线、粗糙度转 WebP） | [Poly Haven](https://polyhaven.com/a/asphalt_pit_lane) | CC0 |
 | `public/assets/race/tex/gravelly_sand_*.webp` | gravelly_sand（沙地缓冲区；1K 颜色、法线、粗糙度转 WebP） | [Poly Haven](https://polyhaven.com/a/gravelly_sand) | CC0 |

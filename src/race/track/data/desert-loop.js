@@ -1,4 +1,4 @@
-// 沙漠环线：用「直线 + 圆弧」描述走线，每个弯的半径直接指定，避免手摆控制点产生折角。
+// 阿尔卑斯环线（原沙漠环线，2026-10-28 场景换成瑞士阿尔卑斯山谷）：用「直线 + 圆弧」描述走线，每个弯的半径直接指定，避免手摆控制点产生折角。
 // 方向角 θ：前方向量 (sin θ, cos θ)，正角向 +x 转（从车后看是向左）。整圈转角合计 360°，逆时针（从游戏画面方向看）。
 // 盐湖与滚石区两段直线的长度由闭合条件反算（首尾位置重合）。
 import { sin, cos } from '../../sim/fmath.js';
@@ -23,8 +23,8 @@ const segments = [
 // 每个赛段由哪些走线段组成，以及路宽
 const sectionDefs = [
   [0, 0, 13, '发车直道', 'Starting Straight'], [1, 3, 15, '发卡弯', 'Hairpin'], [4, 10, 12, '盘山回头弯', 'Mesa Switchbacks'],
-  [11, 11, 12, '峡谷断桥', 'Canyon Bridge'], [12, 15, 11, '巨石 S 弯', 'Boulder Esses'], [16, 16, 11, '穿山隧道', 'Mountain Tunnel'],
-  [17, 18, 13, '坡顶跳台', 'Mesa Jump'], [19, 19, 30, '干盐湖高速段', 'Salt Flat'], [20, 20, 13, '翻滚捷径', 'Roll Shortcut'],
+  [11, 11, 12, '峡谷断桥', 'Gorge Bridge'], [12, 15, 11, '巨石 S 弯', 'Boulder Esses'], [16, 16, 11, '穿山隧道', 'Mountain Tunnel'],
+  [17, 18, 13, '坡顶跳台', 'Mesa Jump'], [19, 19, 30, '谷底高速段', 'Valley Straight'], [20, 20, 13, '翻滚捷径', 'Roll Shortcut'],
   [21, 21, 13, '滚石区', 'Rockfall Run'], [22, 24, 14, '高速大弯', 'Final Sweepers'],
 ];
 // 走线展开：直线每 12 m 一个控制点、圆弧每 6 m 一个；frames 记录每段的起点、方向与弧长，供分支和地形定位
@@ -90,7 +90,7 @@ const features = [
   { type: 'coins', section: 8, u: .15, end: .85, count: 20, lateral: 9, height: 1 },
   { type: 'coins', section: 9, u: .15, end: .85, count: 14, lateral: 0, height: 1 },
   { type: 'coins', section: 3, u: .3, end: .7, count: 12, lateral: 0, height: 1 },
-  ...labels.map(([zh, en], i) => ({ type: 'landmarks', section: i + 1, u: .55, lateral: 22, name: { zh: ['发车拱门与计时塔', '旧轮胎堆', '输电塔', '断桥残骸', '红岩拱门', '隧道警示条', '废弃水塔', '风化车骨架', '双子巨石', '落石警示牌', '风车'][i], en } })),
+  ...labels.map(([zh, en], i) => ({ type: 'landmarks', section: i + 1, u: .55, lateral: 22, name: { zh: ['发车拱门与计时塔', '旧轮胎堆', '输电塔', '断桥残骸', '岩石拱门', '隧道警示条', '木制瞭望塔', '干草垛', '双子巨石', '落石警示牌', '风车'][i], en } })),
 ];
 // 沿走线的带状区域（台地、盐湖）：左右两侧偏移点围成多边形
 function corridor(parts, left, right) {
@@ -102,7 +102,7 @@ const len = i => frames[i].len;
 const gapFrom = .45 * 280, gapTo = .54 * 280;
 const canyon = (() => { const c = []; for (const [a, l] of [[gapFrom - 1, 170], [gapTo + 1, 170], [gapTo + 1, -170], [gapFrom - 1, -170]]) { const p = frame(11, a, l); c.push([p.x, p.z]); } return c; })();
 export const desertLoop = {
-  id: 1, key: 'desert-loop', name: { zh: '沙漠环线', en: 'Desert Loop' }, laps: 3, points, sections, checkpoints, features, branches,
+  id: 1, key: 'alpine-loop', name: { zh: '阿尔卑斯环线', en: 'Alpine Loop' }, laps: 3, points, sections, checkpoints, features, branches,
   terrain: {
     seed: 1031,
     plateaus: [
