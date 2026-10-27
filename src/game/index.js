@@ -349,6 +349,7 @@ function frame(dt, inp) {
 if (CAPTURE) {
   window.__frame = (dt, inp) => { const i = { throttle: false, brake: false, left: false, right: false, ...inp }; if (i.roll) tryRoll(i); frame(dt, i); };
   window.__cam = m => rig.setMode(m); window.__car = car; window.__THREE = THREE;
+  window.__flight = flight; window.__space = space; window.__camera = camera; window.__render = () => engine.render();   // NFT 循环动画录制用
   window.__st = () => { const v = vehicle.state, f = flight.state; return { mode: f.mode, y: +v.y.toFixed(2), vy: +v.vy.toFixed(2), v: +(v.v * KMH).toFixed(1), fuel: +v.fuel.toFixed(2), alt: Math.round(f.alt), x: +v.x.toFixed(2), cx: +desert.centerAt(0).toFixed(2), yaw: +v.yaw.toFixed(3), coins: coins.count }; };
   frame(1 / 30, {});
   document.title = 'ready';

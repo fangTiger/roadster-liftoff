@@ -12,6 +12,7 @@ export function createMetadataHandler(options = {}) {
         name: `Mars Roadster Round Trip #${id.toString().padStart(4, '0')}`,
         description: 'A keepsake commemorating a completed ground-to-orbit-to-ground round trip in Mars Roadster. Results are self-reported by the player. This NFT is non-transferable. Mars Roadster is a non-commercial fan tribute, with no affiliation with Tesla or SpaceX.',
         image: `${config.siteUrl.replace(/\/+$/, '')}/api/nft/image/${id}?v=${record.updatedAt}`,
+        animation_url: `${config.siteUrl.replace(/\/+$/, '')}/api/nft/view/${id}?v=${record.updatedAt}`,
         external_url: SITE_URL,
         attributes: [
           { trait_type: 'Round trip', value: formatMs(record.bestMs) },

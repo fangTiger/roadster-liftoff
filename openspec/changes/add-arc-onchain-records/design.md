@@ -27,9 +27,10 @@
 - 所有新文字加入 src/i18n/zh.js 与 en.js。
 
 ## NFT 画面
-- 底图：用游戏真车模型与太空场景离线渲染（沿用 scripts/logo/ 的真模型渲染思路），白车在轨道上、下方地球、喷焰光轨，隐藏车标；输出 2048×2048，先出 2–3 个构图给用户挑。
+- 动态画面（2026-10-27 用户定）：NFT 做成动态的，画面里只有白车、地球和星空，不放 2018 年的老前辈。`scripts/nft/render-loop.mjs` 用游戏引擎逐帧录制轨道镜头：主推进器持续喷焰，第 2.5 秒做一次 360° 翻滚（姿态喷口喷气），镜头在车的左后上方按 8 秒周期摆动，地球缓慢转动；多录 1 秒与开头交叉淡化，合成 8 秒无缝循环 `public/assets/nft/loop.mp4`（1080 方形 H.264，约 2 MB），并取其中一帧作为静态底图 `public/assets/nft/base.jpg`。
+- /api/nft/view/[id]：元数据的 `animation_url`。服务器读链后把数据写入 HTML，视频铺底，排版与静态图一致，并加入成绩与成就数从 0 滚动、20 格成就条按位图逐格点亮、信息栏扫光、轨道状态灯；尊重「减少动态效果」设置。支持动画的市场播放此页，钱包和区块浏览器显示静态图。
 - 信息栏：底部科技感半透明条，显示编号 #0001、往返用时、铸造日期、成就 n/20、钱包缩写。
-- /api/nft/[id]：从链上读 ownerOf 与 recordOf，返回元数据 JSON（name、description、image、attributes）。
+- /api/nft/[id]：从链上读 ownerOf 与 recordOf，返回元数据 JSON（name、description、image、animation_url、attributes）。
 - /api/nft/image/[id]：底图 + 信息栏实时合成 PNG，带缓存（成绩更新后图片随之变化）。
 
 ## 风险

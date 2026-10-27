@@ -76,10 +76,16 @@
 
 #### Scenario: 无效或不存在的编号
 - **WHEN** 请求编号不是正整数字符串，或 ownerOf 因 token 不存在而回退
-- **THEN** 元数据与图片接口分别返回 JSON 400 或 JSON 404；RPC 故障返回不缓存的 JSON 503
+- **THEN** 元数据、图片与展示页接口分别返回 JSON 400 或 JSON 404；RPC 故障返回不缓存的 JSON 503
 
 #### Scenario: 版本图片与缓存
 - **WHEN** 请求 `/api/nft/[id]`
 - **THEN** 返回英文元数据、玩家自报 / 不可转让 / 非商业粉丝致敬与 Tesla、SpaceX 非隶属声明，图片地址为 `/api/nft/image/[id]?v=updatedAt`，缓存为 `public, s-maxage=60, stale-while-revalidate=300` 且允许跨域读取
 - **WHEN** 请求上述图片地址
 - **THEN** 返回 1024×1024 PNG，底图铺满、显示用时、成就数、UTC 铸造日期、钱包缩写和网络声明，缓存为 `public, s-maxage=86400, immutable`
+
+#### Scenario: 动态展示
+- **WHEN** 请求元数据
+- **THEN** `animation_url` 为 `/api/nft/view/[id]?v=updatedAt`
+- **WHEN** 请求上述展示页
+- **THEN** 返回 HTML：循环播放轨道视频（只有白车、地球和星空，含喷焰与翻滚），叠加与静态图相同的信息栏，按链上成就位图点亮 20 格成就条；无效、不存在和 RPC 故障时与图片接口返回相同的 JSON 错误
