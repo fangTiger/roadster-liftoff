@@ -34,7 +34,7 @@ const INV_ACES = `
 // 背景材质：JPG 已按 ACES（曝光 0.85）映射过，后期链还会再做一次色调映射，
 // 所以这里先做 ACES 逆运算还原成线性亮度，最终画面颜色与 JPG 一致
 const HI_RECT = new THREE.Vector4(.24164, .65833, 1 - .61108, 1 - .27771);   // 前方高清块在全景 UV 中的范围 (u0, u1, v0, v1)
-async function createSkyMaterial(renderer) {
+export async function createSkyMaterial(renderer) {
   const loader = new THREE.TextureLoader();
   const [bg, hi] = await Promise.all(['goegap_bg_8k.jpg', 'goegap_front_16k.jpg'].map(f => loader.loadAsync('/assets/hdri/' + f)));
   for (const tx of [bg, hi]) { tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = renderer.capabilities.getMaxAnisotropy(); }
