@@ -48,7 +48,7 @@ export function createGreybox(scene,track) {
  for(const g of track.checkpointGates){const yaw=Math.atan2(g.tx,g.tz);box(g.x,g.y+7.2,g.z,14,.22,.3,0x77cbb0,yaw);/* 只留门顶横杆作标记，半透明门面会挡视线 */}
  const chev=document.createElement('canvas');chev.width=64;chev.height=64;{const g=chev.getContext('2d');g.fillStyle='#0b4f9c';g.fillRect(0,0,64,64);g.strokeStyle='#e9f6ff';g.lineWidth=9;g.lineJoin='miter';g.beginPath();g.moveTo(8,44);g.lineTo(32,20);g.lineTo(56,44);g.stroke();}
  const boostTex=new THREE.CanvasTexture(chev);boostTex.colorSpace=THREE.SRGBColorSpace;boostTex.wrapS=boostTex.wrapT=THREE.RepeatWrapping;boostTex.repeat.set(1,5);boostTex.anisotropy=8;
- const boostMat=new THREE.MeshStandardMaterial({map:boostTex,emissive:0x2a8cff,emissiveMap:boostTex,emissiveIntensity:.9,roughness:.4,polygonOffset:true,polygonOffsetFactor:-5,polygonOffsetUnits:-10});
+ const boostMat=new THREE.MeshStandardMaterial({map:boostTex,emissive:0x2a8cff,emissiveMap:boostTex,emissiveIntensity:.3,roughness:.4,polygonOffset:true,polygonOffsetFactor:-5,polygonOffsetUnits:-10});
  for(const f of track.features){const yaw=Math.atan2(f.tx,f.tz);
   if(f.type==='boost'){const pad=new THREE.Mesh(new THREE.PlaneGeometry(f.width,f.length),boostMat);pad.rotation.set(-Math.PI/2,yaw+Math.PI,0,'YXZ');/* 放平后转向：贴图上方（箭头尖）指向行进方向 */pad.position.set(f.x,f.y+.07,f.z);scene.add(pad);}
   if(f.type==='cones')for(const item of f.items){const n=track.nearest(item.x,item.z);mesh(item.kind==='concrete'?new THREE.CylinderGeometry(item.radius,item.radius,1.4,10):new THREE.ConeGeometry(.38,1,8),item.kind==='concrete'?0xaaa69c:0xf07826,item.x,n.y+.7,item.z);}

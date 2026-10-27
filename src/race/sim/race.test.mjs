@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRace } from './race.js';
 import { buildTrack } from '../track/build.js';
-import def from '../track/data/desert-loop.js';
+import def from '../track/data/alpine.js';
 const track=buildTrack(def),dt=1/120;
 function start(race) {for(let i=0;i<360;i++)race.step({x:0,z:0},{x:0,z:0},{vx:0,vz:0});}
 function drive(race, laps=1, skip=-1) {

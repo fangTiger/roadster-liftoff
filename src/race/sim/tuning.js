@@ -4,29 +4,23 @@ export const tuning=Object.freeze({
  // 恒功率近似：低速限加速度，高速由功率与平方风阻平衡。
  maxSpeed:83, acceleration:30, power:1200, drag:1200/(83*83*83), brake:28, reverseSpeed:12, reverseAcceleration:12,
  grip:Object.freeze([1.6,1.5,.8,1,1.3,.8,0]), sandResistance:6, sandSpeed:33.33, gravelResistance:2.5,
- length:4.4,width:2,height:1.25,steerRate:3,steerReturn:4,
+ length:4.4,width:2,height:1.25,steerRate:7,steerReturn:9,arcadeGrip:1.5,
  jetAcceleration:21,jetCeiling:6,jetFade:2,fuelMax:1,fuelBurn:.38,fuelRecharge:.03,coinFuel:.08,coinRadius:1.6,
  // 漂移：弧线半径为同速抓地转弯半径的倍数、打方向对弧线的增减、侧滑角（弧度）及打方向的增减、车头跟随侧滑角的速率、额外阻力、
  // 渐入时长（秒）；漂移结束后抓地恢复时长与起始折减
  driftRadius:.7,driftSteerGain:.3,driftSlipAngle:.4,driftSlipSteer:.3,driftYawFollow:4,driftDrag:1.2,driftOnset:.3,driftRecover:.4,driftRecoverGrip:.65,driftMinSpeed:15,driftExitSpeed:8,driftSlip:2,
  driftThresholds:Object.freeze([.7,1.4,2.1]),driftDurations:Object.freeze([.5,1,1.5]),
  // 连续漂移：按住反方向键持续该时长后切换；二次加速：漂移至少持续多久、窗口时长、加速时长、瞬间前冲速度
- driftSwitchDelay:.1,counterMinDrift:.35,counterBoost:.6,counterKick:2.5,
+ driftSwitchDelay:.1,counterMinDrift:.35,counterWindow:.45,counterBoost:.6,counterKick:2.5,
  boostDuration:1.2,boostAcceleration:12,boostSpeed:11,rollDuration:1.15,rollMinHeight:1,rollSink:.8,
  // 侧立各停留 0.20 秒，让长车身能在高速下完整穿过八米岩缝；衔接处角速度为零。
  rollKeys:Object.freeze([0,.22,.42,.73,.93,1.15]),rollAngles:Object.freeze([0,.5,.5,1.5,1.5,2]),
  // 碰撞损失随入射法向分量变化；冷却以模拟步计。
- wallScrape:.8,coneRetention:.85,rockRetention:.6,rockYaw:2.5,rockCooldown:1,
+ collisionLoss:.65,wallScrape:.8,coneRetention:.85,rockRetention:.6,rockYaw:2.5,rockCooldown:1,
  // 地面跟随的竖直速度上限 = 车速 × 最大坡度 + 台阶速度；超出视为高度断层。
  maxGrade:.4,stepSpeed:1.5,
  landingThreshold:5,landingLoss:.008,stuckDuration:2,fallDepth:6,
  // 纯追踪机器人：提前扫描弯道，保守选择轮胎抓地内的车速。
  lookaheadBase:6,lookaheadSpeed:.2,botCruise:81,botCornerGrip:10,botBrakeMargin:.5,
-});
-// 难度：最高车速（m/s）、新手自动减速与转向辅助、撞墙速度损失系数、二次加速窗口（秒）
-export const MODES=Object.freeze({
- rookie:Object.freeze({id:0,speedCap:61.1,autoBrake:true,steerAssist:1,collisionLoss:.65,counterWindow:.6}),
- standard:Object.freeze({id:1,speedCap:1e9,autoBrake:false,steerAssist:0,collisionLoss:.65,counterWindow:.45}),
- pro:Object.freeze({id:2,speedCap:1e9,autoBrake:false,steerAssist:0,collisionLoss:.8,counterWindow:.3}),
 });
 export default tuning;

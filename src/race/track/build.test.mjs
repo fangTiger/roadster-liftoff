@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { performance } from 'node:perf_hooks';
 import { buildTrack, trackHash, ROAD, ROCK, GAP } from './build.js';
-import def from './data/desert-loop.js';
+import def from './data/alpine.js';
 let track;
 test('生成闭合约四公里赛道，耗时低于 1.5 秒', () => {
   const start = performance.now(); track = buildTrack(def);
@@ -46,7 +46,7 @@ test('分支接回主线、局部查询与检查点覆盖分支', () => {
 });
 test('定义和关键生成结果哈希稳定，修改定义改变哈希', () => {
   const hash = trackHash(def); assert.match(hash, /^[0-9a-f]{8}$/);
-  assert.equal(hash, '2b8bea06');
+  assert.equal(hash, '9d7da50e');
   assert.equal(hash, trackHash(structuredClone(def)));
   const other = structuredClone(def); other.points[4].y += .1;
   assert.notEqual(hash, trackHash(other));
