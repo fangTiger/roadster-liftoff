@@ -10,11 +10,12 @@ import * as B from './sim/input-bits.js';
 import { createGreybox } from './scene/greybox.js';
 import { createRaceCamera } from './camera.js';
 import { createHud } from './hud.js';
+import { createDesertSky } from './scene/sky.js';
 const capture=new URLSearchParams(location.search).has('capture');
 const engine=createEngine(capture?{pixelRatio:1}:{}),track=buildTrack(desertLoop),session=createSession(track),recorder=createRecorder(),hash=trackHash(desertLoop);
-engine.camera.far=1800;engine.camera.updateProjectionMatrix();engine.renderer.toneMappingExposure=1;
+engine.camera.far=1800;engine.camera.updateProjectionMatrix();
 const scene=createGreybox(engine.scene,track),hud=createHud(),camera=createRaceCamera(engine.camera,engine.renderer.domElement);
-const car=await createCar();engine.scene.add(car.root);
+const sky=await createDesertSky(engine.scene,engine.renderer),car=await createCar();engine.scene.add(car.root);
 let previous=session.snapshot,current=previous,lastBits=0,wheelAngle=0,accumulator=0,lastTime;
 const keys=new Set(),map={KeyW:B.THROTTLE,ArrowUp:B.THROTTLE,KeyS:B.BRAKE,ArrowDown:B.BRAKE,KeyA:B.LEFT,ArrowLeft:B.LEFT,KeyD:B.RIGHT,ArrowRight:B.RIGHT,Space:B.JET,KeyR:B.ROLL,ShiftLeft:B.DRIFT,ShiftRight:B.DRIFT,Backspace:B.RESET,KeyT:B.RESET};
 addEventListener('keydown',e=>{if(map[e.code]){e.preventDefault();keys.add(e.code);}if(e.code==='KeyC'&&!e.repeat)camera.setMode();});
@@ -25,9 +26,9 @@ function render(alpha=1,dt=1/60){const a=previous.car,b=current.car,blend=(x,y)=
  let delta=b.yaw-a.yaw;delta-=Math.PI*2*Math.floor((delta+Math.PI)/(Math.PI*2));const yaw=a.yaw+delta*alpha;
  car.root.position.set(c.x,c.y,c.z);car.root.rotation.y=yaw+Math.PI;car.chassis.rotation.x=c.pitch;car.chassis.rotation.z=-c.steer*Math.min(.06,Math.hypot(c.vx,c.vz)*.001);
  car.setRoll(c.roll);car.setThrust((lastBits&B.THROTTLE)||c.boostTime>0?1:0,current.step*DT);car.setLift(lastBits&B.JET&&c.fuel>0?1:0,current.step*DT);
- const rcs=c.drifting?.65:0;car.setRCS(c.steer>0?rcs:0,c.steer<0?rcs:0,c.steer<0?rcs:0,c.steer>0?rcs:0,current.step*DT);
- car.setBrake(lastBits&B.BRAKE?1:0);car.setSteer(c.steer);for(const wheel of car.wheels){wheel.spin.rotation.x=-wheelAngle;if(wheel.front)wheel.steer.rotation.y=-c.steer*.35;}
- camera.update(c,dt);scene.update(current);hud.update(current);engine.render();
+ const rcs=c.drifting?.65:0;car.setRCS(c.steer<0?rcs:0,c.steer>0?rcs:0,c.steer>0?rcs:0,c.steer<0?rcs:0,current.step*DT);   // 左转时前右、后左喷气
+ car.setBrake(lastBits&B.BRAKE?1:0);car.setSteer(c.steer);for(const wheel of car.wheels){wheel.spin.rotation.x=-wheelAngle;if(wheel.front)wheel.steer.rotation.y=c.steer*.35;}
+ camera.update(c,dt);sky.update(engine.camera,car.root.position);scene.update(current);hud.update(current);engine.render();
 }
 render();
 // 普通游玩也全程录制；控制台可导出本局，便于复盘和服务器核实。

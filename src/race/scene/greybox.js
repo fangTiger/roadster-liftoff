@@ -2,9 +2,7 @@ import * as THREE from 'three';
 import { coinPositions } from '../sim/physics.js';
 const COLORS=[0x343a40,0xe9d7c5,0xb98456,0x8b8378,0xe4dbbf,0x804d3b,0x593f33];
 export function createGreybox(scene,track) {
- scene.background=new THREE.Color(0xa9c7d3);scene.fog=new THREE.Fog(0xa9c7d3,180,950);
- scene.add(new THREE.HemisphereLight(0xc9e5ff,0x8b5b3a,2.5));
- const sun=new THREE.DirectionalLight(0xffe0b5,3);sun.position.set(100,200,80);scene.add(sun);
+ // 天空、环境光与太阳见 sky.js
  const materials=new Map();
  const material=(color,extra={})=>{const key=color+JSON.stringify(extra);if(!materials.has(key))materials.set(key,new THREE.MeshStandardMaterial({color,roughness:.85,...extra}));return materials.get(key);};
  function mesh(geometry,color,x,y,z,extra){const o=new THREE.Mesh(geometry,material(color,extra));o.position.set(x,y,z);scene.add(o);return o;}
@@ -16,7 +14,7 @@ export function createGreybox(scene,track) {
   pos.push(x,y,z);const color=new THREE.Color(COLORS[track.surfaceAt(x,z)]);col.push(color.r,color.g,color.b);
  }
  for(let iz=0;iz<nz;iz++)for(let ix=0;ix<nx;ix++){const a=iz*(nx+1)+ix,b=a+1,c=a+nx+1,d=c+1;idx.push(a,c,b,b,c,d);}
- const terrain=new THREE.BufferGeometry();terrain.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));terrain.setAttribute('color',new THREE.Float32BufferAttribute(col,3));terrain.setIndex(idx);terrain.computeVertexNormals();const ground=new THREE.Mesh(terrain,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1}));scene.add(ground);
+ const terrain=new THREE.BufferGeometry();terrain.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));terrain.setAttribute('color',new THREE.Float32BufferAttribute(col,3));terrain.setIndex(idx);terrain.computeVertexNormals();const ground=new THREE.Mesh(terrain,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1}));ground.receiveShadow=true;scene.add(ground);
  const gap=track.features.find(f=>f.type==='gap');
  function ribbon(path,left,right,color,skipGap=false){const p=[],indices=[];let count=0;
   for(let s=0;s<path.length;s+=2){if(skipGap&&gap&&s+2>=gap.from&&s<=gap.to)continue;const a=path.at(s),b=path.at(Math.min(path.length,s+2));for(const [q,l] of [[a,left(a)],[a,right(a)],[b,left(b)],[b,right(b)]])p.push(q.x-q.tz*l,q.y+l*q.bank+.04,q.z+q.tx*l);indices.push(count,count+2,count+1,count+1,count+2,count+3);count+=4;}

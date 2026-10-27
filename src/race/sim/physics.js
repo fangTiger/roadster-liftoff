@@ -44,7 +44,8 @@ export function stepCar(c,bits,{track,hazards,step=0,coins}={}) {
  let n=track.nearest(c.x,c.z,c.near);const previousNear=n;c.near=n;c.surface=track.surfaceAt(c.x,c.z);
  const mu=T.grip[c.surface]||.8,fx=sin(c.yaw),fz=cos(c.yaw),rx=fz,rz=-fx;
  let forward=c.vx*fx+c.vz*fz,lateral=c.vx*rx+c.vz*rz;
- const target=(bits&RIGHT?1:0)-(bits&LEFT?1:0),rate=target?T.steerRate:T.steerReturn;
+ // steer > 0 为向左转（车头转向 +x；从车后看 +x 在屏幕左侧），与第一版 steerVis 的约定一致
+ const target=(bits&LEFT?1:0)-(bits&RIGHT?1:0),rate=target?T.steerRate:T.steerReturn;
  c.steer+=clamp(target-c.steer,-rate*DT,rate*DT);
  const drifting=!!(bits&DRIFT)&&c.grounded&&Math.abs(forward)>T.driftMinSpeed&&Math.abs(c.steer)>.1;
  if(drifting&&Math.abs(lateral)>T.driftSlip){c.driftTime+=DT;c.driftTier=0;for(const threshold of T.driftThresholds)if(c.driftTime>=threshold)c.driftTier++;}
@@ -68,7 +69,9 @@ export function stepCar(c,bits,{track,hazards,step=0,coins}={}) {
  const cap=c.surface===SAND?T.sandSpeed:T.maxSpeed+(c.boostTime>0?T.boostSpeed:0);
  forward=clamp(next,-T.reverseSpeed,cap);c.vx=newFx*forward+newFz*lateral;c.vz=newFz*forward-newFx*lateral;
  const oldY=c.y,oldGrounded=c.grounded;
- if((bits&JET)&&c.fuel>0){c.fuel=Math.max(0,c.fuel-T.fuelBurn*DT);c.vy+=(T.jetAcceleration-T.gravity)*DT;c.grounded=false;}
+ // 推进器限高：以路面（含断桥缺口上方的路面高度）为基准，越接近升限推力越小，飞不过墙、也不能一路飞到终点
+ const onRoad=Math.abs(n.lateral)<=n.w/2+1,base=onRoad?n.y:track.heightAt(c.x,c.z),apex=c.y-base+(c.vy>0?c.vy*c.vy/(2*T.gravity):0),lift=T.jetAcceleration*clamp((T.jetCeiling-apex)/T.jetFade,0,1);   // 按惯性还能冲到的高度减推力，不会冲过升限
+ if((bits&JET)&&c.fuel>0){c.fuel=Math.max(0,c.fuel-T.fuelBurn*DT);c.vy+=(lift-T.gravity)*DT;c.grounded=c.grounded&&lift<=T.gravity;}
  else if(!c.grounded)c.vy-=T.gravity*DT;
  c.x+=c.vx*DT;c.z+=c.vz*DT;
  n=track.nearest(c.x,c.z,n);c.near=n;c.surface=track.surfaceAt(c.x,c.z);
@@ -83,10 +86,9 @@ export function stepCar(c,bits,{track,hazards,step=0,coins}={}) {
  if(c.grounded)c.fuel=Math.min(T.fuelMax,c.fuel+T.fuelRecharge*DT);
  c.pitch=c.grounded?clamp(c.vy/(Math.abs(forward)+1),-.4,.4):clamp(c.vy/60,-.35,.35);
  if(c.surface===GAP&&c.y<n.y-T.fallDepth)events.push({type:'fell'});
- // 墙不无限向上延伸；跳过矮墙要有足够的底盘高度。
+ // 赛道边界在任何高度都挡（推进器不能从空中抄近路）。
  for(let pass=0;pass<2;pass++)for(const wall of track.walls){
   if(Math.abs((wall.a.x+wall.b.x)/2-c.x)>16||Math.abs((wall.a.z+wall.b.z)/2-c.z)>16)continue;
-  if(c.y>=n.y+(wall.type==='slot'?7:1.3))continue;
   collide(c,wall.a,wall.b,0,events);
  }
  for(const [fi,f] of track.features.entries()) {

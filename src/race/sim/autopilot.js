@@ -10,7 +10,8 @@ export function autopilot(snapshot,track) {
  const right=dx*cos(c.yaw)-dz*sin(c.yaw),distance2=dx*dx+dz*dz;
  const desired=2*right/Math.max(1,distance2),maxCurve=1/(6+speed*speed/(1.6*T.gravity));
  const control=clamp(desired/maxCurve,-1,1);
- let bits=control>c.steer+.035?RIGHT:control<c.steer-.035?LEFT:0;
+ // 这里的 right 是车头 +x 一侧，对应 steer 增大，也就是 LEFT 键
+ let bits=control>c.steer+.035?LEFT:control<c.steer-.035?RIGHT:0;
  // 数字按键用误差反馈脉冲保持中间转向值。
  let target=T.botCruise;
  for(let d=0;d<=140;d+=3){const a=track.at(s+d),b=track.at(s+d+3),dot=clamp(a.tx*b.tx+a.tz*b.tz,-1,1),curve=Math.sqrt(Math.max(0,2-2*dot))/3;

@@ -5,7 +5,7 @@ export const tuning=Object.freeze({
  maxSpeed:83, acceleration:30, power:1200, drag:1200/(83*83*83), brake:28, reverseSpeed:12, reverseAcceleration:12,
  grip:Object.freeze([1.6,1.5,.8,1,1.3,.8,0]), sandResistance:6, sandSpeed:33.33, gravelResistance:2.5,
  length:4.4,width:2,height:1.25,steerRate:3,steerReturn:4,
- jetAcceleration:21,fuelMax:1,fuelBurn:.38,fuelRecharge:.03,coinFuel:.08,coinRadius:1.6,
+ jetAcceleration:21,jetCeiling:6,jetFade:2,fuelMax:1,fuelBurn:.38,fuelRecharge:.03,coinFuel:.08,coinRadius:1.6,
  driftGrip:.45,driftSteer:1.35,driftMinSpeed:15,driftSlip:.1,
  driftThresholds:Object.freeze([.7,1.4,2.1]),driftDurations:Object.freeze([.5,1,1.5]),
  boostDuration:1.2,boostAcceleration:12,boostSpeed:11,rollDuration:1.15,

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createCarState, stepCar, DT } from './physics.js';
-import { THROTTLE, BRAKE, JET, DRIFT, RIGHT } from './input-bits.js';
+import { THROTTLE, BRAKE, JET, DRIFT, LEFT, RIGHT } from './input-bits.js';
 const straight=(surface=0)=>({nearest:(x,z)=>({path:'main',index:0,s:z,lateral:-x,y:0,w:1000,bank:0,tx:0,tz:1}),surfaceAt:()=>surface,heightAt:()=>0,walls:[],features:[],at:s=>({x:0,z:s,y:0,tx:0,tz:1,w:1000,bank:0})});
 function run(car,bits,n,track=straight()) {const events=[];for(let i=0;i<n;i++)events.push(...stepCar(car,bits,{track,step:i}));return events;}
 test('直线起步、恒功率极速、刹车与倒车',()=>{
@@ -16,7 +16,7 @@ test('正撞墙推出且大幅减速，擦墙损失较小',()=>{
 test('推进器消耗燃料、离地后受重力并落地',()=>{const c=createCarState({});const e=run(c,JET,120);assert.ok(c.y>1&&!c.grounded);assert.ok(c.fuel<.65);const ev=run(c,0,600);assert.ok(ev.some(e=>e.type==='land'));assert.equal(c.grounded,true);assert.equal(c.y,0);});
 test('加速带触发且增加动力',()=>{const t=straight();t.features=[{type:'boost',x:0,z:0,tx:0,tz:1,length:16,width:9}];const c=createCarState({});assert.ok(run(c,THROTTLE,1,t).some(e=>e.type==='boost'));assert.ok(c.boostTime>1);});
 test('漂移按横滑时长积攒三档并在释放时加速',()=>{
- for(const [seconds,tier] of [[.8,1],[1.5,2],[2.2,3]]) {const c=createCarState({});c.vz=50;c.vx=3;c.steer=1;run(c,THROTTLE|DRIFT|RIGHT,Math.ceil(seconds/DT));const ev=run(c,THROTTLE,1);assert.equal(ev.find(e=>e.type==='driftBoost')?.tier,tier);}
+ for(const [seconds,tier] of [[.8,1],[1.5,2],[2.2,3]]) {const c=createCarState({});c.vz=50;c.vx=3;c.steer=1;run(c,THROTTLE|DRIFT|LEFT,Math.ceil(seconds/DT));const ev=run(c,THROTTLE,1);assert.equal(ev.find(e=>e.type==='driftBoost')?.tier,tier);}
 });
 test('金币补燃料，每圈重新出现',()=>{const t=straight();t.features=[{type:'coins',from:0,to:0,count:1,lateral:0,height:1}];const c=createCarState({});c.fuel=.2;assert.ok(run(c,0,1,t).some(e=>e.type==='coin'));assert.ok(c.fuel>.27);assert.equal(run(c,0,1,t).filter(e=>e.type==='coin').length,0);c.lap=2;assert.ok(run(c,0,1,t).some(e=>e.type==='coin'));});
 test('碰撞推离斜坡时不把水平位置修正变成向上弹射',()=>{
@@ -57,3 +57,9 @@ test('反向接近窄缝出口时只在出口外阻挡，不瞬移到另一端',
  const t=straight();t.features=[{type:'slot',x:0,z:0,y:0,tx:0,tz:1,width:1.35,rockRadius:4,height:7}];const c=createCarState({z:6.2});c.vz=-12;
  const ev=run(c,0,1,t);assert.ok(c.z>4&&c.z<7);assert.ok(Math.abs(c.vz)<1);assert.ok(ev.some(e=>e.type==='wall'));
 });
+test('按右键向屏幕右侧转：车头朝 +z 时，从车后看右侧是 -x',()=>{
+ const r=createCarState({});r.vz=30;run(r,THROTTLE|RIGHT,60);assert.ok(r.x<-1&&r.yaw<0);
+ const l=createCarState({});l.vz=30;run(l,THROTTLE|LEFT,60);assert.ok(l.x>1&&l.yaw>0);
+});
+test('推进器有升限：一直按着也飞不高',()=>{const c=createCarState({});let top=0;for(let i=0;i<600;i++){run(c,JET,1);top=Math.max(top,c.y);c.fuel=1;}assert.ok(top>4&&top<6.5,String(top));});
+test('赛道边界在空中也挡得住',()=>{const t=straight();t.walls=[{a:{x:-50,z:10},b:{x:50,z:10}}];const c=createCarState({y:5});c.grounded=false;c.vz=40;run(c,JET,40,t);assert.ok(c.z<9.5);});
