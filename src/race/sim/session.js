@@ -7,7 +7,7 @@ import { ROCK,SALT } from '../track/build.js';
 import T from './tuning.js';
 const copy=v=>JSON.parse(JSON.stringify(v));
 const lapStats=()=>({clean:true,driftBoost3:0,driftBoostCounts:{1:0,2:0,3:0},canyonJump:false,slotPass:false,saltTopKmh:0});
-export function createSession(track,{laps=3,spawn,mode='standard'}={}) {
+export function createSession(track,{laps=3,spawn}={}) {
  const start=track.at(6),race=createRace(track,{laps,dt:DT}),hazards=createHazards(track),coins=coinPositions(track);
  let car=createCarState(spawn||{...start,yaw:atan2(start.tx,start.tz),s:6}),stepCount=0,previousBits=0,stuck=0,traversal={},stats=lapStats();
  car.near=track.nearest(car.x,car.z);
@@ -20,7 +20,7 @@ export function createSession(track,{laps=3,spawn,mode='standard'}={}) {
   if(race.state.frozen){race.step(car,car,car);return;}
   if(edge&RESET){reset('manual');race.step(car,car,car);return;}
   const prev={x:car.x,z:car.z,grounded:car.grounded,rollTime:car.rollTime},lapBefore=race.state.lapTimes.length;
-  car.lap=race.state.lap;const current=stepCar(car,bits,{track,hazards,step:race.state.steps,coins,mode});
+  car.lap=race.state.lap;const current=stepCar(car,bits,{track,hazards,step:race.state.steps,coins});
   for(const event of current){events.push({...event,step:stepCount});if(event.type==='wall')stats.clean=false;if(event.type==='driftBoost'){stats.driftBoostCounts[event.tier]++;if(event.tier===3)stats.driftBoost3++;}}
   advanceTraversal(traversal,prev,car,current,track,stats);
   if(car.surface===SALT)stats.saltTopKmh=Math.max(stats.saltTopKmh,Math.sqrt(car.vx*car.vx+car.vz*car.vz)*3.6);

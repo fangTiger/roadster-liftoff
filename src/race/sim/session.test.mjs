@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTrack } from '../track/build.js';
-import def from '../track/data/desert-loop.js';
+import def from '../track/data/alpine.js';
 import { createSession } from './session.js';
 import { autopilot } from './autopilot.js';
 import { THROTTLE,RESET } from './input-bits.js';
@@ -48,10 +48,4 @@ test('分支接口与重叠路幅的高度断层不会把车弹起（只有断�
   for(;seen<snap.events.length;seen++){const e=snap.events[seen];if(e.type!=='land'||e.impact<=6)continue;const n=track.nearest(snap.car.x,snap.car.z,snap.car.near),k=n.path==='main'?sec(n.s):n.path;if(k!==4&&k!==7)hard.push([k,e.impact]);}
  }
  assert.ok(snap.race.finished);assert.deepEqual(hard,[]);
-});
-
-test('新手难度：只按油门、完全不打方向也能跑完一圈，且不超过 220 km/h',()=>{
- const session=createSession(track,{laps:1,mode:'rookie'});let snap=session.snapshot,steps=0,top=0;
- while(!snap.race.finished&&steps<120*240){session.step(THROTTLE);snap=session.snapshot;steps++;top=Math.max(top,Math.hypot(snap.car.vx,snap.car.vz));}
- assert.ok(snap.race.finished);assert.ok(top<=61.2,String(top*3.6));
 });

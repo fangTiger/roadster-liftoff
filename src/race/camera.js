@@ -12,7 +12,7 @@ export function createRaceCamera(camera,element){
   // 漂移、横滑时镜头偏向实际行进方向，低速时跟车头
   const heading=speed>8?Math.atan2(c.vx,c.vz):c.yaw,target=c.yaw+Math.atan2(Math.sin(heading-c.yaw),Math.cos(heading-c.yaw))*.35;
   if(!initialized){camYaw=target;camY=c.y;initialized=true;}
-  camYaw+=Math.atan2(Math.sin(target-camYaw),Math.cos(target-camYaw))*Math.min(1,dt*6);
+  camYaw+=Math.atan2(Math.sin(target-camYaw),Math.cos(target-camYaw))*Math.min(1,dt*11);   // 镜头跟得更紧，转向不显得迟钝
   camY+=(c.y-camY)*Math.min(1,dt*(c.grounded?10:4));
   const back=7.8+k*.9,height=2.05+k*.2+(c.grounded?0:.5),fx=Math.sin(camYaw),fz=Math.cos(camYaw);
   camera.position.set(c.x-fx*back,camY+height,c.z-fz*back);

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import def from '../track/data/desert-loop.js';
+import def from '../track/data/alpine.js';
 import { buildTrack,trackHash } from '../track/build.js';
 import { createSession } from './session.js';
 import { autopilot } from './autopilot.js';
