@@ -25,6 +25,42 @@
 | `public/assets/earth/bm_surface_8k.jpg`、`bm_patch_eastasia.jpg` | Blue Marble Next Generation（2004 年 7 月，地形与海底地形版，21600×10800），缩放为 8K 全球图并裁出东亚高清块 | [NASA Earth Observatory](https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-topography-bathymetry) | NASA 影像，公有领域 |
 | `public/assets/earth/earth_bump_roughness_clouds_4096.jpg`、`earth_night_4096.jpg` | 云层、夜间灯光贴图 | [three.js 示例贴图](https://github.com/mrdoob/three.js/tree/dev/examples/textures/planets)，源自 NASA 公开影像 | 见 three.js 仓库说明；NASA 影像为公有领域 |
 
+## 竞速赛道「沙漠环线」
+
+| 文件 | 素材 | 来源 | 授权 |
+| --- | --- | --- | --- |
+| `public/assets/race/tex/asphalt_track_*.webp` | asphalt_track（赛道柏油；1K 颜色、法线、粗糙度转 WebP） | [Poly Haven](https://polyhaven.com/a/asphalt_track) | CC0 |
+| `public/assets/race/tex/asphalt_pit_lane_*.webp` | asphalt_pit_lane（起终点区柏油；1K 颜色、法线、粗糙度转 WebP） | [Poly Haven](https://polyhaven.com/a/asphalt_pit_lane) | CC0 |
+| `public/assets/race/tex/gravelly_sand_*.webp` | gravelly_sand（沙地缓冲区；1K 颜色、法线、粗糙度转 WebP） | [Poly Haven](https://polyhaven.com/a/gravelly_sand) | CC0 |
+| `public/assets/race/tex/red_sand_*.webp` | red_sand（红沙；1K 颜色、法线、粗糙度转 WebP） | [Poly Haven](https://polyhaven.com/a/red_sand) | CC0 |
+| `public/assets/race/tex/sandy_gravel_02_*.webp` | sandy_gravel_02（路肩外碎石沙；1K 颜色、法线、粗糙度转 WebP） | [Poly Haven](https://polyhaven.com/a/sandy_gravel_02) | CC0 |
+| `public/assets/race/tex/mud_cracked_dry_03_*.webp` | mud_cracked_dry_03（盐湖龟裂地；1K 颜色、法线、粗糙度转 WebP） | [Poly Haven](https://polyhaven.com/a/mud_cracked_dry_03) | CC0 |
+| `public/assets/race/tex/dry_mud_field_001_*.webp` | dry_mud_field_001（盐湖平地；1K 颜色、法线、粗糙度转 WebP） | [Poly Haven](https://polyhaven.com/a/dry_mud_field_001) | CC0 |
+| `public/assets/race/tex/cliff_side_*.webp` | cliff_side（台地岩壁；1K 颜色、法线、粗糙度转 WebP） | [Poly Haven](https://polyhaven.com/a/cliff_side) | CC0 |
+| `public/assets/race/tex/tiger_rock_*.webp` | tiger_rock（红岩条纹；1K 颜色、法线、粗糙度转 WebP） | [Poly Haven](https://polyhaven.com/a/tiger_rock) | CC0 |
+| `public/assets/race/tex/worn_rock_natural_01_*.webp` | worn_rock_natural_01（砂岩；1K 颜色、法线、粗糙度转 WebP） | [Poly Haven](https://polyhaven.com/a/worn_rock_natural_01) | CC0 |
+| `public/assets/race/tex/dry_riverbed_rock_*.webp` | dry_riverbed_rock（峡谷河床；1K 颜色、法线、粗糙度转 WebP） | [Poly Haven](https://polyhaven.com/a/dry_riverbed_rock) | CC0 |
+| `public/assets/race/tex/brushed_concrete_*.webp` | brushed_concrete（隧道与水泥；1K 颜色、法线、粗糙度转 WebP） | [Poly Haven](https://polyhaven.com/a/brushed_concrete) | CC0 |
+| `public/assets/race/props/namaqualand_cliff_01.glb` | namaqualand_cliff_01（岩壁1；meshopt 压缩，贴图转 WebP 1024） | [Poly Haven](https://polyhaven.com/a/namaqualand_cliff_01) | CC0 |
+| `public/assets/race/props/namaqualand_cliff_02.glb` | namaqualand_cliff_02（岩壁2；meshopt 压缩，贴图转 WebP 1024） | [Poly Haven](https://polyhaven.com/a/namaqualand_cliff_02) | CC0 |
+| `public/assets/race/props/rock_face_01.glb` | rock_face_01（岩面1；meshopt 压缩，贴图转 WebP 1024） | [Poly Haven](https://polyhaven.com/a/rock_face_01) | CC0 |
+| `public/assets/race/props/mountainside.glb` | mountainside（山体；meshopt 压缩，贴图转 WebP 1024） | [Poly Haven](https://polyhaven.com/a/mountainside) | CC0 |
+| `public/assets/race/props/namaqualand_boulder_02.glb` | namaqualand_boulder_02（巨石2；meshopt 压缩，贴图转 WebP 1024） | [Poly Haven](https://polyhaven.com/a/namaqualand_boulder_02) | CC0 |
+| `public/assets/race/props/namaqualand_boulder_04.glb` | namaqualand_boulder_04（巨石4；meshopt 压缩，贴图转 WebP 1024） | [Poly Haven](https://polyhaven.com/a/namaqualand_boulder_04) | CC0 |
+| `public/assets/race/props/namaqualand_boulder_05.glb` | namaqualand_boulder_05（巨石5；meshopt 压缩，贴图转 WebP 1024） | [Poly Haven](https://polyhaven.com/a/namaqualand_boulder_05) | CC0 |
+| `public/assets/race/props/namaqualand_boulders_01.glb` | namaqualand_boulders_01（巨石群；meshopt 压缩，贴图转 WebP 1024） | [Poly Haven](https://polyhaven.com/a/namaqualand_boulders_01) | CC0 |
+| `public/assets/race/props/namaqualand_rocks_01.glb` | namaqualand_rocks_01（碎岩；meshopt 压缩，贴图转 WebP 1024） | [Poly Haven](https://polyhaven.com/a/namaqualand_rocks_01) | CC0 |
+| `public/assets/race/props/quiver_tree_01.glb` | quiver_tree_01（箭袋树1；meshopt 压缩，贴图转 WebP 1024） | [Poly Haven](https://polyhaven.com/a/quiver_tree_01) | CC0 |
+| `public/assets/race/props/quiver_tree_02.glb` | quiver_tree_02（箭袋树2；meshopt 压缩，贴图转 WebP 512） | [Poly Haven](https://polyhaven.com/a/quiver_tree_02) | CC0 |
+| `public/assets/race/props/othonna_cerarioides.glb` | othonna_cerarioides（肉质小树；meshopt 压缩，贴图转 WebP 512） | [Poly Haven](https://polyhaven.com/a/othonna_cerarioides) | CC0 |
+| `public/assets/race/props/wild_rooibos_bush.glb` | wild_rooibos_bush（路易波士灌木；meshopt 压缩，贴图转 WebP 512） | [Poly Haven](https://polyhaven.com/a/wild_rooibos_bush) | CC0 |
+| `public/assets/race/props/cheiridopsis_succulent.glb` | cheiridopsis_succulent（多肉；meshopt 压缩，贴图转 WebP 512） | [Poly Haven](https://polyhaven.com/a/cheiridopsis_succulent) | CC0 |
+| `public/assets/race/props/concrete_road_barrier.glb` | concrete_road_barrier（水泥墩；meshopt 压缩，贴图转 WebP 512） | [Poly Haven](https://polyhaven.com/a/concrete_road_barrier) | CC0 |
+| `public/assets/race/props/concrete_road_barrier_02.glb` | concrete_road_barrier_02（水泥墩2；meshopt 压缩，贴图转 WebP 512） | [Poly Haven](https://polyhaven.com/a/concrete_road_barrier_02) | CC0 |
+| `public/assets/race/props/old_tyre.glb` | old_tyre（旧轮胎；meshopt 压缩，贴图转 WebP 512） | [Poly Haven](https://polyhaven.com/a/old_tyre) | CC0 |
+| `public/assets/race/props/modular_electricity_poles.glb` | modular_electricity_poles（电线杆；meshopt 压缩，贴图转 WebP 512） | [Poly Haven](https://polyhaven.com/a/modular_electricity_poles) | CC0 |
+| `public/assets/race/props/modular_chainlink_fence.glb` | modular_chainlink_fence（铁丝网；meshopt 压缩，贴图转 WebP 512） | [Poly Haven](https://polyhaven.com/a/modular_chainlink_fence) | CC0 |
+
 ## 星空
 
 | 文件 | 素材 | 来源 | 授权 |
