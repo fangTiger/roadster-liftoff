@@ -2,8 +2,10 @@ import * as THREE from 'three';
 import { coinPositions } from '../sim/physics.js';
 // 地表配色（高山草甸）：路面、路肩、路外草地、碎石、开阔平地、岩壁、峡谷
 // 顶点色作为草地贴图的染色：路外草地保持原色，开阔平地略亮，碎石、岩壁偏灰
-const COLORS=[0x343a40,0xe9d7c5,0x9fbf6e,0xb4ae9c,0xaecb7a,0x9d978d,0x5a554c];
-export function createGreybox(scene,track) {
+const BASE_COLORS=[0x343a40,0xe9d7c5,0x9fbf6e,0xb4ae9c,0xaecb7a,0x9d978d,0x5a554c];
+export function createGreybox(scene,track,{tint}={}) {
+ // 路外草地与开阔平地的染色随天空变化，和远处照片里的地面衔接
+ const COLORS=BASE_COLORS.slice();if(tint){COLORS[2]=tint[0];COLORS[4]=tint[1];}
  // 天空、环境光与太阳见 sky.js
  const materials=new Map();
  const material=(color,extra={})=>{const key=color+JSON.stringify(extra);if(!materials.has(key))materials.set(key,new THREE.MeshStandardMaterial({color,roughness:.85,...extra}));return materials.get(key);};

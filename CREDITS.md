@@ -29,7 +29,10 @@
 
 | 文件 | 素材 | 来源 | 授权 |
 | --- | --- | --- | --- |
-| `public/assets/race/sky/*` | Alps Field（瑞士阿尔卑斯山谷，Andreas Mischok 摄）：16K HDR 按 ACES（曝光 0.85）色调映射后切成 8 块天空分块与 4K 预览；`alps_field_2k.hdr` 为光照与反射用 2K HDR | [Poly Haven](https://polyhaven.com/a/alps_field) | CC0 |
+| `public/assets/race/sky/alps/*` | Alps Field（瑞士阿尔卑斯山谷，Andreas Mischok 摄）：16K HDR 按 ACES（曝光 0.85）色调映射后切成 8 块天空分块与 4K 预览；`env_2k.hdr` 为光照与反射用 2K HDR | [Poly Haven](https://polyhaven.com/a/alps_field) | CC0 |
+| `public/assets/race/sky/sunset/*` | Kloppenheim 06 (Pure Sky)，同上方式烘焙 | [Poly Haven](https://polyhaven.com/a/kloppenheim_06_puresky) | CC0 |
+| `public/assets/race/sky/dusk/*` | Qwantani Dusk 2，同上方式烘焙 | [Poly Haven](https://polyhaven.com/a/qwantani_dusk_2) | CC0 |
+| `public/assets/race/sky/dawn/*` | Kiara 1 Dawn，同上方式烘焙 | [Poly Haven](https://polyhaven.com/a/kiara_1_dawn) | CC0 |
 | `public/assets/race/tex/asphalt_track_*.webp` | asphalt_track（赛道柏油；1K 颜色、法线、粗糙度转 WebP） | [Poly Haven](https://polyhaven.com/a/asphalt_track) | CC0 |
 | `public/assets/race/tex/asphalt_pit_lane_*.webp` | asphalt_pit_lane（起终点区柏油；1K 颜色、法线、粗糙度转 WebP） | [Poly Haven](https://polyhaven.com/a/asphalt_pit_lane) | CC0 |
 | `public/assets/race/tex/gravelly_sand_*.webp` | gravelly_sand（沙地缓冲区；1K 颜色、法线、粗糙度转 WebP） | [Poly Haven](https://polyhaven.com/a/gravelly_sand) | CC0 |
