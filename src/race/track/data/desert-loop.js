@@ -16,7 +16,7 @@ const segments = [
   { kind: 'S', len: 300, profile: s => s < 30 ? 30 + s / 30 : s < 45 ? 31 + (s - 30) / 15 * 2 : s < 90 ? 33 - (s - 45) / 45 * 25 : 8 - (s - 90) / 210 * 8 },
   A(80, 90, 0),
   /* 19 干盐湖 */ S(637.9615242270604, 0),
-  /* 20 翻滚捷径弯 */ A(110, 90, 0),
+  /* 20 窄道捷径弯 */ A(110, 90, 0),
   /* 21 滚石区 */ S(212.15276489158106, 0),
   /* 22 收尾高速 S 弯 */ A(170, 60, 0), S(60, 0), A(170, -60, 0),
 ];
@@ -24,7 +24,7 @@ const segments = [
 const sectionDefs = [
   [0, 0, 13, '发车直道', 'Starting Straight'], [1, 3, 15, '发卡弯', 'Hairpin'], [4, 10, 12, '盘山回头弯', 'Mesa Switchbacks'],
   [11, 11, 12, '峡谷断桥', 'Gorge Bridge'], [12, 15, 11, '巨石 S 弯', 'Boulder Esses'], [16, 16, 11, '穿山隧道', 'Mountain Tunnel'],
-  [17, 18, 13, '坡顶跳台', 'Mesa Jump'], [19, 19, 30, '谷底高速段', 'Valley Straight'], [20, 20, 13, '翻滚捷径', 'Roll Shortcut'],
+  [17, 18, 13, '坡顶跳台', 'Mesa Jump'], [19, 19, 30, '谷底高速段', 'Valley Straight'], [20, 20, 13, '窄道捷径', 'Narrow Cut'],
   [21, 21, 13, '滚石区', 'Rockfall Run'], [22, 24, 14, '高速大弯', 'Final Sweepers'],
 ];
 // 走线展开：直线每 12 m 一个控制点、圆弧每 6 m 一个；frames 记录每段的起点、方向与弧长，供分支和地形定位
@@ -67,11 +67,11 @@ function frame(seg, along, lateral = 0, y) {
   return { x: x - tz * lateral, z: z + tx * lateral, y, w: 8, bank: 0 };
 }
 const pointNear = (seg, along) => { const f = frames[seg]; return segStart[seg] + Math.round(along / f.len * ((segStart[seg + 1] ?? points.length) - segStart[seg])); };
-// 分支：断桥南侧下到河床再爬回的慢道；翻滚捷径弯内侧的弦线窄道
+// 分支：断桥南侧下到河床再爬回的慢道；捷径弯内侧的弦线窄道
 const rb = [pointNear(11, 40), pointNear(11, 240)], rs = [pointNear(20, 22), pointNear(20, 151)];
 const branches = [
   { id: 'riverbed', from: rb[0], to: rb[1], points: [points[rb[0]], frame(11, 70, -14, 29), frame(11, 104, -30, 17), frame(11, 138, -34, 6), frame(11, 172, -30, 17), frame(11, 206, -14, 29), points[rb[1]]] },
-  { id: 'roll-slot', from: rs[0], to: rs[1], points: [points[rs[0]], ...[.3, .5, .7].map(u => { const a = points[rs[0]], b = points[rs[1]]; return { x: a.x + (b.x - a.x) * u, z: a.z + (b.z - a.z) * u, y: 0, w: 3.2, bank: 0 }; }), points[rs[1]]] },
+  { id: 'narrow-cut', from: rs[0], to: rs[1], points: [points[rs[0]], ...[.3, .5, .7].map(u => { const a = points[rs[0]], b = points[rs[1]]; return { x: a.x + (b.x - a.x) * u, z: a.z + (b.z - a.z) * u, y: 0, w: 4.2, bank: 0 }; }), points[rs[1]]] },
 ];
 const labels = sectionDefs.map(d => [d[3], d[4]]);
 const features = [
@@ -81,7 +81,8 @@ const features = [
   { type: 'boost', section: 8, u: .65, lateral: 9, length: 20, width: 3 },
   { type: 'boost', section: 11, u: .9, lateral: -3, length: 14, width: 3 },
   { type: 'cones', section: 5, u: .15, items: Array.from({ length: 12 }, (_, i) => ({ u: .3 + i * .05, lateral: i & 1 ? -2.6 : 2.6, kind: (i & 3) === 0 ? 'concrete' : 'cone', radius: (i & 3) === 0 ? 1.1 : .35 })) },
-  { type: 'slot', section: 9, u: .5, path: 'roll-slot', pathU: .5, width: 1.35, rockRadius: 4, height: 7 },
+  // 窄道捷径：弯道内侧弦线上两块巨石之间只留 3 米（车宽 2 米），对准了才钻得过去
+  { type: 'slot', section: 9, u: .5, path: 'narrow-cut', pathU: .5, width: 3, rockRadius: 4, height: 7 },
   { type: 'ramp', section: 7, u: 30 / 425.66, length: 15, rise: 2 },
   { type: 'rockfall', section: 10, u: .35, period: 5, phase: 1.2, radius: 1.1, lateralFrom: -20, lateralTo: 20, duration: 2.5 },
   { type: 'rockfall', section: 10, u: .75, period: 7, phase: 3, radius: .7, lateralFrom: 22, lateralTo: -22, duration: 3, kind: 'tumbleweed' },

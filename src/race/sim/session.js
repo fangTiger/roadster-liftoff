@@ -6,8 +6,8 @@ import { THROTTLE,RESET } from './input-bits.js';
 import { ROCK,SALT } from '../track/build.js';
 import T from './tuning.js';
 const copy=v=>JSON.parse(JSON.stringify(v));
-const lapStats=()=>({clean:true,driftBoost3:0,driftBoostCounts:{1:0,2:0,3:0},canyonJump:false,slotRoll:false,saltTopKmh:0});
-export function createSession(track,{laps=3,spawn}={}) {
+const lapStats=()=>({clean:true,driftBoost3:0,driftBoostCounts:{1:0,2:0,3:0},canyonJump:false,slotPass:false,saltTopKmh:0});
+export function createSession(track,{laps=3,spawn,mode='standard'}={}) {
  const start=track.at(6),race=createRace(track,{laps,dt:DT}),hazards=createHazards(track),coins=coinPositions(track);
  let car=createCarState(spawn||{...start,yaw:atan2(start.tx,start.tz),s:6}),stepCount=0,previousBits=0,stuck=0,traversal={},stats=lapStats();
  car.near=track.nearest(car.x,car.z);
@@ -20,7 +20,7 @@ export function createSession(track,{laps=3,spawn}={}) {
   if(race.state.frozen){race.step(car,car,car);return;}
   if(edge&RESET){reset('manual');race.step(car,car,car);return;}
   const prev={x:car.x,z:car.z,grounded:car.grounded,rollTime:car.rollTime},lapBefore=race.state.lapTimes.length;
-  car.lap=race.state.lap;const current=stepCar(car,bits,{track,hazards,step:race.state.steps,coins});
+  car.lap=race.state.lap;const current=stepCar(car,bits,{track,hazards,step:race.state.steps,coins,mode});
   for(const event of current){events.push({...event,step:stepCount});if(event.type==='wall')stats.clean=false;if(event.type==='driftBoost'){stats.driftBoostCounts[event.tier]++;if(event.tier===3)stats.driftBoost3++;}}
   advanceTraversal(traversal,prev,car,current,track,stats);
   if(car.surface===SALT)stats.saltTopKmh=Math.max(stats.saltTopKmh,Math.sqrt(car.vx*car.vx+car.vz*car.vz)*3.6);
@@ -49,8 +49,7 @@ export function advanceTraversal(state,prev,car,events,track,stats) {
   const along=p=>(p.x-slot.x)*slot.tx+(p.z-slot.z)*slot.tz,side=-(car.x-slot.x)*slot.tz+(car.z-slot.z)*slot.tx;
   const before=along(prev),now=along(car);
   if(before<-slot.rockRadius&&now>=-slot.rockRadius&&Math.abs(side)<slot.width/2)state.slotArmed=true;
-  if(state.slotArmed&&(car.rollTime<=0||Math.abs(side)>=slot.width/2))state.slotArmed=false;
-  if(state.slotArmed&&Math.abs(now)<slot.rockRadius&&effectiveHalfWidth(car)>slot.width/2)state.slotArmed=false;
-  if(state.slotArmed&&before<slot.rockRadius&&now>=slot.rockRadius){stats.slotRoll=true;state.slotArmed=false;}
+  if(state.slotArmed&&Math.abs(side)>=slot.width/2)state.slotArmed=false;
+  if(state.slotArmed&&before<slot.rockRadius&&now>=slot.rockRadius){stats.slotPass=true;state.slotArmed=false;}
  }
 }

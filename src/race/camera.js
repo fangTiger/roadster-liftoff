@@ -4,7 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 // 速度感交给视野角，距离几乎不变。C 键切换自由环绕。
 export function createRaceCamera(camera,element){
  const orbit=new OrbitControls(camera,element);orbit.enabled=false;orbit.enableDamping=true;orbit.maxDistance=160;orbit.minDistance=4;
- let mode='follow',initialized=false,camYaw=0,camY=0;const look=new THREE.Vector3();
+ let mode='follow',initialized=false,camYaw=0,camY=0,kick=0;const look=new THREE.Vector3();
  function setMode(next){mode=next||(mode==='follow'?'orbit':'follow');orbit.enabled=mode==='orbit';initialized=false;return mode;}
  function update(c,dt=1/60){
   if(mode==='orbit'){orbit.target.set(c.x,c.y+1,c.z);if(!initialized){camera.position.set(c.x+15,c.y+9,c.z+15);initialized=true;}orbit.update();return;}
@@ -17,7 +17,8 @@ export function createRaceCamera(camera,element){
   const back=7.8+k*.9,height=2.05+k*.2+(c.grounded?0:.5),fx=Math.sin(camYaw),fz=Math.cos(camYaw);
   camera.position.set(c.x-fx*back,camY+height,c.z-fz*back);
   look.set(c.x+Math.sin(c.yaw)*6,camY+.75,c.z+Math.cos(c.yaw)*6);camera.lookAt(look);
-  const fov=52+k*14;if(Math.abs(camera.fov-fov)>.01){camera.fov+=(fov-camera.fov)*Math.min(1,dt*4);camera.updateProjectionMatrix();}
+  kick=Math.max(0,kick-dt*2.2);const fov=52+k*14+kick*10;if(Math.abs(camera.fov-fov)>.01){camera.fov+=(fov-camera.fov)*Math.min(1,dt*4);camera.updateProjectionMatrix();}
  }
- return {update,setMode};
+ // 二次加速等瞬间加速时视野猛地张开再回落
+ return {update,setMode,kick(){kick=1;}};
 }

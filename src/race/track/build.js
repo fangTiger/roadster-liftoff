@@ -59,6 +59,10 @@ function inside(x,z,r) {
   for(let i=0,j=p.length-1;i<p.length;j=i++) if((p[i][1]>z)!==(p[j][1]>z)&&x<(p[j][0]-p[i][0])*(z-p[i][1])/(p[j][1]-p[i][1])+p[i][0]) hit=!hit;
   return hit;
 }
+// 多边形包围盒（缓存）：离包围盒超过 margin 的点不必逐边求距离
+const boxes=new WeakMap();
+function bbox(r){let b=boxes.get(r);if(!b){b={x0:Infinity,x1:-Infinity,z0:Infinity,z1:-Infinity};for(const [x,z] of r.poly){b.x0=Math.min(b.x0,x);b.x1=Math.max(b.x1,x);b.z0=Math.min(b.z0,z);b.z1=Math.max(b.z1,z);}boxes.set(r,b);}return b;}
+const farFrom=(x,z,r,margin)=>{if(!r.poly)return false;const b=bbox(r);return x<b.x0-margin||x>b.x1+margin||z<b.z0-margin||z>b.z1+margin;};
 // 到区域边界的有符号距离：内部为负
 function edgeDistance(x,z,r) {
   if(!r.poly) {
@@ -145,8 +149,8 @@ export function buildTrack(def) {
   const terrain=def.terrain||{},plateaus=terrain.plateaus||[];
   function natural(x,z) {
     let y=(fbm2(x/160,z/160,terrain.seed,4)-.5)*5;
-    if(terrain.salt) y=lerp(y,0,1-smoothstep(-20,25,edgeDistance(x,z,terrain.salt)));
-    for(const r of plateaus) y=lerp(y,r.height,1-smoothstep(-8,8,edgeDistance(x,z,r)));
+    if(terrain.salt&&!farFrom(x,z,terrain.salt,26)) y=lerp(y,0,1-smoothstep(-20,25,edgeDistance(x,z,terrain.salt)));
+    for(const r of plateaus) if(!farFrom(x,z,r,9)) y=lerp(y,r.height,1-smoothstep(-8,8,edgeDistance(x,z,r)));
     if(terrain.canyon&&inside(x,z,terrain.canyon)) y=terrain.canyon.height;
     return y;
   }
@@ -188,7 +192,7 @@ export function buildTrack(def) {
     }
     if(d<=n.w/2) return ROAD;
     if(d<=n.w/2+.8) return CURB;
-    if(plateaus.some(r=>Math.abs(edgeDistance(x,z,r))<8)) return ROCK;
+    if(plateaus.some(r=>!farFrom(x,z,r,9)&&Math.abs(edgeDistance(x,z,r))<8)) return ROCK;
     if(terrain.canyon&&inside(x,z,terrain.canyon)) return GRAVEL;
     if(terrain.salt&&inside(x,z,terrain.salt)) return SALT;
     if(n.path!=='main'&&d<n.w/2+8) return GRAVEL;

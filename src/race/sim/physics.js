@@ -1,11 +1,13 @@
 import { sin, cos, atan2, clamp, smoothstep, wrapAngle } from './fmath.js';
 import { THROTTLE,BRAKE,LEFT,RIGHT,JET,ROLL,DRIFT } from './input-bits.js';
-import T from './tuning.js';
+import T,{ MODES } from './tuning.js';
 import { SAND,GRAVEL,ROCK,GAP } from '../track/build.js';
 export const SIM_VERSION=1, DT=T.dt;
+// 当前难度（stepCar 开头按 ctx.mode 设置；单线程逐步推进，确定性不受影响）
+let mode=MODES.standard;
 export function createCarState(pose={}) {
  return {x:pose.x||0,y:pose.y||0,z:pose.z||0,yaw:pose.yaw||0,vx:0,vy:0,vz:0,steer:0,yawKick:0,
- grounded:true,fuel:T.fuelMax,roll:0,rollTime:0,rollDirection:1,boostTime:0,driftDir:0,driftTime:0,driftSwitch:0,counterWindow:0,groundY:pose.y||0,driftTier:0,drifting:false,
+ grounded:true,fuel:T.fuelMax,roll:0,rollTime:0,rollDirection:1,boostTime:0,driftDir:0,driftTime:0,driftSwitch:0,driftBlend:0,driftRecover:0,counterWindow:0,groundY:pose.y||0,driftTier:0,drifting:false,
  previousBits:0,lap:1,picked:{},cones:{},boostInside:{},rockHits:{},slotEntry:{},surface:0,near:pose.s===undefined?null:{path:'main',index:Math.floor(pose.s),s:pose.s},pitch:0};
 }
 export function coinPositions(track) {
@@ -34,10 +36,13 @@ function collide(c,a,b,radius,events,type='wall') {
  const nx=dx/d,nz=dz/d,penetration=limit-Math.sqrt((q.x-q.px)*(q.x-q.px)+(q.z-q.pz)*(q.z-q.pz));
  c.x+=nx*(penetration+.00001);c.z+=nz*(penetration+.00001);
  const vn=c.vx*nx+c.vz*nz,speed=Math.sqrt(c.vx*c.vx+c.vz*c.vz);
- if(vn<0) {c.vx-=vn*nx;c.vz-=vn*nz;const keep=1-T.collisionLoss*clamp(-vn/(speed||1),0,1);c.vx*=keep;c.vz*=keep;}
+ if(vn<0) {c.vx-=vn*nx;c.vz-=vn*nz;const keep=1-mode.collisionLoss*clamp(-vn/(speed||1),0,1);c.vx*=keep;c.vz*=keep;}
+ // 贴墙摩擦：接触墙的每一步都损失一点速度，蹭着墙走一定比好好开慢
+ const scrape=1-T.wallScrape*DT;c.vx*=scrape;c.vz*=scrape;
  if(vn<-.5) events.push({type,impact:-vn});return true;
 }
-export function stepCar(c,bits,{track,hazards,step=0,coins}={}) {
+export function stepCar(c,bits,{track,hazards,step=0,coins,mode:m='standard'}={}) {
+ mode=MODES[m]||MODES.standard;
  const events=[],edge=bits&~c.previousBits;c.previousBits=bits;
  // 翻滚只能在空中触发（离地 rollMinHeight 以上），与第一版一致；平地翻滚会让车身插进路面
  if((edge&ROLL)&&c.rollTime<=0&&!c.grounded&&c.y-c.groundY>T.rollMinHeight){c.rollTime=T.rollDuration;c.rollDirection=bits&RIGHT?-1:1;}
@@ -53,47 +58,55 @@ export function stepCar(c,bits,{track,hazards,step=0,coins}={}) {
  // 漂移：按住漂移键并转向时进入，方向锁定；松开漂移键按蓄力档位给加速
  if((bits&DRIFT)&&!c.driftDir&&c.grounded&&forward>T.driftMinSpeed&&Math.abs(c.steer)>.3)c.driftDir=c.steer>0?1:-1;
  // 漂移收尾：按档位给加速；漂得够久就打开二次加速窗口
- const endDrift=()=>{if(c.driftTier){c.boostTime=Math.max(c.boostTime,T.driftDurations[c.driftTier-1]);events.push({type:'driftBoost',tier:c.driftTier});}if(c.driftTime>=T.counterMinDrift)c.counterWindow=T.counterWindow;c.driftTime=0;c.driftTier=0;c.driftSwitch=0;};
+ const endDrift=()=>{if(c.driftTier){c.boostTime=Math.max(c.boostTime,T.driftDurations[c.driftTier-1]);events.push({type:'driftBoost',tier:c.driftTier});}if(c.driftTime>=T.counterMinDrift)c.counterWindow=mode.counterWindow;c.driftTime=0;c.driftTier=0;c.driftSwitch=0;c.driftRecover=T.driftRecover;};
  // 连续漂移：按住漂移键往反方向打方向，短暂确认后直接切换成反向漂移（先结算本段漂移）
  // 按反方向键判断（不等方向盘慢慢回正），按住 driftSwitchDelay 即切换
  const opposite=c.driftDir>0?RIGHT:LEFT,same=c.driftDir>0?LEFT:RIGHT;
- if(c.driftDir&&(bits&DRIFT)&&(bits&opposite)&&!(bits&same)){c.driftSwitch+=DT;if(c.driftSwitch>=T.driftSwitchDelay){endDrift();c.driftDir=-c.driftDir;events.push({type:'driftSwitch',dir:c.driftDir});}}else c.driftSwitch=0;
- if(c.driftDir&&(!(bits&DRIFT)||forward<T.driftExitSpeed)){endDrift();c.driftDir=0;}
+ if(c.driftDir&&(bits&DRIFT)&&(bits&opposite)&&!(bits&same)){c.driftSwitch+=DT;if(c.driftSwitch>=T.driftSwitchDelay){endDrift();c.driftDir=-c.driftDir;c.driftBlend=Math.min(c.driftBlend,.5);events.push({type:'driftSwitch',dir:c.driftDir});}}else c.driftSwitch=0;
+ if(c.driftDir&&(!(bits&DRIFT)||forward<T.driftExitSpeed)){endDrift();c.driftDir=0;c.driftBlend=0;}
  const drifting=!!c.driftDir&&c.grounded;
  if(drifting){c.driftTime+=DT;c.driftTier=0;for(const threshold of T.driftThresholds)if(c.driftTime>=threshold)c.driftTier++;}
  c.drifting=drifting;
  const resistance=c.surface===SAND?T.sandResistance:c.surface===GRAVEL?T.gravelResistance:0;
- const cap=c.surface===SAND?T.sandSpeed:T.maxSpeed+(c.boostTime>0?T.boostSpeed:0);
+ const cap=Math.min(mode.speedCap,c.surface===SAND?T.sandSpeed:T.maxSpeed+(c.boostTime>0?T.boostSpeed:0));
  let newFx,newFz;
  if(drifting){
   // 卡丁车式漂移：速度方向沿弧线转，弧线半径随车速增大（约为同速抓地转弯半径的 driftRadius 倍，高速时不会一下甩出路面）；
   // 往漂移方向打方向弧线收紧、反打放宽；车头相对速度方向保持侧滑角，速度损失小
+  // 渐入：driftOnset 秒内从抓地转向平滑过渡到漂移弧线，侧滑角同步建立（不再一按就猛甩）
+  c.driftBlend=Math.min(1,c.driftBlend+DT/T.driftOnset);const b=smoothstep(0,1,c.driftBlend);
   let speed=Math.sqrt(c.vx*c.vx+c.vz*c.vz);
-  const into=c.steer*c.driftDir,radius=T.driftRadius*(6+speed*speed/(mu*T.gravity))/(1+T.driftSteerGain*into);
-  const turn=c.driftDir*speed/radius*DT,cs=cos(turn),sn=sin(turn),vx=c.vx*cs+c.vz*sn,vz=c.vz*cs-c.vx*sn;
+  const into=c.steer*c.driftDir,gripRadius=6+speed*speed/(mu*T.gravity),radius=T.driftRadius*gripRadius/(1+T.driftSteerGain*into);
+  const rate=speed*c.steer/gripRadius*(1-b)+c.driftDir*speed/radius*b,turn=rate*DT,cs=cos(turn),sn=sin(turn),vx=c.vx*cs+c.vz*sn,vz=c.vz*cs-c.vx*sn;
   let acceleration=-(T.drag*speed*speed+resistance+T.driftDrag);
   if(bits&THROTTLE)acceleration+=Math.min(T.acceleration,T.power/Math.max(1,speed));
   if(bits&BRAKE)acceleration-=T.brake;
   if(c.boostTime>0){acceleration+=T.boostAcceleration;c.boostTime=Math.max(0,c.boostTime-DT);}
   const next=clamp(speed+acceleration*DT,0,cap),k=speed>1e-6?next/speed:0;c.vx=vx*k;c.vz=vz*k;speed=next;
-  const heading=atan2(c.vx,c.vz)+c.driftDir*T.driftSlipAngle*(1+T.driftSlipSteer*into);
+  const heading=atan2(c.vx,c.vz)+c.driftDir*T.driftSlipAngle*(1+T.driftSlipSteer*into)*b;
   c.yaw=wrapAngle(c.yaw+wrapAngle(heading-c.yaw)*Math.min(1,T.driftYawFollow*DT)+c.yawKick*DT);c.yawKick*=Math.max(0,1-3*DT);
   newFx=sin(c.yaw);newFz=cos(c.yaw);forward=c.vx*newFx+c.vz*newFz;
  } else {
   const curvature=c.steer/(6+forward*forward/(mu*T.gravity));
-  const yawRate=forward*curvature+c.yawKick;
+  let yawRate=forward*curvature+c.yawKick;
+  // 新手转向辅助：不打方向时，按偏离路中线的距离和与路面方向的夹角轻轻拉回（只在主线路面上）
+  if(mode.steerAssist&&!target&&n.path==='main'&&Math.abs(n.lateral)<n.w/2+1&&forward>5){const err=wrapAngle(atan2(n.tx,n.tz)-c.yaw);yawRate+=mode.steerAssist*clamp(.06*n.lateral+1.1*err,-.6,.6);}
   c.yawKick*=Math.max(0,1-3*DT);c.yaw=wrapAngle(c.yaw+yawRate*DT);
   // 先保留世界惯性，再以新车头投影，横滑由抓地上限逐步消除。
   newFx=sin(c.yaw);newFz=cos(c.yaw);forward=c.vx*newFx+c.vz*newFz;lateral=c.vx*newFz-c.vz*newFx;
-  lateral-=clamp(lateral,-mu*T.gravity*DT,mu*T.gravity*DT);
-  let acceleration=0;
-  if(bits&THROTTLE) acceleration+=Math.min(T.acceleration,T.power/Math.max(1,Math.abs(forward)));
-  if(bits&BRAKE) acceleration+=forward>0?-T.brake:-T.reverseAcceleration;
+  // 漂移刚结束时抓地逐步恢复，车身慢慢回正，不会一下咬死
+  const recover=c.driftRecover>0?1-T.driftRecoverGrip*c.driftRecover/T.driftRecover:1;c.driftRecover=Math.max(0,c.driftRecover-DT);
+  lateral-=clamp(lateral,-mu*T.gravity*recover*DT,mu*T.gravity*recover*DT);
+  let acceleration=0,throttle=!!(bits&THROTTLE),braking=!!(bits&BRAKE);
+  // 新手自动减速：按前方 120 米内最急的弯估算安全车速，超速时自动松油门并点刹
+  if(mode.autoBrake&&n.path==='main'&&forward>15){let safe=mode.speedCap;for(let d=8;d<=120;d+=8){const a=track.at(n.s+d),q=track.at(n.s+d+8),dot=clamp(a.tx*q.tx+a.tz*q.tz,-1,1),k=Math.sqrt(Math.max(0,2-2*dot))/8;if(k>1e-4){const corner=Math.sqrt(mu*T.gravity*.8/k);safe=Math.min(safe,Math.sqrt(corner*corner+2*T.brake*.6*d));}}if(forward>safe+1){throttle=false;braking=true;}}
+  if(throttle) acceleration+=Math.min(T.acceleration,T.power/Math.max(1,Math.abs(forward)));
+  if(braking) acceleration+=forward>0?-T.brake*(bits&BRAKE?1:.6):-T.reverseAcceleration;
   acceleration-=Math.sign(forward)*(T.drag*forward*forward+resistance);
   if(c.boostTime>0){acceleration+=T.boostAcceleration;c.boostTime=Math.max(0,c.boostTime-DT);}
   let next=forward+acceleration*DT;
-  if(!(bits&(THROTTLE|BRAKE))&&next*forward<0)next=0;
-  if((bits&BRAKE)&&forward>0&&next<0)next=0;
+  if(!throttle&&!braking&&next*forward<0)next=0;
+  if(braking&&forward>0&&next<0)next=0;
   forward=clamp(next,-T.reverseSpeed,cap);c.vx=newFx*forward+newFz*lateral;c.vz=newFz*forward-newFx*lateral;
  }
  const oldY=c.y,oldGrounded=c.grounded;

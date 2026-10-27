@@ -26,13 +26,13 @@ test('同一圈重置不刷新已拾取金币和已撞锥桶',()=>{
  s.step(RESET);for(let i=0;i<120;i++)s.step(THROTTLE);
  assert.equal(s.snapshot.events.filter(e=>e.type==='coin').length,1);assert.equal(s.snapshot.events.filter(e=>e.type==='cone').length,1);
 });
-test('穿越统计排除原岸落地、槽边翻滚和平放通过',async()=>{
+test('穿越统计排除原岸落地与从窄道外侧绕过',async()=>{
  const {advanceTraversal}=await import('./session.js');const t={features:[{type:'gap',from:0,to:10},{type:'slot',x:0,z:30,tx:0,tz:1,width:1.35,rockRadius:4}],at:s=>({x:0,z:s,w:10,tx:0,tz:1})};
- const stats={canyonJump:false,slotRoll:false},state={},car=(z,extra={})=>({x:0,z,grounded:false,rollTime:1,roll:Math.PI/2,...extra});
+ const stats={canyonJump:false,slotPass:false},state={},car=(z,extra={})=>({x:0,z,grounded:false,rollTime:1,roll:Math.PI/2,...extra});
  advanceTraversal(state,car(-1),car(1),[],t,stats);advanceTraversal(state,car(1),car(-1,{grounded:true}),[{type:'land'}],t,stats);assert.equal(stats.canyonJump,false);
  advanceTraversal(state,car(-1),car(1),[],t,stats);advanceTraversal(state,car(1),car(11,{grounded:true}),[{type:'land'}],t,stats);assert.equal(stats.canyonJump,true);
- advanceTraversal(state,car(24),car(27,{roll:0}),[],t,stats);advanceTraversal(state,car(27),car(35,{roll:0}),[],t,stats);assert.equal(stats.slotRoll,false);
- advanceTraversal(state,car(24),car(27),[],t,stats);advanceTraversal(state,car(27),car(35),[],t,stats);assert.equal(stats.slotRoll,true);
+ advanceTraversal(state,car(24),car(27,{x:3}),[],t,stats);advanceTraversal(state,car(27,{x:3}),car(35,{x:3}),[],t,stats);assert.equal(stats.slotPass,false);
+ advanceTraversal(state,car(24),car(27),[],t,stats);advanceTraversal(state,car(27),car(35),[],t,stats);assert.equal(stats.slotPass,true);
 });
 test('远端自定义出生与远端检查点重置使用正确投影提示',()=>{
  const p=track.at(2100),s=createSession(track,{spawn:{x:p.x,y:p.y,z:p.z,yaw:Math.atan2(p.tx,p.tz)}});
@@ -48,4 +48,10 @@ test('分支接口与重叠路幅的高度断层不会把车弹起（只有断�
   for(;seen<snap.events.length;seen++){const e=snap.events[seen];if(e.type!=='land'||e.impact<=6)continue;const n=track.nearest(snap.car.x,snap.car.z,snap.car.near),k=n.path==='main'?sec(n.s):n.path;if(k!==4&&k!==7)hard.push([k,e.impact]);}
  }
  assert.ok(snap.race.finished);assert.deepEqual(hard,[]);
+});
+
+test('新手难度：只按油门、完全不打方向也能跑完一圈，且不超过 220 km/h',()=>{
+ const session=createSession(track,{laps:1,mode:'rookie'});let snap=session.snapshot,steps=0,top=0;
+ while(!snap.race.finished&&steps<120*240){session.step(THROTTLE);snap=session.snapshot;steps++;top=Math.max(top,Math.hypot(snap.car.vx,snap.car.vz));}
+ assert.ok(snap.race.finished);assert.ok(top<=61.2,String(top*3.6));
 });
