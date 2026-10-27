@@ -75,7 +75,9 @@ export function stepCar(c,bits,{track,hazards,step=0,coins}={}) {
  const ground=Math.abs(n.lateral)<=n.w/2+.8&&c.surface!==GAP?n.y+n.lateral*n.bank:track.heightAt(c.x,c.z);
  if(oldGrounded&&c.grounded){// 极急回头弯的路幅会重叠，最近投影可切换到相邻弧段；这不是跳台。
  const seam=n.path===previousNear.path&&Math.abs(n.s-previousNear.s)>2+Math.abs(forward)*DT*2;
- const slope=seam?c.vy:(ground-oldY)/DT;if(slope<c.vy-T.gravity*DT){c.grounded=false;c.vy-=T.gravity*DT;c.y+=c.vy*DT;}else{c.vy=slope;c.y=ground;}}
+ // 分支接口、重叠路幅的高度断层不是坡：向上超出合理坡度时只抬起车身，不产生弹射速度；向下断层照常离地（台地边缘要能飞出去）。
+ const raw=(ground-oldY)/DT,cap=Math.abs(forward)*T.maxGrade+T.stepSpeed,stepUp=raw>cap;
+ const slope=seam||stepUp?Math.min(c.vy,cap):raw;if(!stepUp&&slope<c.vy-T.gravity*DT){c.grounded=false;c.vy-=T.gravity*DT;c.y+=c.vy*DT;}else{c.vy=slope;c.y=ground;}}
  else c.y+=c.vy*DT;
  if(!c.grounded&&c.y<=ground&&c.vy<=0){const impact=-c.vy;c.y=ground;c.vy=0;c.grounded=true;events.push({type:'land',impact});if(impact>T.landingThreshold){const keep=Math.max(.75,1-(impact-T.landingThreshold)*T.landingLoss);c.vx*=keep;c.vz*=keep;}}
  if(c.grounded)c.fuel=Math.min(T.fuelMax,c.fuel+T.fuelRecharge*DT);

@@ -13,6 +13,8 @@ export const tuning=Object.freeze({
  rollKeys:Object.freeze([0,.22,.42,.73,.93,1.15]),rollAngles:Object.freeze([0,.5,.5,1.5,1.5,2]),
  // 碰撞损失随入射法向分量变化；冷却以模拟步计。
  collisionLoss:.65,coneRetention:.85,rockRetention:.6,rockYaw:2.5,rockCooldown:1,
+ // 地面跟随的竖直速度上限 = 车速 × 最大坡度 + 台阶速度；超出视为高度断层。
+ maxGrade:.4,stepSpeed:1.5,
  landingThreshold:5,landingLoss:.008,stuckDuration:2,fallDepth:6,
  // 纯追踪机器人：提前扫描弯道，保守选择轮胎抓地内的车速。
  lookaheadBase:6,lookaheadSpeed:.2,botCruise:81,botCornerGrip:10,botBrakeMargin:.5,
