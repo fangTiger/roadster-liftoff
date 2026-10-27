@@ -29,7 +29,7 @@ export function createGreybox(scene,track) {
  const curbMesh=new THREE.InstancedMesh(curbGeo,material(0xb44839,{polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-6}),curbs.length),dummy=new THREE.Object3D();curbs.forEach((p,i)=>{dummy.position.set(p.x,p.y,p.z);dummy.rotation.y=p.yaw;dummy.updateMatrix();curbMesh.setMatrixAt(i,dummy.matrix);});scene.add(curbMesh);
  const wallGeo=new THREE.BoxGeometry(1,1,1),wallMesh=new THREE.InstancedMesh(wallGeo,material(0x77685e),track.walls.length);
  track.walls.forEach((w,i)=>{const x=(w.a.x+w.b.x)/2,z=(w.a.z+w.b.z)/2,n=track.nearest(x,z),height=w.type==='slot'?7:1.1;dummy.position.set(x,n.y+height/2,z);dummy.rotation.set(0,Math.atan2(w.b.x-w.a.x,w.b.z-w.a.z),0);dummy.scale.set(.35,height,Math.hypot(w.b.x-w.a.x,w.b.z-w.a.z));dummy.updateMatrix();wallMesh.setMatrixAt(i,dummy.matrix);});scene.add(wallMesh);
- for(const g of track.checkpointGates){const yaw=Math.atan2(g.tx,g.tz);box(g.x,g.y+7.2,g.z,14,.22,.3,0x77cbb0,yaw);   // 只留门顶横杆作标记，半透明门面会挡视线}
+ for(const g of track.checkpointGates){const yaw=Math.atan2(g.tx,g.tz);box(g.x,g.y+7.2,g.z,14,.22,.3,0x77cbb0,yaw);/* 只留门顶横杆作标记，半透明门面会挡视线 */}
  for(const f of track.features){const yaw=Math.atan2(f.tx,f.tz);
   if(f.type==='boost')box(f.x,f.y+.1,f.z,f.width,.06,f.length,0x21b6ec,yaw,{emissive:0x087cbb,emissiveIntensity:1.5});
   if(f.type==='cones')for(const item of f.items){const n=track.nearest(item.x,item.z);mesh(item.kind==='concrete'?new THREE.CylinderGeometry(item.radius,item.radius,1.4,10):new THREE.ConeGeometry(.38,1,8),item.kind==='concrete'?0xaaa69c:0xf07826,item.x,n.y+.7,item.z);}
