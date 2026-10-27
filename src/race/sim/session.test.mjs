@@ -38,7 +38,7 @@ test('远端自定义出生与远端检查点重置使用正确投影提示',()=
  const p=track.at(2100),s=createSession(track,{spawn:{x:p.x,y:p.y,z:p.z,yaw:Math.atan2(p.tx,p.tz)}});
  for(let i=0;i<361;i++)s.step(0);assert.ok(Math.abs(s.snapshot.car.near.s-2100)<1);assert.ok(Math.abs(s.snapshot.car.y-p.y)<1);
  const normal=createSession(track);for(let i=0;i<3000;i++)normal.step(autopilot(normal.snapshot,track));normal.step(RESET);normal.step(0);
- const c=normal.snapshot.car;assert.ok(Math.abs(track.nearest(c.x,c.z).s-c.near.s)<1);assert.ok(c.y>0);
+ const c=normal.snapshot.car,n=track.nearest(c.x,c.z);assert.ok(Math.abs(n.s-c.near.s)<1);assert.ok(Math.abs(c.y-n.y)<1);
 });
 
 test('分支接口与重叠路幅的高度断层不会把车弹起（只有断桥和台地跳台允许重落地）',()=>{

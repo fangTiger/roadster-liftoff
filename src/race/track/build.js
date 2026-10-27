@@ -51,11 +51,27 @@ function curve(points, closed) {
   }
   return {length,samples,pointS,at,closed};
 }
-const inside = (x,z,r) => x>=r.x0&&x<=r.x1&&z>=r.z0&&z<=r.z1;
+// 地形区域（台地、峡谷、盐湖）：矩形 {x0,x1,z0,z1} 或多边形 {poly:[[x,z],...]}
+const corners = r => r.poly ? r.poly.map(([x,z])=>({x,z})) : [{x:r.x0,z:r.z0},{x:r.x1,z:r.z0},{x:r.x1,z:r.z1},{x:r.x0,z:r.z1}];
+function inside(x,z,r) {
+  if(!r.poly) return x>=r.x0&&x<=r.x1&&z>=r.z0&&z<=r.z1;
+  let hit=false;const p=r.poly;
+  for(let i=0,j=p.length-1;i<p.length;j=i++) if((p[i][1]>z)!==(p[j][1]>z)&&x<(p[j][0]-p[i][0])*(z-p[i][1])/(p[j][1]-p[i][1])+p[i][0]) hit=!hit;
+  return hit;
+}
+// 到区域边界的有符号距离：内部为负
 function edgeDistance(x,z,r) {
-  if(inside(x,z,r)) return -Math.min(x-r.x0,r.x1-x,z-r.z0,r.z1-z);
-  const dx=Math.max(r.x0-x,0,x-r.x1),dz=Math.max(r.z0-z,0,z-r.z1);
-  return Math.sqrt(dx*dx+dz*dz);
+  if(!r.poly) {
+    if(inside(x,z,r)) return -Math.min(x-r.x0,r.x1-x,z-r.z0,r.z1-z);
+    const dx=Math.max(r.x0-x,0,x-r.x1),dz=Math.max(r.z0-z,0,z-r.z1);
+    return Math.sqrt(dx*dx+dz*dz);
+  }
+  let best=Infinity;const p=r.poly;
+  for(let i=0,j=p.length-1;i<p.length;j=i++) {
+    const ax=p[j][0],az=p[j][1],dx=p[i][0]-ax,dz=p[i][1]-az,u=clamp(((x-ax)*dx+(z-az)*dz)/(dx*dx+dz*dz),0,1),ex=x-ax-dx*u,ez=z-az-dz*u;
+    best=Math.min(best,ex*ex+ez*ez);
+  }
+  return inside(x,z,r)?-Math.sqrt(best):Math.sqrt(best);
 }
 export function buildTrack(def) {
   const main={id:'main',...curve(def.points,true)};
@@ -201,9 +217,9 @@ export function buildTrack(def) {
     for(const side of [-1,1]) segment(offset(p,side*(p.w/2+1)),offset(q,side*(q.w/2+1)),section.id===6?'tunnel':'tires');
   }
   for(const r of plateaus) {
-    const corners=[{x:r.x0,z:r.z0},{x:r.x1,z:r.z0},{x:r.x1,z:r.z1},{x:r.x0,z:r.z1}];
-    for(let i=0;i<4;i++) {
-      const a=corners[i],b=corners[(i+1)&3],steps=Math.ceil(distance(a,b)/8);
+    const c=corners(r);
+    for(let i=0;i<c.length;i++) {
+      const a=c[i],b=c[i+1<c.length?i+1:0],steps=Math.ceil(distance(a,b)/8);
       for(let j=0;j<steps;j++) {const p=mixPoint(a,b,j/steps),q=mixPoint(a,b,(j+1)/steps),n=nearest((p.x+q.x)/2,(p.z+q.z)/2);if(n.distance>n.w/2+16) segment(p,q,'mesa');}
     }
   }

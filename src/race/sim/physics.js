@@ -5,7 +5,7 @@ import { SAND,GRAVEL,ROCK,GAP } from '../track/build.js';
 export const SIM_VERSION=1, DT=T.dt;
 export function createCarState(pose={}) {
  return {x:pose.x||0,y:pose.y||0,z:pose.z||0,yaw:pose.yaw||0,vx:0,vy:0,vz:0,steer:0,yawKick:0,
- grounded:true,fuel:T.fuelMax,roll:0,rollTime:0,rollDirection:1,boostTime:0,driftTime:0,driftTier:0,drifting:false,
+ grounded:true,fuel:T.fuelMax,roll:0,rollTime:0,rollDirection:1,boostTime:0,driftDir:0,driftTime:0,driftTier:0,drifting:false,
  previousBits:0,lap:1,picked:{},cones:{},boostInside:{},rockHits:{},slotEntry:{},surface:0,near:pose.s===undefined?null:{path:'main',index:Math.floor(pose.s),s:pose.s},pitch:0};
 }
 export function coinPositions(track) {
@@ -47,20 +47,25 @@ export function stepCar(c,bits,{track,hazards,step=0,coins}={}) {
  // steer > 0 为向左转（车头转向 +x；从车后看 +x 在屏幕左侧），与第一版 steerVis 的约定一致
  const target=(bits&LEFT?1:0)-(bits&RIGHT?1:0),rate=target?T.steerRate:T.steerReturn;
  c.steer+=clamp(target-c.steer,-rate*DT,rate*DT);
- const drifting=!!(bits&DRIFT)&&c.grounded&&Math.abs(forward)>T.driftMinSpeed&&Math.abs(c.steer)>.1;
+ // 街机漂移：按住漂移键并转向时进入，方向锁定；车头主动往弯内甩（角速度不受抓地极限约束），速度方向慢慢跟上，
+ // 车身斜着滑过弯，速度损失小。往漂移方向打方向更紧，反打更松；松开漂移键按蓄力档位给加速。
+ if((bits&DRIFT)&&!c.driftDir&&c.grounded&&forward>T.driftMinSpeed&&Math.abs(c.steer)>.3)c.driftDir=c.steer>0?1:-1;
+ if(c.driftDir&&(!(bits&DRIFT)||forward<T.driftExitSpeed)){if(c.driftTier){c.boostTime=Math.max(c.boostTime,T.driftDurations[c.driftTier-1]);events.push({type:'driftBoost',tier:c.driftTier});}c.driftDir=0;c.driftTime=0;c.driftTier=0;}
+ const drifting=!!c.driftDir&&c.grounded;
  if(drifting&&Math.abs(lateral)>T.driftSlip){c.driftTime+=DT;c.driftTier=0;for(const threshold of T.driftThresholds)if(c.driftTime>=threshold)c.driftTier++;}
- if(!(bits&DRIFT)&&c.driftTime>0){if(c.driftTier){c.boostTime=Math.max(c.boostTime,T.driftDurations[c.driftTier-1]);events.push({type:'driftBoost',tier:c.driftTier});}c.driftTime=0;c.driftTier=0;}
  c.drifting=drifting;
  const curvature=c.steer/(6+forward*forward/(mu*T.gravity));
- const yawRate=forward*curvature*(drifting?T.driftSteer:1)+c.yawKick;
+ const yawRate=(drifting?c.driftDir*T.driftYaw*(1+T.driftSteerGain*c.steer*c.driftDir)*Math.min(1,forward/25):forward*curvature)+c.yawKick;
  c.yawKick*=Math.max(0,1-3*DT);c.yaw=wrapAngle(c.yaw+yawRate*DT);
  // 先保留世界惯性，再以新车头投影，横滑由抓地上限逐步消除。
  const newFx=sin(c.yaw),newFz=cos(c.yaw);forward=c.vx*newFx+c.vz*newFz;lateral=c.vx*newFz-c.vz*newFx;
  lateral-=clamp(lateral,-mu*T.gravity*(drifting?T.driftGrip:1)*DT,mu*T.gravity*(drifting?T.driftGrip:1)*DT);
+ // 漂移侧滑角上限：超出部分转成前进速度（车身甩出去而不是速度凭空消失）
+ if(drifting){const maxLat=forward*T.driftMaxSlip;if(Math.abs(lateral)>maxLat){forward+=(Math.abs(lateral)-maxLat)*T.driftCarry;lateral=Math.sign(lateral)*maxLat;}}
  let acceleration=0;
  if(bits&THROTTLE) acceleration+=Math.min(T.acceleration,T.power/Math.max(1,Math.abs(forward)));
  if(bits&BRAKE) acceleration+=forward>0?-T.brake:-T.reverseAcceleration;
- const resistance=c.surface===SAND?T.sandResistance:c.surface===GRAVEL?T.gravelResistance:0;
+ const resistance=(c.surface===SAND?T.sandResistance:c.surface===GRAVEL?T.gravelResistance:0)+(drifting?T.driftDrag:0);
  acceleration-=Math.sign(forward)*(T.drag*forward*forward+resistance);
  if(c.boostTime>0){acceleration+=T.boostAcceleration;c.boostTime=Math.max(0,c.boostTime-DT);}
  let next=forward+acceleration*DT;
