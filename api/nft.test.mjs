@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { ContractFunctionRevertedError } from 'viem';
 import { createMetadataHandler } from './nft/[id].js';
 import { createImageHandler } from './nft/image/[id].js';
+import { createViewHandler } from './nft/view/[id].js';
 import { createTokenReader, getServerConfig, TokenNotFoundError } from './_lib/chain.js';
 
 const owner = '0x81d400000000000000000000000000000000707B';
@@ -22,6 +23,7 @@ test('元数据完整、复用格式化、带更新版本及缓存与跨域头',
   assert.equal(data.name, 'Mars Roadster Round Trip #0001');
   assert.equal(data.external_url, 'https://mars-roadster.vercel.app');
   assert.equal(data.image, 'https://custom.example/api/nft/image/1?v=1793060200');
+  assert.equal(data.animation_url, 'https://custom.example/api/nft/view/1?v=1793060200');
   for (const text of ['ground', 'orbit', 'self-reported', 'non-transferable', 'non-commercial', 'Tesla', 'SpaceX']) assert.ok(data.description.includes(text));
   assert.deepEqual(data.attributes, [
     { trait_type: 'Round trip', value: '46.83 s' },
@@ -39,7 +41,24 @@ test('更新后的图片地址变化', async () => {
   assert.match((await (await get(request())).json()).image, /\?v=1793060300$/);
 });
 
-for (const factory of [createMetadataHandler, createImageHandler]) {
+test('动态展示页：服务器写入链上数据、视频地址、点亮对应成就格', async () => {
+  const res = await createViewHandler({ readToken, siteUrl: 'https://custom.example/', network: 'mainnet' })(request());
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type'), /text\/html/);
+  assert.equal(res.headers.get('access-control-allow-origin'), '*');
+  const html = await res.text();
+  assert.ok(html.includes('src="https://custom.example/assets/nft/loop.mp4"'));
+  assert.ok(html.includes('ROUND TRIP&nbsp;&nbsp;#0001'));
+  assert.ok(html.includes('data-ms="46830">46.83 s'));
+  assert.ok(html.includes('12/20'));
+  assert.ok(html.includes('0x81d4…707B'));
+  assert.ok(html.includes('NON-TRANSFERABLE · ARC<'));
+  // 4095 = 低 12 位全亮
+  assert.equal((html.match(/<i class="on"/g) || []).length, 12);
+  assert.equal((html.match(/<i[ >]/g) || []).length, 20);
+});
+
+for (const factory of [createMetadataHandler, createImageHandler, createViewHandler]) {
   test(`${factory.name} 拒绝非正整数字符串且不读链`, async () => {
     const get = factory({ readToken: async () => assert.fail('无效参数不得读链') });
     for (const id of ['0', '-1', '1.5', 'abc', '1e3', '0x1', '%20', '']) {
