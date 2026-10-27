@@ -1,6 +1,6 @@
 ## 1. 准备
-- [ ] 1.1 素材清单：Poly Haven / ambientCG 挑选岩石、岩壁、沙地、盐湖贴图与模型，核对协议，出预览图给用户确认
-- [ ] 1.2 下载、压缩素材（贴图 webp、模型压缩），总量 ≤ 30 MB，更新 CREDITS.md
+- [x] 1.1 素材清单：Poly Haven / ambientCG 挑选岩石、岩壁、沙地、盐湖贴图与模型，核对协议，出预览图给用户确认
+- [x] 1.2 下载、压缩素材（贴图 webp、模型压缩），总量 ≤ 30 MB，更新 CREDITS.md（实际 26 MB，去掉 searsia_burchellii）
 
 ## 2. 赛道几何与计圈（Codex 第 1 批）
 - [x] 2.1 sim/fmath.js 确定性数学与测试
