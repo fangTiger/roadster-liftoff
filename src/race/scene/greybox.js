@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { coinPositions } from '../sim/physics.js';
-const COLORS=[0x343a40,0xe9d7c5,0xb98456,0x8b8378,0xe4dbbf,0x804d3b,0x593f33];
+// 地表配色（高山草甸）：路面、路肩、路外草地、碎石、开阔平地、岩壁、峡谷
+// 顶点色作为草地贴图的染色：路外草地保持原色，开阔平地略亮，碎石、岩壁偏灰
+const COLORS=[0x343a40,0xe9d7c5,0x9fbf6e,0xb4ae9c,0xaecb7a,0x9d978d,0x5a554c];
 export function createGreybox(scene,track) {
  // 天空、环境光与太阳见 sky.js
  const materials=new Map();
@@ -16,7 +18,11 @@ export function createGreybox(scene,track) {
   pos.push(x,y,z);const color=new THREE.Color(COLORS[track.surfaceAt(x,z)]);col.push(color.r,color.g,color.b);
  }
  for(let iz=0;iz<nz;iz++)for(let ix=0;ix<nx;ix++){const a=iz*(nx+1)+ix,b=a+1,c=a+nx+1,d=c+1;idx.push(a,c,b,b,c,d);}
- const terrain=new THREE.BufferGeometry();terrain.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));terrain.setAttribute('color',new THREE.Float32BufferAttribute(col,3));terrain.setIndex(idx);terrain.computeVertexNormals();const ground=new THREE.Mesh(terrain,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1}));ground.receiveShadow=true;scene.add(ground);
+ const terrain=new THREE.BufferGeometry();terrain.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));terrain.setAttribute('color',new THREE.Float32BufferAttribute(col,3));terrain.setIndex(idx);terrain.computeVertexNormals();
+ // 临时草地贴图（第一版用过的 Poly Haven Grass Ground），按世界坐标每 7 米平铺一次；正式地形在第 3 批
+ const uv=[];for(let i=0;i<pos.length;i+=3)uv.push(pos[i]/7,pos[i+2]/7);terrain.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+ const grass=new THREE.TextureLoader().load('/assets/tex/grass_ground_diff.webp');grass.colorSpace=THREE.SRGBColorSpace;grass.wrapS=grass.wrapT=THREE.RepeatWrapping;grass.anisotropy=8;
+ const ground=new THREE.Mesh(terrain,new THREE.MeshStandardMaterial({vertexColors:true,map:grass,roughness:1}));ground.receiveShadow=true;scene.add(ground);
  const gap=track.features.find(f=>f.type==='gap');
  function ribbon(path,left,right,color,skipGap=false){const p=[],indices=[];let count=0;
   for(let s=0;s<path.length;s+=2){if(skipGap&&gap&&s+2>=gap.from&&s<=gap.to)continue;const a=path.at(s),b=path.at(Math.min(path.length,s+2));for(const [q,l] of [[a,left(a)],[a,right(a)],[b,left(b)],[b,right(b)]])p.push(q.x-q.tz*l,q.y+l*q.bank+.04,q.z+q.tx*l);indices.push(count,count+2,count+1,count+1,count+2,count+3);count+=4;}
