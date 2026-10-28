@@ -6,9 +6,9 @@ export const tuning=Object.freeze({
  grip:Object.freeze([1.6,1.5,.8,1,1.3,.8,0]), sandResistance:6, sandSpeed:33.33, gravelResistance:2.5,
  length:4.4,width:2,height:1.25,steerRate:7,steerReturn:9,arcadeGrip:1.5,
  jetAcceleration:21,jetCeiling:6,jetFade:2,fuelMax:1,fuelBurn:.38,fuelRecharge:.03,coinFuel:.08,coinRadius:1.6,
- // 漂移：弧线半径为同速抓地转弯半径的倍数、打方向对弧线的增减、侧滑角（弧度）及打方向的增减、车头跟随侧滑角的速率、额外阻力、
- // 渐入时长（秒）；漂移结束后抓地恢复时长与起始折减
- driftRadius:.5,driftSteerGain:.45,driftSlipAngle:.4,driftSlipSteer:.3,driftYawFollow:6,driftDrag:1.2,driftOnset:.2,driftRecover:.4,driftRecoverGrip:.65,driftMinSpeed:15,driftExitSpeed:8,driftSlip:2,
+ // 漂移：转向角速度（弧度/秒）随按住时长从 driftRate0 增到 driftRate1（driftBuild 秒达到）、不按方向键时的比例、油门推力折扣、侧滑角（弧度）及打方向的增减、
+ // 车头跟随侧滑角的速率、额外阻力、渐入时长（秒）；漂移结束后抓地恢复时长与起始折减
+ driftRate0:.55,driftRate1:1.5,driftBuild:.7,driftNeutral:.45,driftThrottle:.5,driftSlipAngle:.4,driftSlipSteer:.3,driftYawFollow:6,driftDrag:2.5,driftOnset:.2,driftRecover:.25,driftRecoverGrip:.3,driftMinSpeed:15,driftExitSpeed:8,driftSlip:2,
  driftThresholds:Object.freeze([.7,1.4,2.1]),driftDurations:Object.freeze([.5,1,1.5]),
  // 连续漂移：按住反方向键持续该时长后切换；二次加速：漂移至少持续多久、窗口时长、加速时长、瞬间前冲速度
  driftSwitchDelay:.1,counterMinDrift:.35,counterWindow:.45,counterBoost:.6,counterKick:2.5,
