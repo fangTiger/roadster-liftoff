@@ -1,0 +1,20 @@
+.rc-panel{color:#f4eee1;background:#101a20c4;border:1px solid #ffffff1f;border-radius:10px;backdrop-filter:blur(6px);padding:18px 20px;margin-top:16px;font:14px/1.6 'Helvetica Neue','PingFang SC',sans-serif;font-variant-numeric:tabular-nums;text-align:left;pointer-events:auto;max-width:760px;box-sizing:border-box}
+.rc-panel .rc-title{font-size:17px;letter-spacing:.06em;color:#f8d28d;margin:0 0 8px}
+.rc-panel .rc-dim{color:#9fb0b8;font-size:13px;margin:6px 0 12px}
+.rc-panel .rc-button{font:inherit;cursor:pointer;appearance:none;color:#f4eee1;background:#ffffff0d;border:1px solid #ffffff30;border-radius:7px;padding:9px 14px;min-height:42px;transition:background .15s}
+.rc-panel .rc-button:hover:not(:disabled),.rc-panel .rc-button[aria-pressed=true]{background:#4bc8e526;border-color:#4bc8e5}
+.rc-panel .rc-button:disabled{opacity:.5;cursor:default}
+.rc-panel .rc-button:focus-visible,.rc-panel .rc-link:focus-visible{outline:2px solid #f8d28d;outline-offset:3px}
+.rc-panel .rc-status{font-size:13px;margin:10px 0 0;min-height:1.6em;overflow-wrap:anywhere}
+.rc-panel .rc-status span,.rc-panel .rc-status a{display:block}
+.rc-panel .rc-error{color:#ffb5a7}
+.rc-panel .rc-link{color:#8ef0c8;text-underline-offset:3px}
+.rc-panel .rc-number{font-size:25px;color:#fff}
+.rc-panel .rc-first{font-size:17px;margin:4px 0}
+.rc-panel .rc-best{margin:3px 0;color:#c9d3d8}
+.rc-panel .rc-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:18px 0 12px}
+.rc-panel .rc-scroll{overflow:auto;max-height:340px;overscroll-behavior:contain}
+.rc-panel .rc-table{color:inherit;width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap}
+.rc-panel .rc-table th,.rc-panel .rc-table td{text-align:left;padding:8px 10px;border-bottom:1px solid #ffffff14}
+.rc-panel .rc-table th{color:#9fb0b8;font-weight:400}
+@media(max-width:600px){.rc-panel{padding:14px 12px;max-width:100%}.rc-panel .rc-table th,.rc-panel .rc-table td{padding:7px 6px}.rc-panel .rc-tabs .rc-button{flex:1;padding:7px}}

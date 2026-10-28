@@ -18,8 +18,6 @@ import { createAudio } from '../audio/audio.js';
 import { createAchievements } from '../achievements/achievements.js';
 import { createUI } from '../ui/ui.js';
 import { createShare } from '../share/share.js';
-import { createRoundTrip } from '../chain/roundtrip.js';
-import { createChainPanel, createRecordSlot } from '../chain/panel.js';
 import { t, applyI18n, mountLangToggle } from '../i18n/i18n.js';
 import { createTouch } from '../mobile/touch.js';
 import { createPerf, QUALITY_PRESETS, getDefaultPreset } from '../mobile/perf.js';
@@ -42,8 +40,8 @@ function setMobilePreset(preset) {
   grassK = base === '低' ? .3 : base === '中' ? .6 : 1; desertRef?.setGrassDensity(grassK);      // 路边草丛按画质抽稀
   perf?.refresh();
 }
-let started = CAPTURE, touch = null, chainPanel = null, sharing = false;
-const ui = CAPTURE ? null : createUI({ engine, audio, onQualityChange: setMobilePreset, onSummary: () => openShare(), isOverlayOpen: () => sharing || !!chainPanel?.isOpen, onStart() {
+let started = CAPTURE, touch = null, sharing = false;
+const ui = CAPTURE ? null : createUI({ engine, audio, onQualityChange: setMobilePreset, onSummary: () => openShare(), isOverlayOpen: () => sharing, onStart() {
   started = true;
   if (touch?.active) hud.toast(t('hint.touchStart'), t('hint.touchStartSub'), 4500);
   else hud.toast(t('hint.keyStart'), t('hint.keyStartSub'), 4500);
@@ -116,16 +114,11 @@ async function warmUp(progress = () => {}) {
 if (!CAPTURE) { ui?.showLoading(.9, t('load.ready')); try { await warmUp(k => ui?.showLoading(k, t('load.ready'))); } catch (e) { console.warn('[预热] 跳过：', e); } }   // 预热只是优化，出错也不能挡住开始游戏
 
 // 本局成绩：供结算面板与分享卡使用
-const run = { topSpeedKmh: 0, launchSec: null, maxAltM: 0, reachedSpace: false, metOldFriend: false, home: false, roundTripMs: null };
-const roundTrip = createRoundTrip();
-chainPanel = CAPTURE ? null : createChainPanel();
-const recordSlot = CAPTURE ? null : createRecordSlot({ getAchievements: () => ach.list() });
-const share = CAPTURE ? null : createShare({ logoUrl: '/logo.png', injectCss: false, onRender: (slot, stats) => recordSlot.render(slot, stats) });
+const run = { topSpeedKmh: 0, launchSec: null, maxAltM: 0, reachedSpace: false, metOldFriend: false, home: false };
+const share = CAPTURE ? null : createShare({ logoUrl: '/logo.png', injectCss: false });
 let shareTimer = 0;
 share?.onClose(() => { sharing = false; });
 function onFlightEvent(e) {
-  roundTrip.onEvent(e);
-  run.roundTripMs = roundTrip.best;
   if (e === 'karman') run.reachedSpace = true;
   if (e === 'meet') run.metOldFriend = true;
   if (e === 'reentry_home') { run.home = true; shareTimer = 3.2; }      // 安全返航后稍等片刻自动弹出本局成绩
@@ -137,7 +130,7 @@ function trackRun() {
   if (s.launch.last != null) run.launchSec = run.launchSec == null ? s.launch.last : Math.min(run.launchSec, s.launch.last);
 }
 function openShare() {
-  if (!share || sharing || chainPanel?.isOpen) return;
+  if (!share || sharing) return;
   // 截图：必须在同一任务里先渲染再拷贝（WebGL 不保留绘图缓冲区）
   engine.render();
   const src = renderer.domElement, shot = document.createElement('canvas');
@@ -319,8 +312,6 @@ function driveFrame(dt, inp) {
 
 function frame(dt, inp) {
   clock.t += dt;
-  const prevMode = flight.state.mode;
-  roundTrip.tick(dt);
   const s = vehicle.state;
   coins.setVisible(flight.state.mode === 'drive');
   if (flight.state.mode === 'drive' && lastMode !== 'drive') rig.syncChase();
@@ -335,7 +326,6 @@ function frame(dt, inp) {
     for (const w of car.wheels) w.spin.rotation.x -= s.v / w.radius * dt;
     updateDust(dt, 0);
   }
-  roundTrip.onMode(prevMode, flight.state.mode);
   if (flight.state.mode === 'drive') engine.blur.uniforms.strength.value = THREE.MathUtils.clamp((s.v * KMH - 200) / 220, 0, 1) * .028;   // 只在高速时轻微拉丝，画面保持清晰
   hud.update(s);
   updateAudio(dt, inp);
@@ -361,7 +351,7 @@ if (CAPTURE) {
   let last = performance.now();
   renderer.setAnimationLoop(now => {
     const elapsed = (now - last) / 1000; last = now;
-    const playing = started && !ui.paused && !sharing && !chainPanel?.isOpen && !document.hidden;
+    const playing = started && !ui.paused && !sharing && !document.hidden;
     touch?.setEnabled(playing);
     if (!playing) { perf?.reset(); engine.render(); return; }    // 开始前与暂停时只渲染画面
     perf?.update(elapsed);

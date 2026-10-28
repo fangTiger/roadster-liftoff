@@ -8,8 +8,9 @@ import { createViewHandler } from './nft/view/[id].js';
 import { createTokenReader, getServerConfig, TokenNotFoundError } from './_lib/chain.js';
 
 const owner = '0x81d400000000000000000000000000000000707B';
-const record = { tokenId: 1, bestMs: 46830, achievements: 4095, mintedAt: 1793059200n, updatedAt: 1793060200n };
-const readToken = async id => { assert.equal(id, 1n); return { owner, record }; };
+const record = { tokenId: 1, firstTrack: 1, firstLapMs: 50000, achievements: 4095, mintedAt: 1793059200n, updatedAt: 1793060200n };
+const best = { bestMs: 46830, updatedAt: 1793060200n, verified: false };
+const readToken = async id => { assert.equal(id, 1n); return { owner, record, best }; };
 const request = (id = '1', image = false) => new Request(`https://example.com/api/nft/${image ? 'image/' : ''}${id}`);
 
 test('元数据完整、复用格式化、带更新版本及缓存与跨域头', async () => {
@@ -20,15 +21,16 @@ test('元数据完整、复用格式化、带更新版本及缓存与跨域头',
   assert.equal(res.headers.get('cache-control'), 'public, s-maxage=60, stale-while-revalidate=300');
   assert.equal(res.headers.get('access-control-allow-origin'), '*');
   const data = await res.json();
-  assert.equal(data.name, 'Mars Roadster Round Trip #0001');
+  assert.equal(data.name, 'Mars Roadster First Lap #0001');
   assert.equal(data.external_url, 'https://mars-roadster.vercel.app');
   assert.equal(data.image, 'https://custom.example/api/nft/image/1?v=1793060200');
   assert.equal(data.animation_url, 'https://custom.example/api/nft/view/1?v=1793060200');
-  for (const text of ['ground', 'orbit', 'self-reported', 'non-transferable', 'non-commercial', 'Tesla', 'SpaceX']) assert.ok(data.description.includes(text));
+  for (const text of ['first', 'lap', 'self-reported', 'non-transferable', 'non-commercial', 'Tesla', 'SpaceX']) assert.ok(data.description.includes(text));
   assert.deepEqual(data.attributes, [
-    { trait_type: 'Round trip', value: '46.83 s' },
-    { trait_type: 'Round trip (ms)', value: 46830, display_type: 'number' },
-    { trait_type: 'Achievements', value: 12, max_value: 20, display_type: 'number' },
+    { trait_type: 'Track', value: 'Meadow Loop' },
+    { trait_type: 'First lap', value: '50.00 s' },
+    { trait_type: 'Best lap', value: '46.83 s' },
+    { trait_type: 'Achievements', value: 12, max_value: 28, display_type: 'number' },
     { trait_type: 'Minted', value: 1793059200, display_type: 'date' },
     { trait_type: 'Network', value: 'Arc Testnet' },
   ]);
@@ -37,7 +39,7 @@ test('元数据完整、复用格式化、带更新版本及缓存与跨域头',
 });
 
 test('更新后的图片地址变化', async () => {
-  const get = createMetadataHandler({ readToken: async () => ({ owner, record: { ...record, updatedAt: 1793060300n } }) });
+  const get = createMetadataHandler({ readToken: async () => ({ owner, record, best: { ...best, bestMs: 45000, updatedAt: 1793060300n } }) });
   assert.match((await (await get(request())).json()).image, /\?v=1793060300$/);
 });
 
@@ -48,14 +50,17 @@ test('动态展示页：服务器写入链上数据、视频地址、点亮对�
   assert.equal(res.headers.get('access-control-allow-origin'), '*');
   const html = await res.text();
   assert.ok(html.includes('src="https://custom.example/assets/nft/loop.mp4"'));
-  assert.ok(html.includes('ROUND TRIP&nbsp;&nbsp;#0001'));
-  assert.ok(html.includes('data-ms="46830">46.83 s'));
-  assert.ok(html.includes('12/20'));
+  assert.ok(html.includes('FIRST LAP&nbsp;&nbsp;#0001'));
+  assert.ok(html.includes('data-ms="50000">50.00 s'));
+  assert.ok(html.includes('12/28'));
+  assert.ok(html.includes('BEST LAP'));
+  assert.ok(html.includes('46.83 s'));
+  assert.ok(html.includes('Meadow Loop'));
   assert.ok(html.includes('0x81d4…707B'));
   assert.ok(html.includes('NON-TRANSFERABLE · ARC<'));
   // 4095 = 低 12 位全亮
   assert.equal((html.match(/<i class="on"/g) || []).length, 12);
-  assert.equal((html.match(/<i[ >]/g) || []).length, 20);
+  assert.equal((html.match(/<i[ >]/g) || []).length, 28);
 });
 
 for (const factory of [createMetadataHandler, createImageHandler, createViewHandler]) {
@@ -79,7 +84,9 @@ for (const factory of [createMetadataHandler, createImageHandler, createViewHand
 
 test('服务器配置独立于 Vite，默认测试网且支持主网与地址', () => {
   assert.equal(getServerConfig({}).chain.id, 5042002);
-  const config = getServerConfig({ ARC_NETWORK: 'mainnet', RECORDS_ADDRESS: owner, SITE_URL: 'https://custom.example/' });
+  assert.equal(getServerConfig({}).address, '0xfdce518af1ebaaaec98c5ce4aa05ac5e00f1d1d9');
+  assert.equal(getServerConfig({ ARC_NETWORK: 'mainnet' }).address, '');
+  const config = getServerConfig({ ARC_NETWORK: 'mainnet', RACING_ADDRESS: owner, SITE_URL: 'https://custom.example/' });
   assert.equal(config.chain.id, 5042);
   assert.equal(config.address, owner);
   assert.equal(config.siteUrl, 'https://custom.example');
@@ -89,10 +96,10 @@ test('链读取通过共享 ABI 顺序查 ownerOf 和 recordOf', async () => {
   const calls = [];
   const reader = createTokenReader({ address: owner, readContract: async args => {
     calls.push(args);
-    return args.functionName === 'ownerOf' ? owner : record;
+    return args.functionName === 'ownerOf' ? owner : args.functionName === 'recordOf' ? record : best;
   } });
-  assert.deepEqual(await reader(1n), { owner, record });
-  assert.deepEqual(calls.map(c => [c.functionName, c.args]), [['ownerOf', [1n]], ['recordOf', [owner]]]);
+  assert.deepEqual(await reader(1n), { owner, record, best });
+  assert.deepEqual(calls.map(c => [c.functionName, c.args]), [['ownerOf', [1n]], ['recordOf', [owner]], ['bestOf', [owner, 1]]]);
   assert.ok(calls.every(c => c.address === owner && c.abi.some(item => item.name === 'ownerOf')));
 });
 
@@ -103,13 +110,13 @@ test('ownerOf revert 为不存在，RPC 故障保留错误', async () => {
   await assert.rejects(createTokenReader({ address: owner, readContract: async () => { throw failure; } })(1n), error => error === failure);
 });
 
-test('图片实际渲染为 1024 方形 PNG，返回正确类型与不可变缓存', async () => {
+test('图片实际渲染为 1024 方形 PNG，返回正确类型与短缓存', async () => {
   const base = await readFile(new URL('../public/assets/nft/base.jpg', import.meta.url));
   const get = createImageHandler({ readToken, baseImage: `data:image/jpeg;base64,${base.toString('base64')}` });
   const res = await get(request('1?v=1793060200', true));
   assert.equal(res.status, 200);
   assert.equal(res.headers.get('content-type'), 'image/png');
-  assert.equal(res.headers.get('cache-control'), 'public, s-maxage=86400, immutable');
+  assert.equal(res.headers.get('cache-control'), 'public, s-maxage=60, stale-while-revalidate=300');
   const png = Buffer.from(await res.arrayBuffer());
   assert.deepEqual([...png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
   assert.equal(png.readUInt32BE(16), 1024);

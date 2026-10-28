@@ -1,5 +1,5 @@
 import { createPublicClient, http, ContractFunctionRevertedError } from 'viem';
-import { getArcChain, recordsAbi } from '../../src/chain/shared.js';
+import { getArcChain, recordsAbi, TESTNET_RACING_ADDRESS } from '../../src/chain/shared.js';
 
 export const SITE_URL = 'https://mars-roadster.vercel.app';
 export class TokenNotFoundError extends Error {}
@@ -10,7 +10,7 @@ export function getServerConfig(env = process.env) {
   return {
     network,
     chain: getArcChain(network),
-    address: (env.RECORDS_ADDRESS || '').trim(),
+    address: (env.RACING_ADDRESS || '').trim() || (network === 'testnet' ? TESTNET_RACING_ADDRESS : ''),
     siteUrl: (env.SITE_URL || SITE_URL).replace(/\/+$/, ''),
   };
 }
@@ -18,9 +18,9 @@ export function getServerConfig(env = process.env) {
 export function createTokenReader({ readContract, address, chain = getArcChain() } = {}) {
   let client;
   return async id => {
-    // Record.tokenId 是 uint32，超出范围的编号不可能存在。
+    // Player.tokenId 是 uint32，超出范围的编号不可能存在。
     if (id > 0xffffffffn) throw new TokenNotFoundError('NFT 不存在');
-    if (!address) throw new Error('未配置 RECORDS_ADDRESS');
+    if (!address) throw new Error('未配置 RACING_ADDRESS');
     // 延迟创建客户端，使无效请求和本地注入测试无需 RPC。
     const read = readContract || (args => {
       client ||= createPublicClient({ chain, transport: http() });
@@ -36,7 +36,8 @@ export function createTokenReader({ readContract, address, chain = getArcChain()
       throw error;
     }
     const record = await read({ address, abi: recordsAbi, functionName: 'recordOf', args: [owner] });
-    return { owner, record };
+    const best = await read({ address, abi: recordsAbi, functionName: 'bestOf', args: [owner, record.firstTrack] });
+    return { owner, record, best };
   };
 }
 

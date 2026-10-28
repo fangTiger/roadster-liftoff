@@ -25,7 +25,7 @@ function setup({ missingChain = false } = {}) {
   };
   const publicClient = {
     readContract: async ({ functionName }) => functionName === 'recordOf' ? { tokenId: 1, bestMs: 50000 } : 0n,
-    simulateContract: async () => { calls.push('simulate'); return { request: {} }; },
+    simulateContract: async ({ args }) => { assert.equal(args.length, 5); assert.equal(args[3], 0n); assert.equal(args[4], '0x'); calls.push('simulate'); return { request: {} }; },
     waitForTransactionReceipt: async () => { calls.push('receipt'); return { status: 'success', transactionHash: '0xconfirmed' }; },
   };
   const wallet = createRecordsWallet({ address, getProvider: () => provider, publicClient,
@@ -55,10 +55,10 @@ test('HTTP 读取无需钱包，未配置合约不发请求', async () => {
 test('模拟失败不得签名，回执失败不得报成功，交易后释放忙状态', async () => {
   const { wallet, publicClient, calls } = setup(); await wallet.connect();
   publicClient.simulateContract = async () => { throw { data: { errorName: 'TooFast' } }; };
-  await assert.rejects(wallet.submit(1, 0)); assert.ok(!calls.includes('write')); assert.equal(wallet.state.phase, '');
+  await assert.rejects(wallet.submit(1, 1, 0)); assert.ok(!calls.includes('write')); assert.equal(wallet.state.phase, '');
   publicClient.simulateContract = async () => ({ request: {} });
   publicClient.waitForTransactionReceipt = async () => ({ status: 'reverted' });
-  await assert.rejects(wallet.submit(50000, 0), { code: 'reverted' }); assert.equal(wallet.state.phase, '');
+  await assert.rejects(wallet.submit(1, 50000, 0), { code: 'reverted' }); assert.equal(wallet.state.phase, '');
 });
 test('模拟过程中切换账户或网络不会提交', async () => {
   for (const change of ['account', 'chain']) {
@@ -67,25 +67,32 @@ test('模拟过程中切换账户或网络不会提交', async () => {
       if (change === 'account') env.changeAccount([bob]); else env.changeChain(1);
       return { request: {} };
     };
-    await assert.rejects(env.wallet.submit(50000, 0)); assert.ok(!env.calls.includes('write'));
+    await assert.rejects(env.wallet.submit(1, 50000, 0)); assert.ok(!env.calls.includes('write'));
   }
 });
 test('成功必须等待回执，按阶段通知，禁止重复提交', async () => {
   const { wallet, calls } = setup(); await wallet.connect();
   const phases = []; wallet.subscribe(state => { if (phases.at(-1) !== state.phase) phases.push(state.phase); });
-  const promise = wallet.submit(50000, 3);
-  await assert.rejects(wallet.submit(50000, 3), { code: 'busy' });
+  const promise = wallet.submit(2, 50000, 3);
+  await assert.rejects(wallet.submit(2, 50000, 3), { code: 'busy' });
   assert.equal(await promise, '0xconfirmed');
   assert.deepEqual(calls.filter(v => ['simulate', 'write', 'receipt'].includes(v)), ['simulate', 'write', 'receipt']);
   assert.deepEqual(phases, ['simulating', 'signing', 'confirming', '']);
 });
-test('榜单分页每页最多一百，最多两千条，返回最快五十名', async () => {
+test('榜单按赛道分页读取全部玩家，跳过零值再选最快五十名', async () => {
   const { wallet, publicClient } = setup(); const pages = [];
   publicClient.readContract = async ({ functionName, args }) => {
     if (functionName === 'playerCount') return 2501n;
-    const [start, count] = args; pages.push([Number(start), Number(count)]);
-    return [Array.from({ length: Number(count) }, (_, i) => `player${Number(start) + i}`), Array.from({ length: Number(count) }, (_, i) => ({ tokenId: Number(start) + i + 1, bestMs: 50000 - Number(start) - i, updatedAt: 1 }))];
+    const [trackId, start, count] = args; assert.equal(trackId, 3); pages.push([Number(start), Number(count)]);
+    return [Array.from({ length: Number(count) }, (_, i) => `player${Number(start) + i}`), [], Array.from({ length: Number(count) }, (_, i) => ({ tokenId: Number(start) + i + 1, bestMs: 50000 - Number(start) - i, updatedAt: 1 }))];
   };
-  const rows = await wallet.readLeaderboard(); assert.equal(pages.length, 20);
-  assert.deepEqual(pages.at(-1), [1900, 100]); assert.equal(rows.length, 50); assert.equal(rows[0].address, 'player1999');
+  const rows = await wallet.readLeaderboard(3); assert.equal(pages.length, 26);
+  assert.deepEqual(pages.at(-1), [2500, 1]); assert.equal(rows.length, 50); assert.equal(rows[0].address, 'player2500');
+});
+
+test('V2 按赛道读取配置和最快圈', async () => {
+  const { wallet, publicClient } = setup(); const calls = [];
+  publicClient.readContract = async ({ functionName, args }) => { calls.push([functionName, args]); return {}; };
+  await wallet.readBest(alice, 2); await wallet.readTrack(2);
+  assert.deepEqual(calls, [['bestOf', [alice, 2]], ['trackOf', [2]]]);
 });
