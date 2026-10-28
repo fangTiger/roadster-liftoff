@@ -1,7 +1,7 @@
 import sharp from 'sharp';
 import { mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import def from '../../src/race/track/data/desert-loop.js';
+import def from '../../src/race/track/data/alpine.js';
 import { buildTrack } from '../../src/race/track/build.js';
 const track=buildTrack(def),field=track.heightfield,header=112;
 const width=Math.ceil((field.width-1)*2),height=Math.ceil((field.height-1)*2)+header;
