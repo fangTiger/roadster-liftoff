@@ -18,6 +18,8 @@ import { createSkidmarks } from './scene/skidmarks.js';
 import { createBoostFx } from './scene/boostfx.js';
 import { createStartGate } from './scene/startgate.js';
 import { createCelebration } from './scene/celebration.js';
+import { mountRaceChain } from '../chain/race-panel.js';
+import { mountRaceBoard } from '../chain/race-board.js';
 const params = new URLSearchParams(location.search), capture = params.has('capture');
 // 加载画面：素材加载、着色器预编译完成之前盖住页面
 const loading = document.createElement('div'); loading.id = 'race-loading'; loading.textContent = '加载赛道…';
@@ -59,7 +61,14 @@ function render(alpha = 1, dt = 1 / 60) {
   for (; seenEvents < current.events.length; seenEvents++) { const t = current.events[seenEvents].type; if (t === 'counterBoost' || t === 'boost') { boostFx.trigger(c); camera.kick(); } }
   boostFx.update(dt, current.step * DT, c.boostTime > 0);
   // 冲线：彩带、烟花、镜头环拍
-  if (current.race.finished && !celebrated) { celebrated = true; celebration.start(car.root.position); camera.setMode('celebrate'); }
+  if (current.race.finished && !celebrated) {
+    celebrated = true; celebration.start(car.root.position); camera.setMode('celebrate');
+    // 成绩面板下方挂上链区块（HUD 的成绩面板每帧重写，所以单独放一个容器）
+    const slot = document.createElement('div'); slot.id = 'race-chain-slot';
+    Object.assign(slot.style, { position: 'absolute', top: 'calc(5% + 280px)', left: '50%', transform: 'translateX(-50%)', pointerEvents: 'auto', width: 'min(420px, 92vw)' });
+    document.getElementById('race-hud')?.append(slot);
+    mountRaceChain(slot, { trackId: def.id, trackName: def.name.zh, bestLap: current.race.bestLap, bits: 0 });
+  }
   celebration.update(dt); gate.update(current);
   camera.update(c, dt); sky.update(engine.camera, car.root.position); skid.update(c); scene.update(current); hud.update(current); engine.render();
 }
@@ -77,7 +86,7 @@ if (capture) {
   const thumb = d => { const t = buildTrack(d); let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity; const pts = []; for (let i = 0; i < t.samples.length; i += 7 * 8) { const x = -t.samples[i], z = t.samples[i + 1]; pts.push([x, z]); x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); } const k = 104 / Math.max(x1 - x0, z1 - z0); return { len: t.length, d: 'M' + pts.map(([x, z]) => `${(8 + (x - x0) * k + (104 - (x1 - x0) * k) / 2).toFixed(1)},${(8 + (z1 - z) * k + (104 - (z1 - z0) * k) / 2).toFixed(1)}`).join('L') + 'Z' }; };
   const pick = document.createElement('div'); pick.id = 'race-pick';
   pick.innerHTML = `<style>#race-pick{position:fixed;inset:0;z-index:40;display:grid;place-items:center;background:#0b0f14b0;backdrop-filter:blur(4px);font:15px 'Helvetica Neue','PingFang SC',sans-serif;color:#f4eee1}#race-pick h2{text-align:center;font-weight:600;letter-spacing:.2em;margin:0 0 22px}#race-pick .cards{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;padding:0 16px}#race-pick button{all:unset;cursor:pointer;width:230px;padding:18px 20px;border-radius:12px;background:#17232ae6;border:1px solid #ffffff26;line-height:1.6}#race-pick button:hover,#race-pick button.on{border-color:#4bc8e5;box-shadow:0 0 0 2px #4bc8e555}#race-pick b{display:block;font-size:22px}#race-pick i{font-style:normal;color:#f8d28d;font-size:13px}#race-pick small{color:#aab7bd;display:block;min-height:48px}#race-pick kbd{float:right;color:#4bc8e5}#race-pick svg{display:block;margin:10px auto}#race-pick .skies{display:flex;gap:8px;justify-content:center;margin-top:22px;flex-wrap:wrap}#race-pick .skies span{color:#aab7bd;align-self:center;margin-right:4px}#race-pick .skies a{all:unset;cursor:pointer;padding:6px 14px;border-radius:999px;background:#17232ae6;border:1px solid #ffffff26;font-size:14px}#race-pick .skies a.on{border-color:#f8d28d;color:#f8d28d}</style>
-<div><h2>选择地图</h2><div class="cards">${TRACKS.map((t, i) => { const th = thumb(t.def); return `<button data-k="${t.difficulty}" class="${t.difficulty === DEFAULT_DIFFICULTY ? 'on' : ''}"><kbd>${i + 1}</kbd><b>${t.label}</b><i>${t.def.name.zh} · ${(th.len / 1000).toFixed(1)} 公里</i><svg width="120" height="120" viewBox="0 0 120 120"><path d="${th.d}" fill="none" stroke="#e8e2d4" stroke-width="3" stroke-linejoin="round"/></svg><small>${t.desc}</small></button>`; }).join('')}</div><div class="skies"><span>背景</span>${Object.entries(SKIES).map(([k, s]) => `<a data-sky="${k}" class="${k === skyKey ? 'on' : ''}">${s.label}</a>`).join('')}</div></div>`;
+<div><h2>选择地图</h2><div class="cards">${TRACKS.map((t, i) => { const th = thumb(t.def); return `<button data-k="${t.difficulty}" class="${t.difficulty === DEFAULT_DIFFICULTY ? 'on' : ''}"><kbd>${i + 1}</kbd><b>${t.label}</b><i>${t.def.name.zh} · ${(th.len / 1000).toFixed(1)} 公里</i><svg width="120" height="120" viewBox="0 0 120 120"><path d="${th.d}" fill="none" stroke="#e8e2d4" stroke-width="3" stroke-linejoin="round"/></svg><small>${t.desc}</small></button>`; }).join('')}</div><div class="skies"><a data-board>链上记录</a><span style="margin-left:14px">背景</span>${Object.entries(SKIES).map(([k, s]) => `<a data-sky="${k}" class="${k === skyKey ? 'on' : ''}">${s.label}</a>`).join('')}</div></div>`;
   document.body.append(pick);
   let chosen = false;
   const choose = async k => {
@@ -88,7 +97,11 @@ if (capture) {
   const onPick = e => { const k = TRACKS[Number(e.key) - 1]?.difficulty; if (k) choose(k); else if (e.key === 'Enter') choose(DEFAULT_DIFFICULTY); };
   addEventListener('keydown', onPick); pick.querySelectorAll('button').forEach(b => b.addEventListener('click', () => choose(b.dataset.k)));
   // 换背景：记住选择后带着 sky 参数重新加载
-  pick.querySelectorAll('.skies a').forEach(a => a.addEventListener('click', () => { if (a.dataset.sky === skyKey) return; try { localStorage.setItem('race.sky', a.dataset.sky); } catch {} const q = new URLSearchParams(location.search); q.set('sky', a.dataset.sky); location.search = q.toString(); }));
+  // 链上记录：在选图界面上叠一层排行榜，点空白处关闭
+  pick.querySelector('[data-board]').addEventListener('click', e => { e.stopPropagation(); const layer = document.createElement('div'); Object.assign(layer.style, { position: 'fixed', inset: '0', zIndex: '45', display: 'grid', placeItems: 'center', background: '#0b0f14cc' }); const box = document.createElement('div'); box.style.width = 'min(560px, 94vw)'; box.addEventListener('click', ev => ev.stopPropagation()); layer.append(box); layer.addEventListener('click', () => { board.destroy?.(); layer.remove(); }); pick.append(layer); const board = mountRaceBoard(box); });
+  pick.querySelectorAll('.skies a[data-sky]').forEach(a => a.addEventListener('click', () => { if (a.dataset.sky === skyKey) return; try { localStorage.setItem('race.sky', a.dataset.sky); } catch {} const q = new URLSearchParams(location.search); q.set('sky', a.dataset.sky); location.search = q.toString(); }));
   let accumulator = 0, lastTime;
-  function frame(time) { const elapsed = lastTime === undefined ? 0 : Math.min(.1, (time - lastTime) / 1000); lastTime = time; accumulator += elapsed; let bits = 0; for (const code of keys) bits |= map[code] || 0; while (accumulator >= DT) { simulate(bits); accumulator -= DT; } render(accumulator / DT, elapsed); requestAnimationFrame(frame); }
+  const auto = params.has('autopilot');   // ?race&autopilot&map=…：机器人开完全程（测试网端到端脚本用）
+  if (auto) choose(params.get('map') || DEFAULT_DIFFICULTY);
+  function frame(time) { const elapsed = lastTime === undefined ? 0 : Math.min(.1, (time - lastTime) / 1000); lastTime = time; accumulator += elapsed; let bits = 0; for (const code of keys) bits |= map[code] || 0; if (auto && !current.race.finished) bits = autopilot(current, track); while (accumulator >= DT) { simulate(bits); accumulator -= DT; } render(accumulator / DT, elapsed); requestAnimationFrame(frame); }
 }
