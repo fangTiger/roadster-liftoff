@@ -61,7 +61,12 @@ export async function runRaceE2e({ account, publicClient, walletClient, address 
     const lapMs = Number(await panel.getAttribute('data-lap-ms'));
     assert.ok(lapMs > 0, '面板应包含有效最快单圈');
     await panel.getByRole('button', { name: '连接钱包', exact: true }).click();
-    await panel.getByRole('button', { name: '铸造首圈纪念 NFT', exact: true }).click({ timeout: 60000 });
+    const metaMask = page.getByRole('button', { name: 'MetaMask', exact: true });
+    const mint = panel.getByRole('button', { name: '铸造首圈纪念 NFT', exact: true });
+    // 已授权会话可自动恢复；新会话需先在第三方弹窗选择测试钱包。
+    await metaMask.or(mint).first().waitFor({ state: 'visible', timeout: 60000 });
+    if (await metaMask.isVisible()) await metaMask.click();
+    await mint.click({ timeout: 60000 });
     await panel.getByRole('link', { name: '上链成功 · 查看交易', exact: true }).waitFor({ timeout: 180000 });
     assert.equal(sent.length, 1, '只能提交一笔铸造交易');
     const { hash, args } = sent[0];

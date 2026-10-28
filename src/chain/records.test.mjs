@@ -4,6 +4,11 @@ import * as records from './records.js';
 import { BaseError, ContractFunctionRevertedError, encodeErrorResult } from 'viem';
 import { recordsAbi } from './shared.js';
 
+test('缺少第三方钱包配置时显示明确提示', () => {
+  assert.equal(records.errorKind({ code: 'wallet_config' }), 'wallet_config');
+  assert.match(records.errorMessage({ code: 'wallet_config' }), /项目 ID/);
+});
+
 const input = { hasToken: false, bestLapMs: 50000, track: { qualifyMs: 60000, minLapMs: 20000 }, chainBestMs: 50000, chainBits: 3, bits: 3 };
 test('资格判断覆盖边界及持有 NFT 后跨赛道与新增成就', () => {
   for (const [patch, expected] of [

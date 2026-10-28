@@ -46,6 +46,7 @@ export function errorKind(err) {
   if (errors.some(e => /insufficient funds|exceeds the balance/i.test(e.message || '') || e.name === 'InsufficientFundsError')) return 'insufficient_funds';
   if (errors.some(e => [4901, 4902].includes(e.code) || /ChainMismatch|ChainNotFound|SwitchChain/.test(e.name || '') || e.code === 'wrong_network')) return 'wrong_network';
   if (errors.some(e => e.code === 'no_wallet')) return 'no_wallet';
+  if (errors.some(e => e.code === 'wallet_config')) return 'wallet_config';
   if (errors.some(e => /network|fetch|timeout|HTTP|RPC|socket/i.test(e.message || '') || /HttpRequest|Timeout|RpcRequest/.test(e.name || ''))) return 'network';
   return 'unknown';
 }
@@ -53,7 +54,8 @@ export function errorKind(err) {
 const ERROR_TEXT = {
   closed: '赛道尚未开放', too_fast: '成绩低于赛道下限，无法提交', not_qualified: '未进资格线，无法铸造',
   nothing_to_update: '链上记录已是最新', user_rejected: '已取消钱包操作', insufficient_funds: '钱包余额不足，请补充 USDC 支付 Gas',
-  wrong_network: '钱包网络不正确，请切换到 Arc 网络', no_wallet: '未检测到钱包，请安装支持 EIP-1193 的钱包',
+  wrong_network: '钱包网络不正确，请切换到 Arc 网络', no_wallet: '钱包连接尚未就绪，请重新选择钱包或扫码连接',
+  wallet_config: '钱包连接尚未配置，请设置 WalletConnect 项目 ID',
   network: '网络错误，请稍后重试', verification_required: '合约需要有效的核实签名，当前自报提交不可用',
 };
 export function errorMessage(error) { return ERROR_TEXT[errorKind(error)] || '操作失败，请稍后重试'; }

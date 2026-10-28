@@ -1,34 +1,44 @@
 import { createPublicClient, createWalletClient, custom, http } from 'viem';
 import { chain, recordsAbi, recordsAddress } from './config.js';
 import { sortLeaderboard } from './records.js';
+import { walletConnection } from './wallet-connection.js';
 
 // 可注入客户端以验证钱包流程；默认读取始终走公共 HTTP RPC。
-export function createRecordsWallet({ publicClient = createPublicClient({ chain, transport: http() }), getProvider = () => typeof window !== 'undefined' ? window.ethereum : null, address = recordsAddress, getWalletClient = provider => createWalletClient({ chain, transport: custom(provider) }) } = {}) {
-  let provider = null, walletClient = null;
+export function createRecordsWallet({ publicClient = createPublicClient({ chain, transport: http() }), getProvider = walletConnection.getProvider, connectProvider = getProvider, subscribeSession = null, address = recordsAddress, getWalletClient = provider => createWalletClient({ chain, transport: custom(provider) }) } = {}) {
+  let provider = null, walletClient = null, providerListeners = {};
   const state = { account: null, chainId: null, phase: '' };
   const listeners = new Set();
   const emit = () => { for (const fn of listeners) fn({ ...state }); };
   const fail = code => Object.assign(new Error(code), { code });
   function requireContract() { if (!address) throw fail('unavailable'); }
-  function attach() {
-    const next = getProvider();
-    if (!next) throw fail('no_wallet');
+  function attach(next) {
     if (provider === next) return;
-    provider?.removeListener?.('accountsChanged', accountsChanged);
-    provider?.removeListener?.('chainChanged', chainChanged);
-    provider?.removeListener?.('disconnect', disconnected);
+    for (const [event, fn] of Object.entries(providerListeners)) provider?.removeListener?.(event, fn);
     provider = next;
+    providerListeners = {};
+    if (!provider) { walletClient = null; return; }
     walletClient = getWalletClient(provider);
-    provider.on?.('accountsChanged', accountsChanged);
-    provider.on?.('chainChanged', chainChanged);
-    provider.on?.('disconnect', disconnected);
+    // 已排队的旧连接器事件也必须忽略。
+    for (const [event, fn] of Object.entries({ accountsChanged, chainChanged, disconnect: disconnected })) {
+      providerListeners[event] = (...args) => { if (provider === next) fn(...args); };
+      provider.on?.(event, providerListeners[event]);
+    }
   }
   function accountsChanged(accounts) { state.account = accounts[0] || null; emit(); }
   function chainChanged(id) { state.chainId = Number(id); emit(); }
   function disconnected() { state.account = null; state.chainId = null; emit(); }
+  subscribeSession?.(session => {
+    attach(session?.provider || null);
+    state.account = session?.account || null;
+    state.chainId = session?.chainId ?? null;
+    emit();
+  });
   async function connect() {
-    requireContract(); attach();
-    accountsChanged(await provider.request({ method: 'eth_requestAccounts' }));
+    requireContract();
+    const selected = await connectProvider();
+    if (!selected) throw fail('no_wallet');
+    attach(selected);
+    accountsChanged(await provider.request({ method: 'eth_accounts' }));
     if (!state.account) throw fail('no_wallet');
     const chainId = `0x${chain.id.toString(16)}`;
     if (Number(await provider.request({ method: 'eth_chainId' })) !== chain.id) {
@@ -57,7 +67,8 @@ export function createRecordsWallet({ publicClient = createPublicClient({ chain,
     if (state.account?.toLowerCase() !== account.toLowerCase()) throw fail('account_changed');
   }
   async function submit(trackId, ms, bits) {
-    requireContract(); attach();
+    requireContract();
+    attach(await getProvider());
     if (state.phase) throw fail('busy');
     if (!state.account) throw fail('no_wallet');
     const account = state.account;
@@ -94,7 +105,7 @@ export function createRecordsWallet({ publicClient = createPublicClient({ chain,
     readTokenURI: id => read('tokenURI', [BigInt(id)]),
   };
 }
-export const wallet = createRecordsWallet();
+export const wallet = createRecordsWallet({ connectProvider: walletConnection.connect, subscribeSession: walletConnection.subscribe });
 export const connect = (...args) => wallet.connect(...args);
 export const readRecord = (...args) => wallet.readRecord(...args);
 export const submit = (...args) => wallet.submit(...args);
