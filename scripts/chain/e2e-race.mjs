@@ -83,5 +83,6 @@ async function main() {
   await runRaceE2e({ account, address, url: process.env.URL || 'http://127.0.0.1:5173/', publicClient: createPublicClient({ chain, transport: http() }), walletClient: createWalletClient({ chain, account, transport: http() }) });
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main().catch(() => { console.error('竞速端到端验证失败：请检查 PLAYER_KEY、余额、赛道开放情况、入口/autopilot 接线及网络。'); process.exitCode = 1; });
+  // 只输出错误信息本身（viem 的报错不含私钥），便于定位
+  main().catch(e => { console.error('竞速端到端验证失败：', String(e?.shortMessage || e?.message || e).slice(0, 300)); process.exitCode = 1; });
 }
