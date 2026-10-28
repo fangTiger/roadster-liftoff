@@ -85,3 +85,9 @@
  #tools{gap:4px!important;padding:4px!important}#tools span{min-width:44px;min-height:44px}
 }
 @media(prefers-reduced-motion:reduce){#liftoff-ui *,#tools *{animation:none!important;transition:none!important}}
+
+/* 模式入口沿用第一版玻璃质感和暖色电门提示。 */
+#liftoff-ui .ui-start{display:flex;gap:12px;animation:none;letter-spacing:1px}
+#liftoff-ui .ui-start button[data-mode="race"]{border-color:#ff8a5c88;background:#ff6b3a22}
+#liftoff-ui .ui-start .ui-season{color:var(--dim);background:#ffffff03}
+#liftoff-ui .ui-start-lang{display:flex;justify-content:center;margin-bottom:20px}

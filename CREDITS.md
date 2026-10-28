@@ -65,6 +65,30 @@
 | `public/assets/race/props/modular_electricity_poles.glb` | modular_electricity_poles（电线杆；meshopt 压缩，贴图转 WebP 512） | [Poly Haven](https://polyhaven.com/a/modular_electricity_poles) | CC0 |
 | `public/assets/race/props/modular_chainlink_fence.glb` | modular_chainlink_fence（铁丝网；meshopt 压缩，贴图转 WebP 512） | [Poly Haven](https://polyhaven.com/a/modular_chainlink_fence) | CC0 |
 
+### 阿尔卑斯草甸与针叶林补充素材
+
+所有以下素材来自 Poly Haven，采用 CC0 授权。贴图转换为 WebP，模型经压缩适配实时场景。
+
+| 本地素材 | 来源与授权 |
+| --- | --- |
+| `public/assets/race/tex/rocks_ground_02_*.webp` | [Poly Haven · rocks_ground_02](https://polyhaven.com/a/rocks_ground_02) · CC0 |
+| `public/assets/race/tex/grass_path_2_*.webp` | [Poly Haven · grass_path_2](https://polyhaven.com/a/grass_path_2) · CC0 |
+| `public/assets/race/tex/forrest_ground_01_*.webp` | [Poly Haven · forrest_ground_01](https://polyhaven.com/a/forrest_ground_01) · CC0 |
+| `public/assets/race/tex/rock_face_03_*.webp` | [Poly Haven · rock_face_03](https://polyhaven.com/a/rock_face_03) · CC0 |
+| `public/assets/race/tex/mossy_rock_*.webp` | [Poly Haven · mossy_rock](https://polyhaven.com/a/mossy_rock) · CC0 |
+| `public/assets/race/props/fir_tree_01.glb` | [Poly Haven · fir_tree_01](https://polyhaven.com/a/fir_tree_01) · CC0 |
+| `public/assets/race/props/pine_tree_01.glb` | [Poly Haven · pine_tree_01](https://polyhaven.com/a/pine_tree_01) · CC0 |
+| `public/assets/race/props/fir_sapling_medium.glb` | [Poly Haven · fir_sapling_medium](https://polyhaven.com/a/fir_sapling_medium) · CC0 |
+| `public/assets/race/props/pine_sapling_medium.glb`（减面至约 2%） | [Poly Haven · pine_sapling_medium](https://polyhaven.com/a/pine_sapling_medium) · CC0 |
+| `public/assets/race/props/rock_moss_set_01.glb` | [Poly Haven · rock_moss_set_01](https://polyhaven.com/a/rock_moss_set_01) · CC0 |
+| `public/assets/race/props/rock_07.glb` | [Poly Haven · rock_07](https://polyhaven.com/a/rock_07) · CC0 |
+| `public/assets/race/props/rock_09.glb` | [Poly Haven · rock_09](https://polyhaven.com/a/rock_09) · CC0 |
+| `public/assets/race/props/stone_01.glb` | [Poly Haven · stone_01](https://polyhaven.com/a/stone_01) · CC0 |
+| `public/assets/race/props/shrub_02.glb` | [Poly Haven · shrub_02](https://polyhaven.com/a/shrub_02) · CC0 |
+| `public/assets/race/props/shrub_04.glb` | [Poly Haven · shrub_04](https://polyhaven.com/a/shrub_04) · CC0 |
+| `public/assets/race/props/tree_stump_01.glb` | [Poly Haven · tree_stump_01](https://polyhaven.com/a/tree_stump_01) · CC0 |
+| `public/assets/race/props/dead_tree_trunk_02.glb` | [Poly Haven · dead_tree_trunk_02](https://polyhaven.com/a/dead_tree_trunk_02) · CC0 |
+
 ## 星空
 
 | 文件 | 素材 | 来源 | 授权 |

@@ -3,7 +3,10 @@
  * 纯 ES 模块，无依赖，无构建步骤。
  * 所有持久化数据存储于 localStorage，失败时静默降级。
  */
-import { t } from '../i18n/i18n.js';
+import { t, onLangChange } from '../i18n/i18n.js';
+
+// 高手线按秒配置，与链上的资格线独立。
+export const PRO_LAP_SECONDS = { easy: 48, normal: 52, hard: 90 };
 
 // ─── 常量 ────────────────────────────────────────────────────────────────────
 
@@ -89,6 +92,7 @@ const DEFS = [
     id: 'coin_hunter',
     index: 20,
   },
+  ...['first_lap', 'qualified', 'canyon_jump', 'slot_pass', 'clean_lap', 'drift_king', 'valley_speed', 'pro_lap'].map((id, i) => ({ id, index: 21 + i })),
 ];
 // 名称与描述按当前语言取词（词条 ach.<id>.name / ach.<id>.desc）
 for (const d of DEFS) Object.defineProperties(d, { name: { get: () => t(`ach.${d.id}.name`), enumerable: true }, desc: { get: () => t(`ach.${d.id}.desc`), enumerable: true } });
@@ -190,7 +194,7 @@ export function createAchievements({ storageKey = 'liftoff.achievements.v1' } = 
 
   /** Toast 队列（每条依次弹出，不重叠） */
   const toastQueue = [];
-  let toastBusy = false;
+  let toastBusy = false, currentToast = null;
 
   /** 面板 DOM 根节点（懒创建） */
   let panelRoot = null;
@@ -258,9 +262,9 @@ export function createAchievements({ storageKey = 'liftoff.achievements.v1' } = 
    * @param {Function} onDone - 动画结束后的回调
    */
   function _showToast(def, onDone) {
-    ensureCss();
     const b = body();
     if (!b) { onDone(); return; }
+    ensureCss();
 
     // 复用或新建 toast 容器
     let el = document.getElementById('ach-toast');
@@ -271,6 +275,7 @@ export function createAchievements({ storageKey = 'liftoff.achievements.v1' } = 
       b.appendChild(el);
     }
 
+    currentToast = def;
     // 构建内容
     el.innerHTML = `
       <div class="ach-toast-medal" aria-hidden="true">
@@ -535,6 +540,23 @@ export function createAchievements({ storageKey = 'liftoff.achievements.v1' } = 
     }
   }
 
+  // 只读取会话快照，不参与模拟；完成圈统计与当前圈分开判断。
+  function reportRace(snapshot, { difficulty, qualifyMs } = {}) {
+    const { stats = {}, completedStats = [], events = [] } = snapshot;
+    for (const value of [stats, ...completedStats]) {
+      if (value.canyonJump) unlock('canyon_jump');
+      if (value.slotPass) unlock('slot_pass');
+      if (value.driftBoost3 >= 3) unlock('drift_king');
+      if (value.saltTopKmh >= 300) unlock('valley_speed');
+    }
+    for (const { lap, time } of events.filter(e => e.type === 'lap')) {
+      unlock('first_lap');
+      if (Number(qualifyMs) > 0 && time * 1000 <= Number(qualifyMs)) unlock('qualified');
+      if (completedStats[lap - 1]?.clean) unlock('clean_lap');
+      if (time < PRO_LAP_SECONDS[difficulty]) unlock('pro_lap');
+    }
+  }
+
   /**
    * 返回所有成就列表（含是否解锁、解锁日期）。
    */
@@ -628,10 +650,20 @@ export function createAchievements({ storageKey = 'liftoff.achievements.v1' } = 
     }
   }
 
+  onLangChange(() => {
+    if (panelRoot) _renderPanel();
+    const el = typeof document !== 'undefined' && document.getElementById('ach-toast');
+    if (el && currentToast) {
+      el.querySelector('.ach-toast-title').textContent = t('ach.unlocked', { name: currentToast.name });
+      el.querySelector('.ach-toast-desc').textContent = currentToast.desc;
+    }
+  });
+
   // ── 返回公开接口 ──────────────────────────────────────────────────────────────
 
   return {
     report,
+    reportRace,
     update,
     list,
     get unlocked() { return getUnlocked(); },

@@ -180,3 +180,16 @@ test('交叉淡化保持近似等功率，缺少 cancelAndHoldAtTime 时仍能�
   try { ctx.currentTime = 6; assert.equal(await a.cue('oldfriend'), true); }
   finally { Param.prototype.cancelAndHoldAtTime = original; }
 });
+
+test('竞速音效只用合成，静音沿用主总线，轮胎层每帧复用', async () => {
+ const a = module.createAudio({ music: false }); const beforeMedia = media.length;
+ await a.unlock(); assert.equal(media.length, beforeMedia);
+ const first = nodes.length;
+ for (const speedKmh of [0, 100, 300]) a.update(.016, { speedKmh, throttle: 1, tireSlip: .8 });
+ assert.equal(nodes.length, first);
+ for (const name of ['raceWall','raceBoost','raceBeep','raceGo','raceLap','raceFinish']) {
+  const before = nodes.length; a.event(name); assert.ok(nodes.length > before);
+ }
+ a.setMuted(true); assert.equal(a.muted, true);
+ assert.equal(JSON.parse(storage.get('liftoff.audio.v1')).muted, true);
+});

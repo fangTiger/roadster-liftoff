@@ -1,0 +1,10 @@
+/* 竞速工具沿用玻璃面板、青色焦点和暖色强调。 */
+#race-tools button,#race-tools summary{font:inherit;color:inherit;cursor:pointer;border:1px solid #ffffff26;background:#101a20c4;border-radius:8px;padding:8px 12px;backdrop-filter:blur(6px)}
+#race-tools summary{list-style:none}
+#race-tools button:hover,#race-tools summary:hover{border-color:#7fe3ff88;background:#17232ae6}
+#race-tools :focus-visible{outline:2px solid #7fe3ff;outline-offset:3px}
+#race-tools label{display:block;line-height:2}
+#race-tools input[type=range]{display:block;accent-color:#7fe3ff}
+#race-tools input[type=checkbox]{accent-color:#ff8a5c}
+#race-tools .lang-toggle{cursor:pointer;white-space:nowrap}
+#race-pick a:focus-visible,#race-pick button:focus-visible{outline:2px solid #7fe3ff;outline-offset:4px}

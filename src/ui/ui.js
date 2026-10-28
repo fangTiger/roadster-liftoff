@@ -1,7 +1,7 @@
 // 独立界面外壳：只管理交互与设置，不接管游戏循环。
 const STORE = 'liftoff.ui.v1';
 import { QUALITY_PRESETS as PRESETS, getDefaultPreset } from '../mobile/perf.js';
-import { t, applyI18n, onLangChange } from '../i18n/i18n.js';
+import { t, applyI18n, onLangChange, mountLangToggle } from '../i18n/i18n.js';
 // 文字都走多语言词条：L(key) 生成带 data-i18n 的片段，切换语言时由 applyI18n 原地刷新
 const L = key => `<span data-i18n="${key}">${t(key)}</span>`;
 const CONTROLS = [
@@ -26,12 +26,12 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
   root.innerHTML = `
     <section class="ui-overlay ui-loading" aria-labelledby="ui-title" role="dialog" aria-modal="true" tabindex="-1">
       <div class="ui-start-content">
-        <div class="ui-eyebrow">${L('start.eyebrow')}</div>
+        <div class="ui-start-lang"></div><div class="ui-eyebrow">${L('start.eyebrow')}</div>
         <h1 id="ui-title">Mars <span>Roadster</span></h1>
         <p class="ui-subtitle">${L('start.subtitle')}</p>
         <div class="ui-launch-status">
           <div class="ui-progress-wrap"><div class="ui-progress-label"><span role="status">${t('load.ready')}</span><span class="ui-percent">0%</span></div><div class="ui-progress" role="progressbar" aria-label="${t('load.progress')}" data-i18n-attr="aria-label:load.progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div></div>
-          <button class="ui-start" hidden>${L('start.press')}</button>
+          <div class="ui-start" hidden><button data-mode="race">${L('mode.race')}</button><button data-mode="space">${L('mode.space')}</button><button data-mode="season" class="ui-season">${L('mode.season')}</button></div>
         </div>
         <div class="g ui-control-panel"><h2>${L('start.guide')} <span>${L('start.guideSub')}</span></h2>${controlsHTML()}</div>
         <footer>${L('credit.author')} Captain@mycndota · Built with Arc Studio + Claude Code <a href="https://github.com/fangTiger/roadster-liftoff/blob/main/CREDITS.md" target="_blank" rel="noopener noreferrer">${L('start.credits')} ↗</a></footer>
@@ -53,6 +53,7 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
     </section>
     <div class="ui-flash" aria-hidden="true"></div><div class="g ui-toast" role="status" hidden></div>`;
   document.body.append(root);
+  mountLangToggle(root.querySelector('.ui-start-lang'), { injectCss: false });
   // 主入口没有移动端视口声明时补充，避免更改现有标记。
   if (!document.querySelector('meta[name="viewport"]')) {
     const meta = document.createElement('meta'); meta.name = 'viewport'; meta.content = 'width=device-width, initial-scale=1'; document.head.append(meta);
@@ -176,7 +177,12 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
     if (paused) openPanel('pause');
     onStart();
   }
-  loading.addEventListener('click', e => { if (!e.target.closest('a')) start(); });
+  loading.addEventListener('click', e => {
+    const mode = e.target.closest('[data-mode]')?.dataset.mode;
+    if (mode === 'race') { location.href = '/?race'; return; }
+    if (mode === 'season') { toast(t('mode.soon')); return; }
+    if (mode === 'space' || !e.composedPath().some(node => node.matches?.('a,button,[role="button"]'))) start();
+  });
   root.addEventListener('click', e => {
     const button = e.target.closest('button'); if (!button) return;
     if (button.dataset.quality) { settings.quality = button.dataset.quality; applyQuality(); persist(); paintSettings(); }
@@ -206,7 +212,7 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
     if (e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
     if (!started) {
       if (e.key === 'Tab') return;
-      if (e.target.closest?.('a')) return;
+      if (e.target.closest?.('a,button,[role="button"]')) return;
       e.preventDefault(); e.stopImmediatePropagation(); if (!e.repeat) start(); return;
     }
     if (isOverlayOpen()) return;                              // 外部面板打开时，按键交给面板自己处理
