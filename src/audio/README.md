@@ -128,3 +128,12 @@ void audio.cue('oldfriend');
 已通过语法检查、9 项 Node 行为测试、现有 Vite 项目构建（产物输出临时目录），以及 Chromium 与本机缓存 Firefox 的真实 MP3 播放、非零音频输出、全部控制/事件、自动返回和存储测试。Chromium 另验证了桌面与手机布局。浏览器测试无控制台错误。构建保留现有 three.js 大包提示。
 
 Safari/WebKit 未完成实测：当前 Playwright 所需版本未安装，旧缓存协议不兼容。未下载或安装任何依赖。自动化检查不能代替耳机听感、真实 iOS 自动播放策略和长时间循环接缝的人工验收。
+
+## 竞速模式
+
+`createAudio({ music: false })` 只创建合成音效，不要求音乐 URL、不创建媒体元素；默认模式保持原有三曲接口。竞速与太空模式共用 `liftoff.audio.v1`、主音量、静音和限幅器。
+
+- `update(dt, { tireSlip })`：轮胎侧滑强度 0–1，与速度共同控制常驻摩擦层；原有 `speedKmh`、`throttle`、`boost` 控制电机及加速轰鸣。
+- `event` 新增 `raceWall`（碰墙）、`raceBoost`（加速呼啸）、`raceBeep`（短哔）、`raceGo`（长哔）、`raceLap`（过线）、`raceFinish`（合成大调号角与欢呼）。
+- `createRaceAudio`（`race.js`）读取会话事件和车辆状态，维护事件游标与倒数沿，连续贴墙每 0.2 秒最多播放一次冲击声。
+- 页面选择地图或再次按键/点击时解锁音频；浏览器禁止自动播放时，等待玩家手势，不阻塞比赛。

@@ -77,3 +77,15 @@ test('读取失败后的重试只刷新，不隐式提交交易', async () => {
   assert.equal(env.sent.length, 0); assert.match(root.text, /铸造首圈纪念 NFT/);
   panel.destroy();
 });
+
+test('上链面板错误与地图名随语言切换，翻译不会触发提交', async () => {
+  const { setLang } = await import('../i18n/i18n.js');
+  const oldQuery = document.querySelectorAll;
+  document.querySelectorAll = () => [];
+  const env = setup(); await env.wallet.connect();
+  env.wallet.readRecord = async () => { throw new Error('RPC timeout'); };
+  const root = new Node(), panel = mountRaceChain(root, { trackId: 1, trackName: '草甸环线', bestLap: 50, bits: 0 }, env);
+  await flush(); assert.match(root.text, /网络错误/);
+  try { setLang('en'); assert.match(root.text, /Network error/); assert.match(root.text, /Meadow Loop/); assert.doesNotMatch(root.text, /网络错误/); assert.equal(env.sent.length, 0); }
+  finally { panel.destroy(); setLang('zh'); document.querySelectorAll = oldQuery; }
+});

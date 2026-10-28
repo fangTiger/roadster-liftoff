@@ -1,3 +1,4 @@
+import { getLang } from '../i18n/i18n.js';
 // 面板共享安全 DOM 工具，不把赛道名、钱包数据或错误插入 HTML。
 export function el(tag, text, className) {
   const node = document.createElement(tag);
@@ -17,4 +18,4 @@ export function link(label, href) {
   const node = el('a', label, 'rc-link'); node.href = href; node.target = '_blank'; node.rel = 'noopener noreferrer'; return node;
 }
 export const sessionKey = wallet => `${wallet.state.account || ''}/${wallet.state.chainId}`;
-export const dateText = seconds => seconds ? new Date(Number(seconds) * 1000).toLocaleDateString('zh-CN') : '—';
+export const dateText = seconds => seconds ? new Date(Number(seconds) * 1000).toLocaleDateString(getLang() === 'zh' ? 'zh-CN' : 'en-US') : '—';

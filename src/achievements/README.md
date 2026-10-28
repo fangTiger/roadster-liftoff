@@ -302,3 +302,9 @@ export function createHUD() {
 | localStorage | try/catch 包裹，私人模式或存储配额超限时**静默降级**，成就仍可在本次会话内解锁 |
 | DOM 提前调用 | 所有 DOM 操作均延迟到实际需要时（首次吐司/面板），可在 `DOMContentLoaded` 之前安全调用任意 API |
 | 减少动画 | 完全尊重 `prefers-reduced-motion: reduce` |
+
+## 竞速成就
+
+新增索引 21–28（位 20–27）：`first_lap`、`qualified`、`canyon_jump`、`slot_pass`、`clean_lap`、`drift_king`、`valley_speed`、`pro_lap`。原有索引与持久化键保持不变，总数为 28。
+
+`ach.reportRace(snapshot, { difficulty, qualifyMs })` 接收竞速会话快照；当前圈与已完成圈的统计分别判断，重复快照不会重复解锁。资格线单位为毫秒，0 表示赛道未开放；`PRO_LAP_SECONDS` 是可调整的高手线常量。成就列表可通过既有 `achievementsToBits(ach.list())` 合并成上链位图。

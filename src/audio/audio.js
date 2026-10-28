@@ -3,13 +3,13 @@ const MUSIC_LEVEL = 0.65;
 const SFX_LEVEL = 0.72;
 const FADE_SECONDS = 2.5;
 const NAMES = ['road', 'space', 'oldfriend'];
-const EVENTS = ['launch', 'land', 'whiteout', 'achievement', 'horn', 'roll', 'coin'];
+const EVENTS = ['launch', 'land', 'whiteout', 'achievement', 'horn', 'roll', 'coin', 'raceWall', 'raceBoost', 'raceBeep', 'raceGo', 'raceLap', 'raceFinish'];
 const STORE = 'liftoff.audio.v1';
 const clamp = (v, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, Number.isFinite(v) ? v : lo));
 const db = value => 10 ** (value / 20);
 
-export function createAudio({ urls } = {}) {
-  for (const name of NAMES) {
+export function createAudio({ urls, music = true } = {}) {
+  for (const name of music ? NAMES : []) {
     if (!urls || typeof urls[name] !== 'string' || !urls[name]) throw new TypeError(`缺少音乐 URL：${name}`);
   }
   // 复制地址，避免调用者随后修改对象影响惰性初始化。
@@ -24,7 +24,7 @@ export function createAudio({ urls } = {}) {
 
   let ctx, master, musicBus, musicDuck, sfxBus, musicHP, wet, panDepth;
   let motor, motorSine, whine, motorFilter, motorGain, evWhine, evWhine2, evGain, surge, hornGain, hornTimer;
-  let road, gravel, wind, hiss, roar, thrustGain, plasmaRumble, plasmaCrackle;
+  let tires, road, gravel, wind, hiss, roar, thrustGain, plasmaRumble, plasmaCrackle;
   let buffers, tracks, current = null, pendingCue = null, requestId = 0, ready = false, unlocking;
   let state = { mode: 'drive', landing: 0 };
   let landed = false;
@@ -147,7 +147,7 @@ export function createAudio({ urls } = {}) {
     convolver.buffer = impulse; wet.connect(convolver); convolver.connect(musicBus);
     musicHP.connect(wet);
 
-    tracks = NAMES.map(name => {
+    tracks = (music ? NAMES : []).map(name => {
       const el = new Audio(); el.preload = 'auto'; el.crossOrigin = 'anonymous';
       el.loop = name !== 'oldfriend'; el.src = sources[name];
       el.addEventListener('error', () => console.warn(`音乐加载失败：${name}（请检查地址、网络及跨域设置）`));
@@ -157,7 +157,7 @@ export function createAudio({ urls } = {}) {
       const source = ctx.createMediaElementSource(el); source.connect(lowpass);
       return { name, el, output, lowpass, presence };
     });
-    tracks[2].el.addEventListener('ended', () => { if (current === 'oldfriend') void cue('space'); });
+    tracks[2]?.el.addEventListener('ended', () => { if (current === 'oldfriend') void cue('space'); });
 
     buffers = Object.fromEntries(['white', 'pink', 'brown', 'crackle'].map(kind => [kind, makeNoise(kind)]));
     motorGain = gain(0, sfxBus); motorFilter = filter('bandpass', 400, motorGain, 0.6);
@@ -176,6 +176,7 @@ export function createAudio({ urls } = {}) {
     hornGain = gain(0, sfxBus);
     const hornTone = filter('lowpass', 3200, filter('bandpass', 1050, hornGain, 0.6));
     for (const f of [370, 466]) oscillator('square', f, gain(0.5, hornTone));
+    tires = noiseLayer('white', 'bandpass', 1800, sfxBus, 2.2);
     road = noiseLayer('pink', 'bandpass', 900);
     gravel = noiseLayer('crackle', 'bandpass', 1900, sfxBus, 0.9);
     wind = noiseLayer('pink', 'lowpass', 450);
@@ -228,6 +229,7 @@ export function createAudio({ urls } = {}) {
     if (!ctx) initialize();
     // resume 与所有媒体 play 必须在用户手势调用栈中发起，不能先 await。
     const resumed = ctx.resume();
+    if (!music) return resumed.then(() => { ready = true; update(0, state); });
     if (ready) {
       const track = tracks.find(t => t.name === current);
       const playing = track?.el.paused ? play(track) : Promise.resolve(true);
@@ -249,7 +251,7 @@ export function createAudio({ urls } = {}) {
 
   function cue(name) {
     if (!NAMES.includes(name)) throw new RangeError(`未知音乐 cue：${name}`);
-    if (!ready || name === current || name === pendingCue) return Promise.resolve(false);
+    if (!music || !ready || name === current || name === pendingCue) return Promise.resolve(false);
     const id = ++requestId;
     pendingCue = name;
     const index = NAMES.indexOf(name);
@@ -281,8 +283,8 @@ export function createAudio({ urls } = {}) {
     if (state.landing > 0 && previousLanding === 0) landed = true;
     previousLanding = state.landing; previousMode = state.mode;
     const openness = landed ? 0 : orbit || reentry ? 1 : ascent ? clamp(altitude / 80000) : 0;
-    smooth(tracks[0].lowpass.frequency, 2500 + clamp(speed / 250) * 17500, 0.14);
-    smooth(tracks[0].presence.gain, 2 * clamp((speed - 200) / 50), 0.2);
+    if (music) smooth(tracks[0].lowpass.frequency, 2500 + clamp(speed / 250) * 17500, 0.14);
+    if (music) smooth(tracks[0].presence.gain, 2 * clamp((speed - 200) / 50), 0.2);
     smooth(musicHP.frequency, 20 + 160 * openness, 0.35);
     smooth(wet.gain, openness * 0.42, landed ? 1 : 0.5);
     smooth(panDepth.gain, orbit ? 0.65 : 0, 0.6);
@@ -300,6 +302,8 @@ export function createAudio({ urls } = {}) {
     smooth(evGain.gain, evLevel, 0.06);
     smooth(surge.output.gain, orbit ? 0 : accel * throttle * 0.32, 0.05);
     smooth(surge.tone.frequency, 500 + sp * 1500, 0.1);
+    smooth(tires.output.gain, clamp(s.tireSlip) * clamp(speed / 60) * .24, .04);
+    smooth(tires.tone.frequency, 1300 + clamp(speed / 300) * 1700, .08);
     smooth(road.output.gain, orbit ? 0 : clamp(speed / 250) * 0.14, 0.15);
     smooth(gravel.output.gain, orbit ? 0 : offroad * clamp(speed / 80) * 0.48, 0.08);
     smooth(wind.output.gain, orbit ? 0 : clamp(speed / 350) * 0.2 + (ascent ? 0.23 : 0), 0.25);
@@ -331,7 +335,23 @@ export function createAudio({ urls } = {}) {
   function event(name, opts = {}) {
     if (!EVENTS.includes(name)) throw new RangeError(`未知音效事件：${name}`);
     if (!ready) return;
-    if (name === 'launch') {
+    if (name === 'raceWall') {
+      shot({ kind: 'brown', duration: .24, level: .4, cutoff: 900 });
+      shot({ frequency: 95, end: 35, duration: .22, level: .22 });
+    } else if (name === 'raceBoost') {
+      shot({ kind: 'pink', duration: .65, level: .35, type: 'bandpass', cutoff: 350, cutoffEnd: 6500 });
+    } else if (name === 'raceBeep' || name === 'raceGo') {
+      shot({ frequency: name === 'raceGo' ? 1320 : 880, duration: name === 'raceGo' ? .75 : .18, level: .18 });
+    } else if (name === 'raceLap') {
+      [880, 1320].forEach((frequency, i) => shot({ frequency, duration: .4, level: .13, delay: i * .12 }));
+    } else if (name === 'raceFinish') {
+      // 大调号角加宽频人群般的欢呼，全部合成并走原有主音量。
+      [523.25, 659.25, 783.99, 1046.5, 783.99, 1046.5].forEach((frequency, i) => {
+        shot({ kind: 'triangle', frequency, duration: .8, level: .15, delay: i * .22 });
+        shot({ frequency: frequency / 2, duration: .9, level: .1, delay: i * .22 });
+      });
+      shot({ kind: 'pink', duration: 2.6, level: .18, type: 'bandpass', cutoff: 750, cutoffEnd: 2400 });
+    } else if (name === 'launch') {
       shot({ kind: 'white', duration: 0.8, level: 0.7, type: 'bandpass', cutoff: 180, cutoffEnd: 5500 });
       shot({ frequency: 75, end: 38, duration: 0.35, level: 0.48 });
     } else if (name === 'land') {
