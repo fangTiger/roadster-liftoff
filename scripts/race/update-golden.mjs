@@ -1,7 +1,7 @@
 // 改动物理后同步提升 SIM_VERSION，再显式重新生成黄金记录。
 import { writeFile } from 'node:fs/promises';
 import { buildTrack } from '../../src/race/track/build.js';
-import def from '../../src/race/track/data/desert-loop.js';
+import def from '../../src/race/track/data/alpine.js';
 import { createSession } from '../../src/race/sim/session.js';
 import { autopilot } from '../../src/race/sim/autopilot.js';
 import { SIM_VERSION } from '../../src/race/sim/physics.js';

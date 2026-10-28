@@ -17,7 +17,7 @@ try{
   if(snap.race.finished)break;
  }
  const {stateHash,runReplay}=await import('../../src/race/sim/replay.js');
- const {default:def}=await import('../../src/race/track/data/desert-loop.js');
+ const {default:def}=await import('../../src/race/track/data/alpine.js');
  const replay=await page.evaluate(()=>window.__race.replay()),verified=runReplay(def,replay);
  if(verified.hash!==stateHash(snap))throw new Error('浏览器录制在 Node 重放后的哈希不同');
  await writeFile(`${out}/replay.json`,JSON.stringify(replay));
