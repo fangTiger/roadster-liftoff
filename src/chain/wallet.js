@@ -56,7 +56,7 @@ export function createRecordsWallet({ publicClient = createPublicClient({ chain,
     if (state.chainId !== chain.id) throw fail('wrong_network');
     if (state.account?.toLowerCase() !== account.toLowerCase()) throw fail('account_changed');
   }
-  async function submit(ms, bits) {
+  async function submit(trackId, ms, bits) {
     requireContract(); attach();
     if (state.phase) throw fail('busy');
     if (!state.account) throw fail('no_wallet');
@@ -64,7 +64,7 @@ export function createRecordsWallet({ publicClient = createPublicClient({ chain,
     try {
       state.phase = 'simulating'; emit();
       await assertSession(account);
-      const { request } = await publicClient.simulateContract({ address, abi: recordsAbi, functionName: 'submit', args: [ms, bits], account });
+      const { request } = await publicClient.simulateContract({ address, abi: recordsAbi, functionName: 'submit', args: [trackId, ms, bits, 0n, '0x'], account });
       await assertSession(account);
       state.phase = 'signing'; emit();
       const hash = await walletClient.writeContract(request);
@@ -74,20 +74,23 @@ export function createRecordsWallet({ publicClient = createPublicClient({ chain,
       return receipt.transactionHash || hash;
     } finally { state.phase = ''; emit(); }
   }
-  async function readLeaderboard() {
-    const count = Math.min(2000, Number(await read('playerCount'))), addrs = [], recs = [];
-    for (let start = 0; start < count; start += 100) {
-      const [pageAddrs, pageRecs] = await read('players', [BigInt(start), BigInt(Math.min(100, count - start))]);
-      addrs.push(...pageAddrs); recs.push(...pageRecs);
+  async function readLeaderboard(trackId) {
+    const count = BigInt(await read('playerCount')), addrs = [], bests = [];
+    for (let start = 0n; start < count; start += 100n) {
+      const size = count - start < 100n ? count - start : 100n;
+      const [pageAddrs, , pageBests] = await read('players', [trackId, start, size]);
+      addrs.push(...pageAddrs); bests.push(...pageBests);
       if (!pageAddrs.length) break;
     }
-    return sortLeaderboard(addrs, recs);
+    return sortLeaderboard(addrs, bests);
   }
   return {
     get state() { return { ...state }; },
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     connect, submit, readLeaderboard,
     readRecord: addr => read('recordOf', [addr]),
+    readBest: (addr, trackId) => read('bestOf', [addr, trackId]),
+    readTrack: trackId => read('trackOf', [trackId]),
     readTokenURI: id => read('tokenURI', [BigInt(id)]),
   };
 }

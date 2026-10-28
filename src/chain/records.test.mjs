@@ -1,50 +1,52 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import * as records from './records.js';
 import { BaseError, ContractFunctionRevertedError, encodeErrorResult } from 'viem';
-import { achievementsToBits, bitsToCount, needsUpdate, formatMs, shortAddr, sortLeaderboard, errorKind } from './records.js';
+import { recordsAbi } from './shared.js';
 
-test('成就 index 1..20 映射低二十位，仅计已解锁项', () => {
-  assert.equal(achievementsToBits([{ index: 1, unlocked: true }, { index: 20, unlocked: true }, { index: 2, unlocked: false }, { index: 21, unlocked: true }, { index: 0, unlocked: true }]), 524289);
-  assert.equal(achievementsToBits(Array.from({ length: 20 }, (_, i) => ({ index: i + 1, unlocked: true }))), 1048575);
-  assert.equal(achievementsToBits([]), 0);
-  assert.equal(bitsToCount(1048575n), 20);
-  assert.equal(bitsToCount(1 << 20), 0);
-  assert.equal(bitsToCount(5), 2);
+const input = { hasToken: false, bestLapMs: 50000, track: { qualifyMs: 60000, minLapMs: 20000 }, chainBestMs: 50000, chainBits: 3, bits: 3 };
+test('资格判断覆盖边界及持有 NFT 后跨赛道与新增成就', () => {
+  for (const [patch, expected] of [
+    [{}, 'mint'], [{ bestLapMs: 60000 }, 'mint'], [{ bestLapMs: 60001 }, 'notQualified'],
+    [{ bestLapMs: 19999 }, 'tooFast'], [{ bestLapMs: 20000 }, 'mint'],
+    [{ track: { qualifyMs: 0, minLapMs: 20000 } }, 'closed'],
+    [{ hasToken: true }, 'upToDate'], [{ hasToken: true, bestLapMs: 49999 }, 'update'],
+    [{ hasToken: true, bestLapMs: 70000, bits: 7 }, 'update'],
+    [{ hasToken: true, chainBestMs: 0, bestLapMs: 70000 }, 'update'],
+    [{ hasToken: true, bits: 1 }, 'upToDate'],
+    [{ hasToken: true, chainBits: 0, bits: 0x80000000 }, 'update'],
+  ]) assert.equal(records.decideAction({ ...input, ...patch }), expected);
 });
-test('只有首次、更快或新增成就才更新，兼容链上 bigint', () => {
-  const record = { tokenId: 1n, bestMs: 50000, achievements: 3 };
-  assert.equal(needsUpdate(null, 60000, 0), true);
-  assert.equal(needsUpdate({ tokenId: 0 }, 60000, 0), true);
-  assert.equal(needsUpdate(record, 49999, 0), true);
-  assert.equal(needsUpdate(record, 60000, 7), true);
-  assert.equal(needsUpdate(record, 50000, 3), false);
-  assert.equal(needsUpdate(record, 60000, 1), false);
+test('秒转换四舍五入并拒绝无效、零及 uint32 溢出', () => {
+  assert.equal(records.lapToMs(45.1236), 45124);
+  assert.equal(records.lapToMs(45.1234), 45123);
+  for (const lap of [null, undefined, NaN, Infinity, -1, 0, 0.0001, 4294968]) assert.throws(() => records.lapToMs(lap));
 });
-test('用时和钱包缩写', () => {
-  assert.equal(formatMs(46830), '46.83 s');
-  assert.equal(formatMs(null), '—');
-  assert.equal(formatMs(NaN), '—');
-  assert.equal(shortAddr('0x1234567890123456789012345678901234567890'), '0x1234…7890');
-  assert.equal(shortAddr(null), '—');
+test('成就映射和计数使用低 28 位', () => {
+  assert.equal(records.achievementsToBits(Array.from({ length: 29 }, (_, i) => ({ index: i + 1, unlocked: true }))), 0xfffffff);
+  assert.equal(records.bitsToCount(0xffffffffn), 28);
+  assert.equal(records.bitsToCount(1 << 28), 0);
 });
-test('榜单过滤无 NFT，成绩相同按更新时间，不改输入且应用 limit', () => {
-  const recs = [{ tokenId: 1, bestMs: 50, updatedAt: 20n }, { tokenId: 0, bestMs: 0 }, { tokenId: 2, bestMs: 50, updatedAt: 10n }, { tokenId: 3, bestMs: 40, updatedAt: 30n }];
-  const rows = sortLeaderboard(['a', 'b', 'c', 'd'], recs, 2);
-  assert.deepEqual(rows.map(r => r.address), ['d', 'c']);
-  assert.equal(rows[0].bestMs, 40);
-  assert.equal(recs[0].tokenId, 1);
-  assert.equal(sortLeaderboard([], []).length, 0);
+test('榜单跳过零成绩、稳定排序且不修改输入', () => {
+  const bests = [{ bestMs: 50, updatedAt: 20n }, { bestMs: 0 }, { bestMs: 50, updatedAt: 10n }, { bestMs: 40, verified: true }];
+  assert.deepEqual(records.sortLeaderboard(['a', 'b', 'c', 'd'], bests, 2).map(r => r.address), ['d', 'c']);
+  assert.equal(bests[0].bestMs, 50);
+  assert.equal(records.formatMs(null), '—');
+  assert.equal(records.formatMs(46830), '46.83 s');
+  assert.equal(records.shortAddr('0x1234567890123456789012345678901234567890'), '0x1234…7890');
 });
-test('错误分类读取真实 viem 自定义错误及嵌套 RPC 错误', () => {
-  const abi = [{ type: 'error', name: 'TooFast', inputs: [{ name: 'got', type: 'uint32' }, { name: 'min', type: 'uint32' }] }];
-  const cause = new ContractFunctionRevertedError({ abi, data: encodeErrorResult({ abi, errorName: 'TooFast', args: [1, 100] }), functionName: 'submit' });
-  assert.equal(errorKind(new BaseError('失败', { cause })), 'too_fast');
-  assert.equal(errorKind({ cause: { data: { errorName: 'NothingToUpdate' } } }), 'nothing_to_update');
-  assert.equal(errorKind({ cause: { code: 4001 } }), 'user_rejected');
-  assert.equal(errorKind({ code: 'ACTION_REJECTED' }), 'user_rejected');
-  assert.equal(errorKind({ cause: { message: 'insufficient funds for gas' } }), 'insufficient_funds');
-  assert.equal(errorKind({ name: 'ChainMismatchError' }), 'wrong_network');
-  assert.equal(errorKind({ code: 4902 }), 'wrong_network');
-  assert.equal(errorKind({ code: 'no_wallet' }), 'no_wallet');
-  assert.equal(errorKind(new Error('RPC timeout')), 'unknown');
+test('真实 viem 回退和嵌套钱包/网络错误映射中文', () => {
+  for (const [errorName, args, text] of [
+    ['TrackClosed', [1], /未开放/], ['TooFast', [1, 100], /下限/],
+    ['NotQualified', [100, 50], /资格线/], ['NothingToUpdate', [], /最新/],
+  ]) {
+    const cause = new ContractFunctionRevertedError({ abi: recordsAbi, data: encodeErrorResult({ abi: recordsAbi, errorName, args }), functionName: 'submit' });
+    assert.match(records.errorMessage(new BaseError('失败', { cause })), text);
+  }
+  for (const [error, text] of [
+    [{ cause: { code: 4001 } }, /取消/], [{ code: 'ACTION_REJECTED' }, /取消/],
+    [{ cause: { message: 'insufficient funds for gas' } }, /余额不足/],
+    [new Error('RPC timeout'), /网络/], [{ code: 4902 }, /网络/],
+    [{ code: 'no_wallet' }, /钱包/], [{ data: { errorName: 'BadSignature' } }, /核实/],
+  ]) assert.match(records.errorMessage(error), text);
 });
