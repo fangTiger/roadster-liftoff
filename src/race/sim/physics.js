@@ -68,19 +68,24 @@ export function stepCar(c,bits,{track,hazards,step=0,coins}={}) {
  const cap=c.surface===SAND?T.sandSpeed:T.maxSpeed+(c.boostTime>0?T.boostSpeed:0);
  let newFx,newFz;
  if(drifting){
-  // 卡丁车式漂移：速度方向沿弧线转，弧线半径随车速增大（约为同速抓地转弯半径的 driftRadius 倍，高速时不会一下甩出路面）；
+  // 卡丁车式漂移：速度方向按下面的角速度转；
   // 往漂移方向打方向弧线收紧、反打放宽；车头相对速度方向保持侧滑角，速度损失小
-  // 渐入：driftOnset 秒内从抓地转向平滑过渡到漂移弧线，侧滑角同步建立（不再一按就猛甩）
+  // 渐入：driftOnset 秒内从抓地转向平滑过渡到漂移，侧滑角同步建立（不再一按就猛甩）
   c.driftBlend=Math.min(1,c.driftBlend+DT/T.driftOnset);const b=smoothstep(0,1,c.driftBlend);
+  // 卡丁车式：漂移转向角速度随按住时长从 driftRate0 增大到 driftRate1（轻点小修正、长按过急弯），与车速无关，
+  // 中高速手感一致；往漂移方向打方向更急、反打更缓
   let speed=Math.sqrt(c.vx*c.vx+c.vz*c.vz);
-  const into=c.steer*c.driftDir,gripRadius=6+speed*speed/(mu*T.arcadeGrip*T.gravity),radius=T.driftRadius*gripRadius/(1+T.driftSteerGain*into);
-  const rate=speed*c.steer/gripRadius*(1-b)+c.driftDir*speed/radius*b,turn=rate*DT,cs=cos(turn),sn=sin(turn),vx=c.vx*cs+c.vz*sn,vz=c.vz*cs-c.vx*sn;
+  const into=c.steer*c.driftDir,hold=smoothstep(0,T.driftBuild,c.driftTime),gripRadius=6+speed*speed/(mu*T.arcadeGrip*T.gravity);
+  // 方向键决定转多急：按住往弯内的方向键为满速，不按方向键只保持 driftNeutral 的比例（长按 Shift 加大角度、松开方向键放缓）
+  const steerK=into>=0?T.driftNeutral+(1-T.driftNeutral)*into:T.driftNeutral*(1+into*.5);
+  const omega=(T.driftRate0+(T.driftRate1-T.driftRate0)*hold)*steerK*Math.min(1,speed/20);
+  const rate=speed*c.steer/gripRadius*(1-b)+c.driftDir*omega*b,turn=rate*DT,cs=cos(turn),sn=sin(turn),vx=c.vx*cs+c.vz*sn,vz=c.vz*cs-c.vx*sn;
   let acceleration=-(T.drag*speed*speed+resistance+T.driftDrag);
-  if(bits&THROTTLE)acceleration+=Math.min(T.acceleration,T.power/Math.max(1,speed));
+  if(bits&THROTTLE)acceleration+=Math.min(T.acceleration,T.power/Math.max(1,speed))*T.driftThrottle;   // 漂移是用速度换转向，油门推力打折
   if(bits&BRAKE)acceleration-=T.brake;
   if(c.boostTime>0){acceleration+=T.boostAcceleration;c.boostTime=Math.max(0,c.boostTime-DT);}
   const next=clamp(speed+acceleration*DT,0,cap),k=speed>1e-6?next/speed:0;c.vx=vx*k;c.vz=vz*k;speed=next;
-  const heading=atan2(c.vx,c.vz)+c.driftDir*T.driftSlipAngle*(1+T.driftSlipSteer*into)*b;
+  const heading=atan2(c.vx,c.vz)+c.driftDir*T.driftSlipAngle*(.7+.5*hold)*(1+T.driftSlipSteer*into)*b;
   c.yaw=wrapAngle(c.yaw+wrapAngle(heading-c.yaw)*Math.min(1,T.driftYawFollow*DT)+c.yawKick*DT);c.yawKick*=Math.max(0,1-3*DT);
   newFx=sin(c.yaw);newFz=cos(c.yaw);forward=c.vx*newFx+c.vz*newFz;
  } else {
