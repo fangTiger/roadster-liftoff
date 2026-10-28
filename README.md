@@ -54,6 +54,22 @@ npm run build    # 打包到 dist/
 npm run preview  # 预览打包结果
 ```
 
+钱包连接使用 RainbowKit + wagmi + WalletConnect，提供紧凑深色钱包选择弹窗，支持浏览器钱包及手机扫码。首次点击连接时才加载钱包界面。
+
+在未提交的 `.env.local` 中配置：
+
+```dotenv
+VITE_WALLETCONNECT_PROJECT_ID=your-walletconnect-project-id
+```
+
+部署时也需设置该构建环境变量；修改后重新启动 Vite 或重新构建。Arc 网络继续由 `VITE_ARC_NETWORK` 控制，默认测试网。项目 ID 可按本地 arc-lepton 的 `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` 配置，勿复制其他私密字段。生产域名需在对应 WalletConnect 项目中允许访问。
+
+钱包交互回归：启动 `npm run dev -- --host 127.0.0.1 --port 8934` 后运行 `node scripts/chain/wallet-smoke.mjs`，检查实际竞速页的钱包弹窗、键盘隔离与取消重试，不发送交易。
+
+添加 `--qr` 可检查真实 WalletConnect 二维码（需要连接其服务），添加 `--mobile` 可验证手机视口；设置 `URL` 可改为检查生产预览。
+
+`package.json` 将 `cuer` 的 `qr` 依赖固定为 `0.5.4`，避免新版本拒绝组件的零边框参数而使扫码界面崩溃；`src/chain/wallet-qr.test.mjs` 覆盖实际二维码渲染。
+
 调试参数（加在地址后面）：
 
 - `?still=road|chase|lift|space`：效果验证镜头
@@ -68,7 +84,7 @@ npm run preview  # 预览打包结果
 
 ## 技术栈
 
-Vite + three.js，纯 ES 模块，无后端。主要目录：
+Vite + three.js，游戏使用原生 ES 模块，钱包弹窗由独立 React 根承载。主要目录：
 
 | 目录 | 内容 |
 |---|---|

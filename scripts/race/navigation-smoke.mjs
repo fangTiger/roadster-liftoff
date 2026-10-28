@@ -1,0 +1,60 @@
+// 先启动 Vite；验证真实游戏中的暂停与退出，不连接钱包或发送交易。
+import { chromium } from 'playwright';
+import assert from 'node:assert/strict';
+const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
+try {
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.addInitScript(() => localStorage.setItem('liftoff.lang.v1', 'zh'));
+  await page.route('https://rpc.testnet.arc.io/**', async route => {
+    const data = route.request().postDataJSON();
+    const result = row => ({ jsonrpc: '2.0', id: row.id, result: '0x' + '0'.repeat(64 * 6) });
+    await route.fulfill({ json: Array.isArray(data) ? data.map(result) : result(data) });
+  });
+  const base = process.env.URL || 'http://127.0.0.1:8934/';
+  if (!process.argv.includes('--space')) {
+    await page.goto(new URL('/?race&greybox', base).href);
+    await page.locator('#race-loading').waitFor({ state: 'detached', timeout: 60000 });
+    await page.locator('[data-k="easy"]').click();
+    await page.locator('#race-pick').waitFor({ state: 'detached', timeout: 60000 });
+    await page.keyboard.press('Escape');
+    const menu = page.getByRole('dialog', { name: '已暂停', exact: true });
+    await menu.waitFor({ state: 'visible', timeout: 3000 });
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('liftoff.ui.v1'))?.muted), false, '暂停静音前须保存真实音频偏好，退出后不能永久静音');
+    await page.keyboard.press('Shift+Tab');
+    assert.equal(await menu.getByRole('link', { name: '返回首页', exact: true }).evaluate(node => node === document.activeElement), true, '焦点应留在暂停菜单内');
+    await page.keyboard.press('Tab');
+    assert.equal(await menu.getByRole('button', { name: '继续', exact: true }).evaluate(node => node === document.activeElement), true);
+    const steps = await page.evaluate(() => window.__raceReplay().steps);
+    await page.keyboard.down('w'); await page.waitForTimeout(350); await page.keyboard.up('w');
+    assert.equal(await page.evaluate(() => window.__raceReplay().steps), steps, '暂停时车辆、比赛计时和录制必须冻结');
+    await menu.getByRole('button', { name: '继续', exact: true }).click();
+    await menu.waitFor({ state: 'hidden' });
+    await page.waitForFunction(value => window.__raceReplay().steps > value, steps);
+    await page.locator('#race-tools [data-ach]').click();
+    await page.locator('.ach-panel-visible').waitFor({ state: 'visible' });
+    await page.keyboard.press('Escape');
+    await page.locator('.ach-panel-visible').waitFor({ state: 'hidden' });
+    assert.equal(await menu.isVisible(), false, '关闭成就弹窗不应同时打开暂停菜单');
+    await page.keyboard.press('p');
+    await menu.waitFor({ state: 'visible' });
+    await menu.getByRole('link', { name: '重新选图', exact: true }).click();
+    await page.locator('[data-k="easy"]').waitFor({ timeout: 60000 });
+    await page.locator('[data-k="easy"]').click();
+    await page.locator('#race-pick').waitFor({ state: 'detached', timeout: 60000 });
+    await page.getByRole('button', { name: '暂停', exact: true }).click();
+    await page.getByRole('dialog', { name: '已暂停', exact: true }).getByRole('link', { name: '返回首页', exact: true }).click();
+    await page.waitForURL(url => !url.searchParams.has('race'));
+  } else await page.goto(base);
+  const space = page.getByRole('button', { name: '飞向太空', exact: true });
+  await space.waitFor({ timeout: 60000 }); await space.click();
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('liftoff.audio.v1')).muted), false, '返回首页后的音频偏好应保持不变');
+  await page.keyboard.press('Escape');
+  const menu = page.locator('#liftoff-ui .ui-modal');
+  await menu.waitFor({ state: 'visible', timeout: 3000 });
+  await menu.getByRole('link', { name: '返回首页', exact: true }).click({ timeout: 3000 });
+  await page.getByRole('button', { name: '竞速', exact: true }).waitFor({ timeout: 60000 });
+  assert.deepEqual(errors, [], '退出和重新进入不应产生页面异常');
+  console.log('导航回归通过：竞速暂停冻结、继续、重新选图、按钮退出，以及太空模式返回首页');
+} finally { await browser.close(); }

@@ -96,3 +96,39 @@ test('V2 按赛道读取配置和最快圈', async () => {
   await wallet.readBest(alice, 2); await wallet.readTrack(2);
   assert.deepEqual(calls, [['bestOf', [alice, 2]], ['trackOf', [2]]]);
 });
+
+test('连接等待第三方选中的异步 provider，不读取默认注入钱包', async () => {
+  const methods = [];
+  const provider = { request: async ({ method }) => {
+    methods.push(method);
+    return method === 'eth_chainId' ? '0x4cef52' : [alice];
+  } };
+  const wallet = createRecordsWallet({ address, getProvider: () => null,
+    connectProvider: async () => provider, getWalletClient: () => ({}) });
+  assert.equal(await wallet.connect(), alice);
+  assert.equal(wallet.state.chainId, chain.id);
+  assert.ok(!methods.includes('eth_requestAccounts'));
+});
+
+test('第三方会话替换清理旧监听，断开后禁止提交', async () => {
+  let sessionChanged;
+  const removed = [], listeners = new Map(), first = {
+    on: (name, fn) => listeners.set(name, fn),
+    removeListener: name => removed.push(name),
+    request: async ({ method }) => method === 'eth_chainId' ? '0x4cef52' : [alice],
+  };
+  let current = first;
+  const wallet = createRecordsWallet({ address, getProvider: () => current,
+    subscribeSession: fn => { sessionChanged = fn; }, getWalletClient: () => ({}) });
+  await wallet.connect();
+  const second = { on() {}, request: async () => [bob] };
+  current = second;
+  sessionChanged({ provider: second, account: bob, chainId: chain.id });
+  assert.equal(wallet.state.account, bob);
+  assert.deepEqual(removed.sort(), ['accountsChanged', 'chainChanged', 'disconnect']);
+  listeners.get('accountsChanged')([alice]);
+  assert.equal(wallet.state.account, bob);
+  current = null; sessionChanged(null);
+  assert.equal(wallet.state.account, null); assert.equal(wallet.state.chainId, null);
+  await assert.rejects(wallet.submit(1, 50000, 0), { code: 'no_wallet' });
+});

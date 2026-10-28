@@ -8,3 +8,11 @@
 #race-tools input[type=checkbox]{accent-color:#ff8a5c}
 #race-tools .lang-toggle{cursor:pointer;white-space:nowrap}
 #race-pick a:focus-visible,#race-pick button:focus-visible{outline:2px solid #7fe3ff;outline-offset:4px}
+#race-menu{position:fixed;inset:0;z-index:80;display:grid;place-items:center;background:#0b0f14b0;backdrop-filter:blur(6px);padding:24px;box-sizing:border-box}
+#race-menu[hidden]{display:none}
+#race-menu>div{width:min(360px,100%);box-sizing:border-box;padding:28px;border:1px solid #ffffff26;border-radius:12px;background:#101a20ed;box-shadow:0 20px 70px #0008}
+#race-menu h2{margin:0 0 22px;font-size:28px}
+#race-menu button,#race-menu a{display:block;width:100%;box-sizing:border-box;margin-top:10px;padding:12px;text-align:center;text-decoration:none;color:inherit;font:inherit;border:1px solid #ffffff26;border-radius:8px;background:#17232ae6;cursor:pointer}
+#race-menu button{border-color:#7fe3ff88;color:#7fe3ff}
+#race-menu a:hover{border-color:#7fe3ff88}
+#race-menu p{color:#aab7bd;line-height:1.7;font-size:12px;margin:18px 0 0}

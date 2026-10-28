@@ -28,13 +28,14 @@ import { createStartGate } from './scene/startgate.js';
 import { createCelebration } from './scene/celebration.js';
 import { mountRaceChain } from '../chain/race-panel.js';
 import { mountRaceBoard } from '../chain/race-board.js';
+import { mountRaceMenu } from './menu.js';
 const params = new URLSearchParams(location.search), capture = params.has('capture');
 // 加载画面：素材加载、着色器预编译完成之前盖住页面
 const loading = document.createElement('div'); loading.id = 'race-loading'; loading.textContent = t('race.loading');
 Object.assign(loading.style, { position: 'fixed', inset: '0', zIndex: '50', display: 'grid', placeItems: 'center', background: '#0b0f14', color: '#cfd8e3', font: '500 15px/1 system-ui,sans-serif', letterSpacing: '.2em', transition: 'opacity .6s' });
 document.body.append(loading);
 // 竞速模式不用第一版的界面：一开始就藏起来（HUD 要等选完地图才创建）
-const hideOld = document.createElement('style'); hideOld.textContent = 'body> :not(canvas):not(#race-hud):not(#race-pick):not(#race-loading):not(#race-tools):not(#ach-toast):not(#ach-panel-wrap):not(script):not(style){display:none!important}'; document.head.append(hideOld);
+const hideOld = document.createElement('style'); hideOld.textContent = 'body> :not(canvas):not(#race-hud):not(#race-pick):not(#race-loading):not(#race-tools):not(#ach-toast):not(#ach-panel-wrap):not(#roadster-wallet):not(w3m-modal):not(:has([data-rk])):not(script):not(style){display:none!important}'; document.head.append(hideOld);
 // 与第一版共用存储和音量总线，竞速不加载音乐文件。
 const audio = createAudio({ music: false }), raceAudio = createRaceAudio(audio), achievements = createAchievements();
 let audioSettings = {};
@@ -65,7 +66,7 @@ const boostFx = createBoostFx(engine.scene, car), camera = createRaceCamera(engi
 const hideLoading = () => { loading.style.opacity = '0'; setTimeout(() => loading.remove(), 700); };
 
 // 选定地图后才生成赛道、场景、HUD 与会话
-let entry, qualifyMs, track, def, hash, scene, gate, hud, session, recorder, previous, current, seenEvents = 0, lastBits = 0, wheelAngle = 0, celebrated = false;
+let entry, qualifyMs, track, def, hash, scene, gate, hud, session, recorder, previous, current, raceMenu, seenEvents = 0, lastBits = 0, wheelAngle = 0, celebrated = false;
 async function setup(difficulty) {
   entry = TRACKS.find(t => t.difficulty === difficulty) || TRACKS[0];
   qualifyMs = qualifyTime(entry);
@@ -75,6 +76,20 @@ async function setup(difficulty) {
   scene = params.has('greybox') ? createGreybox(engine.scene, track, { tint: sky.tint }) : await createAlpine(engine.scene, track, { tint: sky.tint, renderer: engine.renderer }); gate = createStartGate(engine.scene, track, t('race.track' + def.id)); hud = createHud(track, () => `${t('race.track' + def.id)} · ${t('race.' + entry.difficulty)}`);
   session = createSession(track, { laps: def.laps }); recorder = createRecorder(); previous = current = session.snapshot;
   render(); await engine.renderer.compileAsync(engine.scene, engine.camera); render();
+  if (!capture && !raceMenu) {
+    const selectionParams = new URLSearchParams(location.search);
+    for (const key of ['map', 'autopilot', 'capture']) selectionParams.delete(key);
+    raceMenu = mountRaceMenu(tools, {
+      selectHref: `${location.pathname}?${selectionParams}`,
+      onPauseChange: paused => {
+        keys.clear();
+        // 与太空模式保持一致：先保存真实偏好，避免暂停退出后把临时静音带到下一页。
+        if (paused) saveAudio();
+        audio.setMuted(paused || muteInput.checked);
+      },
+      isOverlayOpen: () => !!document.querySelector('.ach-panel-visible, [data-rk] [role="dialog"], w3m-modal.open'),
+    });
+  }
 }
 const keys = new Set(), map = { KeyW: B.THROTTLE, ArrowUp: B.THROTTLE, KeyS: B.BRAKE, ArrowDown: B.BRAKE, KeyA: B.LEFT, ArrowLeft: B.LEFT, KeyD: B.RIGHT, ArrowRight: B.RIGHT, Space: B.JET, ShiftLeft: B.DRIFT, ShiftRight: B.DRIFT, Backspace: B.RESET, KeyT: B.RESET };
 addEventListener('keydown', e => { if (e.target.closest?.('input,select,textarea') || document.querySelector('.ach-panel-visible')) return; if (['Enter', 'Space'].includes(e.code) && e.target.closest?.('button,summary,[role=button]')) return; if (map[e.code]) { e.preventDefault(); keys.add(e.code); } if (e.code === 'KeyC' && !e.repeat) camera.setMode(); if (e.code === 'Enter' && current?.race.finished) location.reload(); });
@@ -138,5 +153,13 @@ if (capture) {
   let accumulator = 0, lastTime;
   const auto = params.has('autopilot');   // ?race&autopilot&map=…：机器人开完全程（测试网端到端脚本用）
   if (auto) choose(params.get('map') || DEFAULT_DIFFICULTY);
-  function frame(time) { const elapsed = lastTime === undefined ? 0 : Math.min(.1, (time - lastTime) / 1000); lastTime = time; accumulator += elapsed; let bits = 0; for (const code of keys) bits |= map[code] || 0; if (auto && !current.race.finished) bits = autopilot(current, track); while (accumulator >= DT) { simulate(bits); accumulator -= DT; } render(accumulator / DT, elapsed); requestAnimationFrame(frame); }
+  function frame(time) {
+    const elapsed = lastTime === undefined ? 0 : Math.min(.1, (time - lastTime) / 1000); lastTime = time;
+    // 暂停时不推进车辆、计时或录制；逐帧更新时间，恢复时不补跑暂停期间的时间。
+    if (raceMenu?.paused) { accumulator = 0; engine.render(); requestAnimationFrame(frame); return; }
+    accumulator += elapsed; let bits = 0; for (const code of keys) bits |= map[code] || 0;
+    if (auto && !current.race.finished) bits = autopilot(current, track);
+    while (accumulator >= DT) { simulate(bits); accumulator -= DT; }
+    render(accumulator / DT, elapsed); requestAnimationFrame(frame);
+  }
 }

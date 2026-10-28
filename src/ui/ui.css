@@ -41,6 +41,8 @@
 #liftoff-ui header .ui-eyebrow{margin-bottom:8px;letter-spacing:2px;font-size:10px}
 #liftoff-ui .ui-close{font-size:26px;width:44px;padding:0;color:var(--dim)}
 #liftoff-ui .ui-note{color:var(--dim);line-height:1.7;margin-bottom:24px}
+#liftoff-ui .ui-home{display:block;text-align:center;text-decoration:none;color:var(--txt);font:inherit;padding:12px 18px;border:1px solid var(--line);border-radius:8px;background:#ffffff06}
+#liftoff-ui .ui-home:hover{border-color:var(--cy);background:#ffffff0c}
 #liftoff-ui .ui-actions{display:grid;gap:10px}
 #liftoff-ui .ui-primary,#liftoff-ui .ui-quality [aria-pressed=true]{background:linear-gradient(180deg,#ff8a5c,#ff4d3a);border-color:transparent;color:#fff}
 #liftoff-ui .ui-primary:hover{filter:brightness(1.1)}
