@@ -11,7 +11,7 @@ function crossing(prev,pos,line) {
 export function createRace(track,{laps=3,dt=1/120}={}) {
   if(!Number.isInteger(laps)||laps<1||!Number.isFinite(dt)||dt<=0) throw new RangeError('圈数与步长必须为正数');
   const gates=track.checkpointGates,countdownSteps=Math.ceil(3/dt),wrongSteps=Math.ceil(2/dt);
-  const state={frozen:true,countdown:3,finished:false,steps:0,elapsed:0,lap:1,lapTime:0,lapTimes:[],sectorTimes:[],currentSectors:[],bestLap:null,nextCheckpoint:0,missed:null,wrongWay:false,penalty:0};
+  const state={frozen:true,countdown:3,finished:false,steps:0,elapsed:0,lap:1,lapTime:0,lapTimes:[],sectorTimes:[],currentSectors:[],bestLap:null,nextCheckpoint:0,missed:null,wrongWay:false,penalty:0,started:false};
   let countdown=0,lapStart=0,sectorStart=0,penalty=0,sectorPenalty=0,wrong=0,lastGate=gates.length-1,hint;
   function updateTime() {state.elapsed=state.steps*dt+state.penalty;state.lapTime=(state.steps-lapStart)*dt+penalty;}
   function step(prevPos,pos,carState) {
@@ -41,9 +41,12 @@ export function createRace(track,{laps=3,dt=1/120}={}) {
     hits.sort((a,b)=>a.t-b.t||a.i-b.i);
     for(const hit of hits) {
       if(hit.i!==state.nextCheckpoint) {
+        // 发车位在终点线后：第一圈开始前第一次压线只算出发，不算漏检
+        if(hit.i===gates.length-1&&!state.started&&state.nextCheckpoint===0&&!state.lapTimes.length){state.started=true;continue;}
         if(hit.i===gates.length-1) state.missed=gates[state.nextCheckpoint].id;
         continue;
       }
+      state.started=true;
       state.currentSectors.push((state.steps-sectorStart)*dt+penalty-sectorPenalty);
       sectorStart=state.steps;sectorPenalty=penalty;lastGate=hit.i;state.nextCheckpoint++;
       if(state.nextCheckpoint===gates.length) {

@@ -15,6 +15,8 @@ import { createHud } from './hud.js';
 import { createSky, SKIES, DEFAULT_SKY } from './scene/sky.js';
 import { createSkidmarks } from './scene/skidmarks.js';
 import { createBoostFx } from './scene/boostfx.js';
+import { createStartGate } from './scene/startgate.js';
+import { createCelebration } from './scene/celebration.js';
 const params = new URLSearchParams(location.search), capture = params.has('capture');
 // 加载画面：素材加载、着色器预编译完成之前盖住页面
 const loading = document.createElement('div'); loading.id = 'race-loading'; loading.textContent = '加载赛道…';
@@ -28,15 +30,15 @@ engine.camera.far = 1800; engine.camera.updateProjectionMatrix();
 const storedSky = (() => { try { return localStorage.getItem('race.sky'); } catch { return null; } })();
 const skyKey = SKIES[params.get('sky')] ? params.get('sky') : SKIES[storedSky] ? storedSky : DEFAULT_SKY;
 const sky = await createSky(engine.scene, engine.renderer, skyKey), skid = createSkidmarks(engine.scene), car = await createCar(); engine.scene.add(car.root);
-const boostFx = createBoostFx(engine.scene, car), camera = createRaceCamera(engine.camera, engine.renderer.domElement);
+const boostFx = createBoostFx(engine.scene, car), camera = createRaceCamera(engine.camera, engine.renderer.domElement), celebration = createCelebration(engine.scene);
 const hideLoading = () => { loading.style.opacity = '0'; setTimeout(() => loading.remove(), 700); };
 
 // 选定地图后才生成赛道、场景、HUD 与会话
-let track, def, hash, scene, hud, session, recorder, previous, current, seenEvents = 0, lastBits = 0, wheelAngle = 0;
+let track, def, hash, scene, gate, hud, session, recorder, previous, current, seenEvents = 0, lastBits = 0, wheelAngle = 0, celebrated = false;
 async function setup(difficulty) {
   const entry = TRACKS.find(t => t.difficulty === difficulty) || TRACKS[0];
   def = entry.def; track = buildTrack(def); hash = trackHash(def);
-  scene = createGreybox(engine.scene, track, { tint: sky.tint }); hud = createHud(track, `${def.name.zh} · ${entry.label}`);
+  scene = createGreybox(engine.scene, track, { tint: sky.tint }); gate = createStartGate(engine.scene, track, def.name.zh); hud = createHud(track, `${def.name.zh} · ${entry.label}`);
   session = createSession(track, { laps: def.laps }); recorder = createRecorder(); previous = current = session.snapshot;
   render(); await engine.renderer.compileAsync(engine.scene, engine.camera); render();
 }
@@ -55,6 +57,9 @@ function render(alpha = 1, dt = 1 / 60) {
   // 压上加速带、二次加速：冲击波环 + 视野猛张；处在加速状态时喷金色火焰
   for (; seenEvents < current.events.length; seenEvents++) { const t = current.events[seenEvents].type; if (t === 'counterBoost' || t === 'boost') { boostFx.trigger(c); camera.kick(); } }
   boostFx.update(dt, current.step * DT, c.boostTime > 0);
+  // 冲线：彩带、烟花、镜头环拍
+  if (current.race.finished && !celebrated) { celebrated = true; celebration.start(car.root.position); camera.setMode('celebrate'); }
+  celebration.update(dt); gate.update(current);
   camera.update(c, dt); sky.update(engine.camera, car.root.position); skid.update(c); scene.update(current); hud.update(current); engine.render();
 }
 // 普通游玩也全程录制；控制台可导出本局，便于复盘和服务器核实

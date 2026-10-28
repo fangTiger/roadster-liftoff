@@ -1,6 +1,7 @@
 // 竞速 HUD：左上圈数与计时、右上小地图（整条赛道、车的位置与朝向、下一道检查点）、本圈进度条、右下速度与推进剂、中部事件提示
 const format = t => t === null ? '—' : `${Math.floor(t / 60)}:${(t % 60).toFixed(3).padStart(6, '0')}`;
-const EVENT_TEXT = { driftBoost: e => `漂移加速 ${'Ⅰ Ⅱ Ⅲ'.split(' ')[e.tier - 1]}`, counterBoost: () => '二次加速！', driftSwitch: () => '连续漂移', boost: () => '加速带', coin: () => '', wall: () => '', land: () => '' };
+const LAPS = 3;
+const EVENT_TEXT = { lap: e => e.lap >= LAPS ? '' : e.lap === LAPS - 1 ? '最后一圈！' : `第 ${e.lap + 1} 圈`, driftBoost: e => `漂移加速 ${'Ⅰ Ⅱ Ⅲ'.split(' ')[e.tier - 1]}`, counterBoost: () => '二次加速！', driftSwitch: () => '连续漂移', boost: () => '加速带', coin: () => '', wall: () => '', land: () => '' };
 export function createHud(track, title = '') {
   const style = document.createElement('style');
   style.textContent = `body{margin:0;overflow:hidden;background:#0b0f14}body> :not(canvas):not(#race-hud):not(#race-pick):not(#race-loading):not(script):not(style){display:none!important}
@@ -17,7 +18,7 @@ export function createHud(track, title = '') {
 #race-hud .rh-notice{position:absolute;top:22%;width:100%;text-align:center;font-size:36px;font-weight:600;text-shadow:0 2px 10px #000}
 #race-hud .rh-flash{position:absolute;top:32%;width:100%;text-align:center;font-size:26px;color:#8ef0ff;text-shadow:0 2px 10px #000;transition:opacity .25s}
 #race-hud footer{position:absolute;bottom:18px;left:24px;right:24px;font-size:13px;color:#eee5d0;text-shadow:0 1px 4px #000}
-#race-hud .rh-result{position:absolute;top:24%;left:50%;transform:translateX(-50%);padding:28px 42px;line-height:2;font-size:22px}
+#race-hud .rh-result{position:absolute;top:5%;left:50%;transform:translateX(-50%);padding:26px 44px;line-height:1.9;font-size:20px;text-align:center;min-width:300px}#race-hud .rh-result h2{margin:0 0 6px;font-size:46px;letter-spacing:.2em;color:#ffd34d;text-shadow:0 0 24px #ffb30088}#race-hud .rh-result .best{font-size:30px;color:#fff;margin:6px 0}#race-hud .rh-result .laps{color:#c9d3d8;font-size:17px}
 @media(max-width:700px){#race-hud header{left:10px;top:10px;min-width:150px}#race-hud .rh-map{right:10px;top:10px}#race-hud .rh-speed{right:10px;bottom:70px}#race-hud footer{font-size:11px}}`;
   document.head.append(style);
   const root = document.createElement('div'); root.id = 'race-hud';
@@ -64,7 +65,7 @@ export function createHud(track, title = '') {
     const recent = s.events.slice(-8).findLast(e => e.type === 'reset' && s.step - e.step < 240);
     $('.rh-notice').textContent = r.frozen ? Math.ceil(r.countdown) : r.wrongWay ? '方向错误' : r.missed !== null ? `漏检：检查点 ${r.missed}` : recent ? '重置 · 罚时 +3 秒' : '';
     const result = $('.rh-result'); result.hidden = !r.finished;
-    if (r.finished) result.innerHTML = `比赛完成<br>${r.lapTimes.map((t, i) => `第 ${i + 1} 圈　${format(t)}`).join('<br>')}<br>最快单圈　${format(r.bestLap)}<br><small style="font-size:14px;color:#aab7bd">按 Enter 重新选图</small>`;
+    if (r.finished) result.innerHTML = `<h2>完赛！</h2><div class="best">最快单圈 ${format(r.bestLap)}</div><div class="laps">${r.lapTimes.map((t, i) => `第 ${i + 1} 圈　${format(t)}${t === r.bestLap ? '　★' : ''}`).join('<br>')}</div><small style="font-size:14px;color:#aab7bd">按 Enter 重新选图</small>`;
   }
   return { update };
 }

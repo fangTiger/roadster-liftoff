@@ -6,8 +6,8 @@ import { createSession } from './session.js';
 import { autopilot } from './autopilot.js';
 import { THROTTLE,RESET } from './input-bits.js';
 const track=buildTrack(def);
-test('终点后出生、倒数冻结、快照隔离、重置按下沿',()=>{
- const s=createSession(track);const p=s.snapshot.car;assert.ok(track.nearest(p.x,p.z).s>5);
+test('终点线后发车、倒数冻结、快照隔离、重置按下沿',()=>{
+ const s=createSession(track);const p=s.snapshot.car;assert.ok(track.nearest(p.x,p.z).s>track.length-20);
  for(let i=0;i<360;i++)s.step(THROTTLE);assert.equal(s.snapshot.car.z,p.z);assert.equal(s.snapshot.race.elapsed,0);
  const copy=s.snapshot;copy.car.x=999;assert.notEqual(s.snapshot.car.x,999);
  s.step(RESET);const penalty=s.snapshot.race.penalty;s.step(RESET);assert.equal(s.snapshot.race.penalty,penalty);assert.equal(penalty,3);
@@ -21,7 +21,8 @@ test('盘山碰撞修正不会把车弹射到高空',()=>{
  const s=createSession(track);let highest=0;for(let i=0;i<4800;i++){s.step(autopilot(s.snapshot,track));highest=Math.max(highest,s.snapshot.car.y);}assert.ok(highest<50,`异常高度 ${highest}`);
 });
 test('同一圈重置不刷新已拾取金币和已撞锥桶',()=>{
- const t={...track,features:[{type:'coins',from:6,to:6,count:1,height:1,lateral:0},{type:'cones',items:[{x:0,z:6,kind:'cone',radius:.35}]}]};
+ // 金币和锥桶都放在发车位（终点线后 12 米）上
+ const at=track.length-12,p=track.at(at),t={...track,features:[{type:'coins',from:at,to:at,count:1,height:1,lateral:0},{type:'cones',items:[{x:p.x,z:p.z,kind:'cone',radius:.35}]}]};
  const s=createSession(t);for(let i=0;i<361;i++)s.step(0);assert.equal(s.snapshot.events.filter(e=>e.type==='coin').length,1);
  s.step(RESET);for(let i=0;i<120;i++)s.step(THROTTLE);
  assert.equal(s.snapshot.events.filter(e=>e.type==='coin').length,1);assert.equal(s.snapshot.events.filter(e=>e.type==='cone').length,1);
@@ -48,4 +49,11 @@ test('分支接口与重叠路幅的高度断层不会把车弹起（只有断�
   for(;seen<snap.events.length;seen++){const e=snap.events[seen];if(e.type!=='land'||e.impact<=6)continue;const n=track.nearest(snap.car.x,snap.car.z,snap.car.near),k=n.path==='main'?sec(n.s):n.path;if(k!==4&&k!==7)hard.push([k,e.impact]);}
  }
  assert.ok(snap.race.finished);assert.deepEqual(hard,[]);
+});
+
+test('完赛后车自动刹停，不会倒车',()=>{
+ const t=buildTrack(def),s=createSession(t,{laps:1});let snap=s.snapshot,n=0;
+ while(!snap.race.finished&&n<120*200){s.step(autopilot(snap,t));snap=s.snapshot;n++;}
+ assert.ok(snap.race.finished);for(let i=0;i<120*10;i++)s.step(THROTTLE);
+ const c=s.snapshot.car,fwd=c.vx*Math.sin(c.yaw)+c.vz*Math.cos(c.yaw);assert.ok(Math.hypot(c.vx,c.vz)<.6);assert.ok(fwd>-.5);
 });
