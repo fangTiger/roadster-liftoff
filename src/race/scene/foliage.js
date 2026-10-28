@@ -33,8 +33,8 @@ function branchTexture() {
   ctx.strokeStyle = '#625e3d'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(256, 500); ctx.lineTo(256, 35); ctx.stroke();
   needleMap = new THREE.CanvasTexture(canvas); needleMap.colorSpace = THREE.SRGBColorSpace; needleMap.anisotropy = 4; return needleMap;
 }
-export function restoreNeedles(parts, height) {
+export function restoreNeedles(parts, height, radius = 4.5) {
   const remaining = parts.filter(p => !/twig|leaf|leaves|needle/i.test(p.material.name));
   const material = new THREE.MeshStandardMaterial({ map: branchTexture(), alphaTest: .35, side: THREE.DoubleSide, roughness: 1, color: 0xc4d0bc });
-  return [...remaining, { geometry: needleGeometry(height, 4.5), material }];
+  return [...remaining, { geometry: needleGeometry(height, radius), material }];
 }

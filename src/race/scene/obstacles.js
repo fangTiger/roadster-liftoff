@@ -19,9 +19,9 @@ export async function createObstacles(scene, track) {
   function mesh(parent, geometry, material, x = 0, y = 0, z = 0) { const m = new THREE.Mesh(geometry, material); m.position.set(x, y, z); m.receiveShadow = true; parent.add(m); return m; }
   function box(parent, material, x, y, z, w, h, d) { return mesh(parent, new THREE.BoxGeometry(w, h, d), material, x, y, z); }
   function group(x, y, z, yaw = 0) { const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = yaw; scene.add(g); groups.push(g); return g; }
-  const [tyre, barrier, rock, stone] = await Promise.all([
+  const [tyre, barrier, rock, stone, barrier2] = await Promise.all([
     loadPrototype('old_tyre', .95, { flat: true, axis: 'x' }), loadPrototype('concrete_road_barrier', 1.3, { maxRadius: 1.1 }),
-    loadPrototype('rock_07', 2, { axis: 'y', maxRadius: 1 }), loadPrototype('rock_09', 7, { maxRadius: 4 }),
+    loadPrototype('rock_07', 2, { axis: 'y', maxRadius: 1 }), loadPrototype('rock_09', 7, { maxRadius: 4 }), loadPrototype('concrete_road_barrier_02', 1.3, { maxRadius: 1.1 }),
   ]);
   centerPrototype(rock);
   // 只在加载时减面一次，近景仍使用原素材的几何、UV 与橡胶贴图。
@@ -72,17 +72,20 @@ export async function createObstacles(scene, track) {
       for (let s = f.from + 12; s < f.to; s += 24) { const p = track.at(s); const g = group(p.x, p.y, p.z, Math.atan2(p.tx, p.tz)); box(g, lampMaterial, 0, f.height - .15, 0, 1.5, .08, .5); }
     }
     if (f.type === 'cones') {
-      const placements = [];
+      const placements = [[], []]; let barrierIndex = 0;
       for (const item of f.items) {
         const n = track.nearest(item.x, item.z), g = group(item.x, n.y + n.lateral * n.bank, item.z, Math.atan2(n.tx, n.tz));
-        if (item.kind === 'concrete') { placements.push({ x: item.x, y: g.position.y, z: item.z, yaw: Math.atan2(n.tx, n.tz), sx: 1, sy: 1, sz: 1 }); }
+        if (item.kind === 'concrete') { placements[barrierIndex++ % 2].push({ x: item.x, y: g.position.y, z: item.z, yaw: Math.atan2(n.tx, n.tz), sx: 1, sy: 1, sz: 1 }); }
         else {
           box(g, rust, 0, .05, 0, .7, .1, .7);
           mesh(g, new THREE.ConeGeometry(.35, 1, 12), new THREE.MeshStandardMaterial({ color: 0xee6920 }), 0, .55, 0);
           mesh(g, new THREE.CylinderGeometry(.16, .22, .18, 12), new THREE.MeshStandardMaterial({ color: 0xf7edda }), 0, .58, 0);
         }
       }
-      instanceParts(scene, barrier, placements);
+      for (const [i, parts] of [barrier, barrier2].entries()) {
+        const g = group(f.x, f.y, f.z);
+        instanceParts(g, parts, placements[i].map(p => ({ ...p, x: p.x - f.x, y: p.y - f.y, z: p.z - f.z })));
+      }
     }
     if (f.type === 'slot') {
       // 凸出的岩石外轮廓完全落在碰撞矩形内，保留数据规定的三米通道。
