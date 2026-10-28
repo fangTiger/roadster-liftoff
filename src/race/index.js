@@ -10,6 +10,7 @@ import { DT } from './sim/physics.js';
 import { autopilot } from './sim/autopilot.js';
 import * as B from './sim/input-bits.js';
 import { createGreybox } from './scene/greybox.js';
+import { createAlpine } from './scene/alpine.js';
 import { createRaceCamera } from './camera.js';
 import { createHud } from './hud.js';
 import { createSky, SKIES, DEFAULT_SKY } from './scene/sky.js';
@@ -38,7 +39,7 @@ let track, def, hash, scene, gate, hud, session, recorder, previous, current, se
 async function setup(difficulty) {
   const entry = TRACKS.find(t => t.difficulty === difficulty) || TRACKS[0];
   def = entry.def; track = buildTrack(def); hash = trackHash(def);
-  scene = createGreybox(engine.scene, track, { tint: sky.tint }); gate = createStartGate(engine.scene, track, def.name.zh); hud = createHud(track, `${def.name.zh} · ${entry.label}`);
+  scene = params.has('greybox') ? createGreybox(engine.scene, track, { tint: sky.tint }) : await createAlpine(engine.scene, track, { tint: sky.tint, renderer: engine.renderer }); gate = createStartGate(engine.scene, track, def.name.zh); hud = createHud(track, `${def.name.zh} · ${entry.label}`);
   session = createSession(track, { laps: def.laps }); recorder = createRecorder(); previous = current = session.snapshot;
   render(); await engine.renderer.compileAsync(engine.scene, engine.camera); render();
 }
