@@ -7,12 +7,12 @@ import { restoreNeedles } from './foliage.js';
 const cache = new Map();
 const triangleCount = root => { let count = 0; root.traverse(o => { if (o.isMesh) count += (o.geometry.index?.count ?? o.geometry.attributes.position.count) / 3; }); return count; };
 // 一个 GLB 常装有多个并排展示的变体；只选择面数最少的完整变体，避免把整组当成一棵树。
-export async function loadPrototype(name, size, { flat = false, axis = 'y', dense = false, maxRadius = Infinity } = {}) {
+export async function loadPrototype(name, size, { flat = false, axis = 'y', dense = false, maxRadius = Infinity, select } = {}) {
   if (!cache.has(name)) cache.set(name, loadGLTF(`/assets/race/props/${name}.glb`));
   const { scene } = await cache.get(name); scene.updateMatrixWorld(true);
   const roots = scene.children.filter(c => triangleCount(c) > 0).sort((a, b) => triangleCount(a) - triangleCount(b));
-  const root = dense ? roots.at(-1) : roots[0], parts = [];
-  root.traverse(o => {
+  const selected = select ? roots.filter(c => select(c.name)) : [dense ? roots.at(-1) : roots[0]], parts = [];
+  for (const root of selected) root.traverse(o => {
     if (!o.isMesh) return;
     const geometry = o.geometry.clone();
     // 量化 glTF 的整型属性必须先展开，否则应用世界变换会再次量化并截断坐标。
@@ -89,11 +89,21 @@ export function updateInstances(group, points) {
 export async function createProps(scene, track, { mobile = false, renderer } = {}) {
   const kinds = {
     fir: ['fir_tree_01', 14], pine: ['pine_sapling_medium', 9], shrub: ['shrub_02', 1.3],
+    largePine: ['pine_tree_01', 18], firSapling: ['fir_sapling_medium', 4.5],
+    stone: ['stone_01', 1.1], shrub4: ['shrub_04', 1.2], trunk: ['dead_tree_trunk_02', 1],
+    pole: ['modular_electricity_poles', 10], fence: ['modular_chainlink_fence', 2.4],
+    rockFace: ['rock_face_01', 8], mountainside: ['mountainside', 12],
     stump: ['tree_stump_01', .8], moss: ['rock_moss_set_01', 1.6], boulder: ['rock_09', 4],
   };
-  const prototypes = Object.fromEntries(await Promise.all(Object.entries(kinds).map(async ([key, [name, height]]) => [key, await loadPrototype(name, height, { dense: key === 'fir' || key === 'pine', maxRadius: key === 'fir' || key === 'pine' ? 4.5 : key === 'boulder' ? 3.7 : key === 'moss' ? 1.9 : 1.3 })])));
-  for (const kind of ['fir', 'pine']) prototypes[kind] = restoreNeedles(prototypes[kind], kinds[kind][1]);
-  const billboards = Object.fromEntries(Object.entries(prototypes).map(([kind, parts]) => [kind, bakeImpostor(renderer, parts, scene)]));
+  const radii = { fir: 4.5, pine: 4.5, largePine: 4.5, firSapling: 2.4, stone: 1.7, shrub4: 1.7, trunk: 3.1, pole: 3.9, fence: 2, rockFace: 4.9, mountainside: 6.9, boulder: 3.7, moss: 1.9 };
+  const prototypes = Object.fromEntries(await Promise.all(Object.entries(kinds).map(async ([key, [name, height]]) => [key, await loadPrototype(name, height, {
+    dense: ['fir', 'pine', 'largePine', 'firSapling'].includes(key), maxRadius: radii[key] ?? 1.3,
+    // 模块包必须选完整预设，不能把面数最少的螺母或卡扣当成地标。
+    select: key === 'pole' ? name => name.startsWith('preset_02_') : key === 'fence' ? name => name === 'modular_chainlink_fence_double' || name === 'modular_chainlink_fence_end_01' : undefined,
+  })])));
+  for (const kind of ['fir', 'pine', 'largePine', 'firSapling']) prototypes[kind] = restoreNeedles(prototypes[kind], kinds[kind][1], radii[kind]);
+  const solidKinds = new Set(['pole', 'fence']);
+  const billboards = Object.fromEntries(Object.entries(prototypes).map(([kind, parts]) => [kind, solidKinds.has(kind) ? parts : bakeImpostor(renderer, parts, scene)]));
   const buckets = new Map();
   for (const point of scatterProps(track, mobile)) {
     const key = `${Math.floor(point.x / 256)},${Math.floor(point.z / 256)},${point.kind}`;

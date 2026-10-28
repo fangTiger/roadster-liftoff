@@ -79,3 +79,42 @@ test('平坦地形边缘法线不受竖直裙边污染', async () => {
   const i = Array.from({ length: p.count }, (_, i) => i).find(i => p.getX(i) === 0 && p.getZ(i) === 64);
   assert.ok(n.getY(i) > .999, `平地边缘法线应向上，实际 ${n.getY(i)}`);
 });
+
+test('三图混种大松树并补齐路边素材和成排设施，陡坡有两类岩块', () => {
+  for (const { def, difficulty } of TRACKS) {
+    const track = buildTrack(def), points = layout.scatterProps(track);
+    for (const kind of ['fir', 'largePine', 'firSapling', 'stone', 'shrub4', 'trunk', 'pole', 'fence']) {
+      assert.ok(points.some(p => p.kind === kind), `${difficulty} 缺少 ${kind}`);
+    }
+    assert.ok(points.filter(p => p.kind === 'pole').length >= 3);
+    assert.ok(points.filter(p => p.kind === 'fence').length >= 5);
+    if (difficulty === 'hard') for (const kind of ['rockFace', 'mountainside']) {
+      assert.ok(points.some(p => p.kind === kind), `陡坡缺少 ${kind}`);
+    }
+  }
+});
+
+test('铁丝网连续成段，新增装饰包围圆不穿过任意墙段，移动端也保持多样性', () => {
+  for (const { def } of TRACKS) for (const mobile of [false, true]) {
+    const track = buildTrack(def), points = layout.scatterProps(track, mobile);
+    const fence = points.filter(p => p.kind === 'fence');
+    for (let i = 1; i < fence.length; i++) assert.ok(Math.hypot(fence[i].x - fence[i - 1].x, fence[i].z - fence[i - 1].z) <= 2.2);
+    for (const kind of ['largePine', 'firSapling', 'stone', 'shrub4', 'trunk', 'pole', 'fence']) assert.ok(points.some(p => p.kind === kind));
+    for (const p of points) for (const w of track.walls) {
+      const dx = w.b.x - w.a.x, dz = w.b.z - w.a.z;
+      const t = Math.max(0, Math.min(1, ((p.x - w.a.x) * dx + (p.z - w.a.z) * dz) / (dx * dx + dz * dz)));
+      assert.ok(Math.hypot(p.x - w.a.x - t * dx, p.z - w.a.z - t * dz) > p.radius + 1);
+    }
+  }
+});
+
+test('台地与峡谷岩层形成多处点缀，并位于真实陡坡上', () => {
+  const track = buildTrack(TRACKS.find(t => t.difficulty === 'hard').def);
+  const rocks = layout.scatterProps(track).filter(p => ['rockFace', 'mountainside'].includes(p.kind));
+  assert.ok(rocks.length >= 6);
+  for (const p of rocks) {
+    const dx = track.heightAt(p.x + 2, p.z) - track.heightAt(p.x - 2, p.z);
+    const dz = track.heightAt(p.x, p.z + 2) - track.heightAt(p.x, p.z - 2);
+    assert.ok(Math.hypot(dx, dz) / 4 >= .7);
+  }
+});

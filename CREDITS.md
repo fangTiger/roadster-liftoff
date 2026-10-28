@@ -57,6 +57,16 @@
 | `public/assets/race/props/rock_09.glb` | [Poly Haven · rock_09](https://polyhaven.com/a/rock_09) · CC0 |
 | `public/assets/race/props/shrub_02.glb` | [Poly Haven · shrub_02](https://polyhaven.com/a/shrub_02) · CC0 |
 | `public/assets/race/props/tree_stump_01.glb` | [Poly Haven · tree_stump_01](https://polyhaven.com/a/tree_stump_01) · CC0 |
+| `public/assets/race/props/pine_tree_01.glb`（减面至约 2%，meshopt 压缩） | [Poly Haven · pine_tree_01](https://polyhaven.com/a/pine_tree_01) · CC0 |
+| `public/assets/race/props/fir_sapling_medium.glb`（已减面，meshopt 压缩） | [Poly Haven · fir_sapling_medium](https://polyhaven.com/a/fir_sapling_medium) · CC0 |
+| `public/assets/race/props/stone_01.glb`（meshopt 压缩） | [Poly Haven · stone_01](https://polyhaven.com/a/stone_01) · CC0 |
+| `public/assets/race/props/shrub_04.glb`（meshopt 压缩） | [Poly Haven · shrub_04](https://polyhaven.com/a/shrub_04) · CC0 |
+| `public/assets/race/props/dead_tree_trunk_02.glb`（meshopt 压缩） | [Poly Haven · dead_tree_trunk_02](https://polyhaven.com/a/dead_tree_trunk_02) · CC0 |
+| `public/assets/race/props/concrete_road_barrier_02.glb`（meshopt 压缩） | [Poly Haven · concrete_road_barrier_02](https://polyhaven.com/a/concrete_road_barrier_02) · CC0 |
+| `public/assets/race/props/rock_face_01.glb`（meshopt 压缩） | [Poly Haven · rock_face_01](https://polyhaven.com/a/rock_face_01) · CC0 |
+| `public/assets/race/props/mountainside.glb`（meshopt 压缩） | [Poly Haven · mountainside](https://polyhaven.com/a/mountainside) · CC0 |
+| `public/assets/race/props/modular_electricity_poles.glb`（meshopt 压缩） | [Poly Haven · modular_electricity_poles](https://polyhaven.com/a/modular_electricity_poles) · CC0 |
+| `public/assets/race/props/modular_chainlink_fence.glb`（meshopt 压缩） | [Poly Haven · modular_chainlink_fence](https://polyhaven.com/a/modular_chainlink_fence) · CC0 |
 
 ## 星空
 
