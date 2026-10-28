@@ -4,9 +4,11 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 // 速度感交给视野角，距离几乎不变。C 键切换自由环绕。
 export function createRaceCamera(camera,element){
  const orbit=new OrbitControls(camera,element);orbit.enabled=false;orbit.enableDamping=true;orbit.maxDistance=160;orbit.minDistance=4;
- let mode='follow',initialized=false,camYaw=0,camY=0,kick=0;const look=new THREE.Vector3();
- function setMode(next){mode=next||(mode==='follow'?'orbit':'follow');orbit.enabled=mode==='orbit';initialized=false;return mode;}
+ let mode='follow',initialized=false,camYaw=0,camY=0,kick=0,spin=0;const look=new THREE.Vector3();
+ function setMode(next){if(mode==='celebrate'&&!next)return mode;mode=next||(mode==='follow'?'orbit':'follow');orbit.enabled=mode==='orbit';if(mode==='celebrate')spin=camYaw+Math.PI;initialized=false;return mode;}
  function update(c,dt=1/60){
+  // 冲线庆祝：镜头绕车慢慢环拍，略高于车顶
+  if(mode==='celebrate'){spin+=dt*.35;const r=9.5;camera.position.lerp(look.set(c.x+Math.sin(spin)*r,c.y+3.2,c.z+Math.cos(spin)*r),initialized?Math.min(1,dt*2.5):1);initialized=true;camera.lookAt(c.x,c.y+1,c.z);return;}
   if(mode==='orbit'){orbit.target.set(c.x,c.y+1,c.z);if(!initialized){camera.position.set(c.x+15,c.y+9,c.z+15);initialized=true;}orbit.update();return;}
   const speed=Math.hypot(c.vx,c.vz),k=Math.min(1,speed/83);
   // 漂移、横滑时镜头偏向实际行进方向，低速时跟车头
