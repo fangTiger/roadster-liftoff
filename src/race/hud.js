@@ -7,6 +7,8 @@ const LAPS = 3;
 const ITEM_ICONS={missile:'🚀',mine:'💧',nitro:'⚡',shield:'🛡️'};
 const EVENT_TEXT = { lap: e => e.lap >= LAPS ? '' : e.lap === LAPS - 1 ? t('race.lastLap') : t('race.nextLap', { n: e.lap + 1 }), driftBoost: e => t('race.driftBoost', { tier: 'Ⅰ Ⅱ Ⅲ'.split(' ')[e.tier - 1] }), counterBoost: () => t('race.counterBoost'), draft: () => t('race.draft'), driftSwitch: () => t('race.driftSwitch'), boost: () => t('race.boost'), coin: () => '', wall: () => '', land: () => '' };
 export function createHud(track, title = '', { roomMode = false, itemsMode = false } = {}) {
+  // 房间模式补充表情键，道具赛再补充道具键
+  const controls = () => t('race.controls') + (roomMode ? (itemsMode ? t('race.controlsItems') : '') + t('race.controlsRoom') : '');
   const style = document.createElement('style');
   style.textContent = `body{margin:0;overflow:hidden;background:#0b0f14}body> :not(canvas):not(#race-hud):not(#race-pick):not(#race-loading):not(#race-tools):not(.rm-root):not(#ach-toast):not(#ach-panel-wrap):not(#roadster-wallet):not(w3m-modal):not(:has([data-rk])):not(script):not(style){display:none!important}
 #race-hud{position:fixed;inset:0;color:#f4eee1;font:16px 'Helvetica Neue','PingFang SC',sans-serif;pointer-events:none;z-index:10;font-variant-numeric:tabular-nums}
@@ -34,7 +36,7 @@ export function createHud(track, title = '', { roomMode = false, itemsMode = fal
   root.innerHTML = `<header class="rh-panel"><small>MARS ROADSTER · ${typeof title === 'function' ? title() : title}</small><div class="rh-lap"><b>1</b>/ 3 ${t('race.laps')}</div><div class="rh-progress"><i></i></div><div class="rh-timing"></div></header>
 <div class="rh-map rh-panel"><canvas></canvas></div><div class="rh-speed rh-panel"><strong>0</strong> km/h<meter min="0" max="1" value="1"></meter><div class="rh-drift"></div><div class="rh-draft" hidden><span></span><meter min="0" max="1" value="0"></meter></div></div>
 ${itemsMode?'<div class="rh-missile-warning" role="status" hidden></div><div class="rh-item rh-panel"><span class="rh-item-icon"></span><span class="rh-item-label"></span><kbd></kbd><span class="rh-shield-time"></span></div>':''}<div class="rh-delta" hidden></div><div class="rh-notice"></div><div class="rh-flash"></div><div class="rh-result rh-panel" hidden></div>
-<footer>${t('race.controls')}</footer>`;
+<footer>${controls()}</footer>`;
   document.body.append(root);
   const $ = q => root.querySelector(q);
   // 小地图：北在上；x 取反，使「从车后看的右侧」在地图右侧
@@ -70,7 +72,7 @@ ${itemsMode?'<div class="rh-missile-warning" role="status" hidden></div><div cla
       $('.rh-shield-time').textContent=c.shieldTime>0?`${t('race.item.shield')} ${c.shieldTime.toFixed(1)}s`:'';
     }
     $('header small').textContent = `MARS ROADSTER · ${typeof title === 'function' ? title() : title}`;
-    $('footer').textContent = t('race.controls');
+    $('footer').textContent = controls();
     $('.rh-lap').innerHTML = `<b>${r.lap}</b>/ 3 ${t('race.laps')}`;
     $('.rh-progress i').style.width = (r.frozen ? 0 : lapProgress(c) * 100).toFixed(1) + '%';
     $('.rh-timing').innerHTML = `<span>${t('race.current')}</span>${format(r.lapTime)}<br><span>${t('race.best')}</span>${format(r.bestLap)}<br><span>${t('race.checkpoint')}</span>${r.nextCheckpoint} / ${track.checkpointGates.length}${r.penalty ? `　${t('race.penalty', { n: r.penalty.toFixed(0) })}` : ''}`;

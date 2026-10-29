@@ -312,6 +312,8 @@ export default {
   "race.fuel": "推进剂 {n}%",
   "race.missed": "漏检：检查点 {n}",
   "race.controls": "W / ↑ 油门　S / ↓ 刹车 · 倒车　A D 转向　空格 推进器　Shift 漂移（按住反打可连续漂移，结束时松开再按油门二次加速）　T 重置　C 镜头　Esc / P 暂停 · 退出",
+  "race.controlsItems": "　E 使用道具",
+  "race.controlsRoom": "　1–6 表情",
   "race.loading": "加载赛道…",
   "race.generating": "生成赛道…",
   "race.pick": "选择地图",
