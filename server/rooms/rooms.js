@@ -7,40 +7,47 @@ const integer=n=>Number.isSafeInteger(n)&&n>=0;
 const validState=m=>numeric.every(k=>finite(m[k]))&&integer(m.seq)&&integer(m.step)&&Number.isInteger(m.lap)&&m.lap>=1&&m.lap<=3&&m.s>=0&&typeof m.drifting==='boolean'&&typeof m.boost==='boolean'&&typeof m.ghost==='boolean'&&typeof m.air==='boolean';
 const validFinish=m=>finite(m.elapsed)&&m.elapsed>0&&finite(m.bestLap)&&m.bestLap>0&&Array.isArray(m.lapTimes)&&m.lapTimes.length===3&&m.lapTimes.every(n=>finite(n)&&n>0);
 export function createRooms({now=Date.now,random=Math.random,send,close=()=>{},onRoom=()=>{}}={}) {
- const rooms=new Map(),clients=new Map(),tokens=new Map();let serial=0,codeSerial=0;
+ const rooms=new Map(),clients=new Map(),tokens=new Map();let serial=0,botSerial=0,codeSerial=0;
  const randomText=n=>Array.from({length:n},()=>ALPHABET[Math.min(ALPHABET.length-1,Math.floor(random()*ALPHABET.length))]).join('');
  const error=(c,code)=>send(c,{type:'error',code});
  function code(){let value=randomText(6);while(rooms.has(value)){let n=++codeSerial;value='';for(let i=0;i<6;i++){value=ALPHABET[n%ALPHABET.length]+value;n=Math.floor(n/ALPHABET.length);}}return value;}
- const members=r=>r.players.filter(p=>p.connected);
+ const members=r=>r.players.filter(p=>!p.bot&&p.connected);
  function broadcast(r,m,except){for(const p of members(r))if(p!==except)send(p.connection,m);}
- function publish(r){broadcast(r,{type:'room',code:r.code,hostId:r.hostId,trackId:r.trackId,phase:r.phase,players:r.players.map(({id,name,seat,ready,connected,color})=>({id,name,seat,ready,connected,color}))});onRoom(r.code,r.players.length);}
- function host(r){if(!members(r).some(p=>p.id===r.hostId))r.hostId=members(r)[0]?.id??null;}
+ function publish(r){broadcast(r,{type:'room',code:r.code,hostId:r.hostId,trackId:r.trackId,phase:r.phase,players:r.players.map(({id,name,seat,ready,connected,color,bot=false,difficulty,ownerId})=>({id,name,seat,ready,connected,color,bot,difficulty,ownerId}))});onRoom(r.code,r.players.length);}
+ function dropBots(r,ownerId){for(const bot of r.players.filter(p=>p.bot&&p.ownerId===ownerId)){r.players=r.players.filter(p=>p!==bot);broadcast(r,{type:'left',id:bot.id});}}
+ function host(r){const old=r.hostId;if(!members(r).some(p=>p.id===old))r.hostId=members(r)[0]?.id??null;if(old!==r.hostId&&r.phase==='lobby')dropBots(r,old);}
+ function abandonBots(r,ownerId){
+  if(r.phase==='lobby'){dropBots(r,ownerId);return;}
+  for(const bot of r.players.filter(p=>p.bot&&p.ownerId===ownerId)){const entrant=r.round?.get(bot.id);if(entrant&&!entrant.finish)entrant.dnf=true;bot.connected=false;}
+ }
  function settle(r){
   if(!r.round||r.phase==='lobby')return;
   r.phase='results';publish(r);
-  const results=[...r.round.values()].sort((a,b)=>Number(!a.finish)-Number(!b.finish)||(a.finish?.elapsed??0)-(b.finish?.elapsed??0)||a.seat-b.seat).map((p,i)=>({id:p.id,name:p.name,rank:i+1,elapsed:p.finish?.elapsed??null,bestLap:p.finish?.bestLap??null,dnf:!p.finish}));
+  const results=[...r.round.values()].sort((a,b)=>Number(!a.finish)-Number(!b.finish)||(a.finish?.elapsed??0)-(b.finish?.elapsed??0)||a.seat-b.seat).map((p,i)=>({id:p.id,name:p.name,rank:i+1,elapsed:p.finish?.elapsed??null,bestLap:p.finish?.bestLap??null,dnf:!p.finish,bot:p.bot,difficulty:p.difficulty}));
   r.lastResults={type:'results',results};broadcast(r,r.lastResults);r.phase='lobby';r.start=null;r.deadline=null;
-  for(const p of r.players)p.ready=false;
+  for(const bot of [...r.players])if(bot.bot&&(!bot.connected||bot.ownerId!==r.hostId))dropBots(r,bot.ownerId);
+  for(const p of r.players)p.ready=!!p.bot;
   publish(r);
  }
  function complete(r){if(r.round&&[...r.round.values()].every(p=>p.finish||p.dnf))settle(r);}
  function remove(r,p){
+  abandonBots(r,p.id);
   if(p.connected)clients.delete(p.connection);tokens.delete(p.resumeToken);r.players=r.players.filter(q=>q!==p);
   const entrant=r.round?.get(p.id);if(entrant&&!entrant.finish)entrant.dnf=true;
   broadcast(r,{type:'left',id:p.id});host(r);
-  if(!r.players.length){rooms.delete(r.code);onRoom(r.code,0);}else{publish(r);complete(r);}
+  if(!r.players.some(p=>!p.bot)){rooms.delete(r.code);onRoom(r.code,0);}else{publish(r);complete(r);}
  }
  function start(r){
   if(r.phase!=='lobby'||!r.trackId||r.players.length<2||!r.players.every(p=>p.connected&&p.ready))return;
   r.phase='countdown';r.deadline=null;r.lastResults=null;
-  r.round=new Map(r.players.map(p=>[p.id,{id:p.id,name:p.name,seat:p.seat,finish:null,dnf:false}]));
-  for(const p of r.players){p.state=null;p.lastSeq=-1;}
+  r.round=new Map(r.players.map(p=>[p.id,{id:p.id,name:p.name,seat:p.seat,bot:!!p.bot,difficulty:p.difficulty,finish:null,dnf:false}]));
+  for(const p of r.players){p.state=null;p.lastSeq=-1;p.rate=[];}
   r.start={type:'start',trackId:r.trackId,laps:3,startAt:now()+1500,grid:r.players.map(({id,seat})=>({id,seat}))};publish(r);broadcast(r,r.start);
  }
  function tick(){
   const time=now();
   for(const r of rooms.values()){
-   for(const p of [...r.players])if(!p.connected&&time>=p.expires)remove(r,p);
+   for(const p of [...r.players])if(!p.bot&&!p.connected&&time>=p.expires)remove(r,p);
    if(r.phase==='countdown'&&time>=r.start.startAt){r.phase='racing';publish(r);}
    if(r.phase==='racing'&&r.deadline!==null&&time>=r.deadline)settle(r);
   }
@@ -74,7 +81,7 @@ export function createRooms({now=Date.now,random=Math.random,send,close=()=>{},o
   if(m.type==='hello')return hello(c,m);
   if(m.type==='ping'){if(typeof m.t!=='number'||!Number.isFinite(m.t)||Math.abs(m.t)>Number.MAX_SAFE_INTEGER)return error(c,'BAD_MESSAGE');send(c,{type:'pong',t:m.t,serverT:now()});return;}
   // 先校验字段，再检查阶段，避免错误类型因房间状态而改变。
-  if((m.type==='state'&&!validState(m))||(m.type==='finish'&&!validFinish(m))||(m.type==='ready'&&typeof m.on!=='boolean')||(m.type==='pickTrack'&&![1,2,3].includes(m.trackId))||(m.type==='emote'&&(!Number.isInteger(m.id)||m.id<1||m.id>6)))return error(c,'BAD_MESSAGE');
+  if((['state','botState'].includes(m.type)&&!validState(m))||(['finish','botFinish'].includes(m.type)&&!validFinish(m))||(['botState','botFinish','removeBot'].includes(m.type)&&typeof m.botId!=='string')||(m.type==='addBot'&&!['easy','normal','hard'].includes(m.difficulty))||(m.type==='ready'&&typeof m.on!=='boolean')||(m.type==='pickTrack'&&![1,2,3].includes(m.trackId))||(m.type==='emote'&&(!Number.isInteger(m.id)||m.id<1||m.id>6)))return error(c,'BAD_MESSAGE');
   const p=clients.get(c),r=p&&rooms.get(p.code);if(!r)return error(c,'NO_ROOM');
   if(m.type==='leave'){remove(r,p);return;}
   if(m.type==='ready'||m.type==='pickTrack'){
@@ -82,25 +89,41 @@ export function createRooms({now=Date.now,random=Math.random,send,close=()=>{},o
    if(r.phase!=='lobby')return error(c,'BAD_PHASE');
    if(m.type==='ready')p.ready=m.on;else r.trackId=m.trackId;publish(r);start(r);return;
   }
+  if(m.type==='addBot'||m.type==='removeBot'){
+   if(p.id!==r.hostId)return error(c,'NOT_HOST');
+   if(r.phase!=='lobby')return error(c,'BAD_PHASE');
+   if(m.type==='addBot'){
+    if(r.players.length>=6)return error(c,'ROOM_FULL');
+    const seat=[0,1,2,3,4,5].find(n=>!r.players.some(q=>q.seat===n));
+    r.players.push({id:'b'+(++botSerial),seat,color:COLORS[seat],bot:true,difficulty:m.difficulty,ownerId:p.id,ready:true,connected:true,rate:[],lastSeq:-1});
+   }else{
+    const bot=r.players.find(q=>q.id===m.botId&&q.bot&&q.ownerId===p.id);if(!bot)return error(c,'BAD_MESSAGE');
+    r.players=r.players.filter(q=>q!==bot);broadcast(r,{type:'left',id:bot.id});
+   }
+   // 加或删机器人不自动开赛：房主可能还要继续加，等下一次点准备或选图时再开
+   publish(r);return;
+  }
   if(m.type==='emote'){
    if(r.phase!=='racing')return error(c,'BAD_PHASE');
    const time=now();if(p.lastEmote!==undefined&&time-p.lastEmote<1500)return;
    p.lastEmote=time;broadcast(r,{type:'emote',from:p.id,id:m.id});return;
   }
-  if(m.type==='state'){
+  const isBot=m.type==='botState'||m.type==='botFinish',actor=isBot?r.players.find(q=>q.bot&&q.id===m.botId&&q.ownerId===p.id&&q.connected):p;
+  if(isBot&&!actor)return error(c,'NOT_HOST');
+  if(m.type==='state'||m.type==='botState'){
    if(r.phase!=='racing')return;
-   const time=now();p.rate=p.rate.filter(t=>time-t<1000);if(p.rate.length>=30)return;p.rate.push(time);
-   if(m.seq<=p.lastSeq)return;p.lastSeq=m.seq;
+   const time=now();actor.rate=actor.rate.filter(t=>time-t<1000);if(actor.rate.length>=30)return;actor.rate.push(time);
+   if(m.seq<=actor.lastSeq)return;actor.lastSeq=m.seq;
    const state=Object.fromEntries([...numeric,'drifting','boost','ghost','air'].map(k=>[k,m[k]]));
-   state.serverT=time;p.state=state;broadcast(r,{type:'peer',id:p.id,...state},p);return;
+   state.serverT=time;actor.state=state;broadcast(r,{type:'peer',id:actor.id,...state},p);return;
   }
-  if(m.type==='finish'){
+  if(m.type==='finish'||m.type==='botFinish'){
    if(r.phase!=='racing')return error(c,'BAD_PHASE');
-   const entrant=r.round.get(p.id);if(entrant.finish||entrant.dnf)return;
+   const entrant=r.round.get(actor.id);if(entrant.finish||entrant.dnf)return;
    entrant.finish={elapsed:m.elapsed,bestLap:m.bestLap,lapTimes:[...m.lapTimes]};if(r.deadline===null)r.deadline=now()+60000;complete(r);return;
   }
   error(c,'BAD_MESSAGE');
  }
- function disconnect(c){const p=clients.get(c);if(!p)return;clients.delete(c);p.connected=false;p.ready=false;p.expires=now()+GRACE;p.connection=null;const r=rooms.get(p.code);host(r);publish(r);}
+ function disconnect(c){const p=clients.get(c);if(!p)return;clients.delete(c);p.connected=false;p.ready=false;p.expires=now()+GRACE;p.connection=null;const r=rooms.get(p.code);abandonBots(r,p.id);host(r);publish(r);complete(r);}
  return {receive,disconnect,tick};
 }

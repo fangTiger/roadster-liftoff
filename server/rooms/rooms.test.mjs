@@ -89,3 +89,48 @@ test('表情只在 racing 接受，向同房全员回显并按玩家限流 1500m
 test('表情非法 id 先于阶段检查返回 BAD_MESSAGE',()=>{
  for(const id of [undefined,null,0,7,1.5,'1',true]){const f=fixture(),a=f.connect();f.send(a,{type:'emote',id});assert.equal(f.last(a,'error').code,'BAD_MESSAGE');}
 });
+
+const finish={type:'finish',elapsed:120,bestLap:40,lapTimes:[40,40,40]};
+function botsRace(){const f=fixture(),a=f.connect(),code=f.last(a,'room').code,b=f.connect('乙',code);for(const difficulty of ['normal','hard'])f.send(a,{type:'addBot',difficulty});const bots=f.last(a,'room').players.filter(p=>p.bot);f.send(a,{type:'pickTrack',trackId:1});f.send(a,{type:'ready',on:true});f.send(b,{type:'ready',on:true});return {...f,a,b,code,bots};}
+test('机器人增删只许大厅房主，校验难度与座位，满员拒绝并可复用座位',()=>{
+ const f=fixture(),a=f.connect(),code=f.last(a,'room').code,b=f.connect('乙',code);
+ f.send(b,{type:'addBot',difficulty:'easy'});assert.equal(f.last(b,'error').code,'NOT_HOST');
+ f.send(a,{type:'addBot',difficulty:'bad'});assert.equal(f.last(a,'error').code,'BAD_MESSAGE');
+ f.send(a,{type:'addBot',difficulty:'easy'});const bot=f.last(a,'room').players.find(p=>p.bot);assert.ok(bot);assert.match(bot.id,/^b\d+$/);assert.equal(bot.difficulty,'easy');assert.equal(bot.ownerId,f.last(a,'welcome').id);assert.equal(bot.ready,true);assert.equal(bot.connected,true);assert.equal(bot.seat,2);assert.equal(bot.name,undefined);
+ f.send(b,{type:'removeBot',botId:bot.id});assert.equal(f.last(b,'error').code,'NOT_HOST');f.send(a,{type:'removeBot',botId:f.last(b,'welcome').id});assert.equal(f.last(a,'error').code,'BAD_MESSAGE');
+ f.send(a,{type:'removeBot',botId:bot.id});assert.equal(f.last(a,'room').players.length,2);
+ for(let i=0;i<4;i++)f.send(a,{type:'addBot',difficulty:'normal'});assert.equal(f.last(a,'room').players.length,6);assert.equal(f.last(a,'room').players[2].seat,2);
+ f.send(a,{type:'addBot',difficulty:'hard'});assert.equal(f.last(a,'error').code,'ROOM_FULL');assert.equal(f.last(f.connect('丙',code),'error').code,'ROOM_FULL');
+ f.send(a,{type:'pickTrack',trackId:1});f.send(a,{type:'ready',on:true});f.send(b,{type:'ready',on:true});
+ for(const m of [{type:'addBot',difficulty:'easy'},{type:'removeBot',botId:f.last(a,'room').players[2].id}]){f.send(a,m);assert.equal(f.last(a,'error').code,'BAD_PHASE');}
+});
+test('一个真人和机器人可以开赛、完赛，机器人下局仍准备',()=>{
+ const f=fixture(),a=f.connect();f.send(a,{type:'addBot',difficulty:'hard'});const bot=f.last(a,'room').players.find(p=>p.bot);assert.ok(bot);f.send(a,{type:'pickTrack',trackId:1});f.send(a,{type:'ready',on:true});assert.equal(f.last(a,'start').grid.length,2);f.advance(1500);
+ f.send(a,{...finish,type:'botFinish',botId:bot.id});f.send(a,finish);assert.equal(f.last(a,'results').results.length,2);assert.ok(f.last(a,'results').results.every(p=>!p.dnf));assert.equal(f.last(a,'room').players.find(p=>p.bot).ready,true);
+});
+test('botState 校验和授权复用真人规则，每个机器人独立限流且不回送所属房主',()=>{
+ const f=botsRace();assert.equal(f.bots.length,2);const [x,y]=f.bots;const send=(c,botId,seq,extra={})=>f.send(c,{...state(seq),type:'botState',botId,...extra});
+ send(f.a,x.id,0);assert.equal(f.last(f.b,'peer'),undefined);f.advance(1500);
+ send(f.b,x.id,1);assert.equal(f.last(f.a,'peer'),undefined);assert.equal(f.last(f.b,'peer'),undefined);
+ send(f.a,x.id,1,{air:'错'});assert.equal(f.last(f.a,'error').code,'BAD_MESSAGE');
+ for(let i=0;i<40;i++)send(f.a,x.id,i,{extra:'丢弃'});for(let i=0;i<40;i++)send(f.a,y.id,i);for(let i=0;i<40;i++)f.send(f.a,state(i));
+ const peers=f.out.get(f.b).filter(m=>m.type==='peer');for(const id of [x.id,y.id,f.last(f.a,'welcome').id])assert.equal(peers.filter(p=>p.id===id).length,30);assert.equal(peers[0].extra,undefined);assert.equal(f.last(f.a,'peer'),undefined);
+ f.advance(1000);send(f.a,x.id,30);send(f.a,x.id,29);assert.equal(f.last(f.b,'peer').seq,30);
+ f.send(f.b,{...finish,type:'botFinish',botId:x.id});f.send(f.a,finish);f.send(f.b,finish);assert.equal(f.last(f.b,'results'),undefined);
+ f.send(f.a,{...finish,type:'botFinish',botId:x.id});f.send(f.a,{...finish,type:'botFinish',botId:y.id});assert.ok(f.last(f.b,'results').results.every(p=>!p.dnf));
+});
+test('房主掉线或离开使未完赛机器人 DNF，已完赛保留；新房主不接管',()=>{
+ for(const leave of [false,true]){const f=botsRace();assert.equal(f.bots.length,2);f.advance(1500);f.send(f.a,{...finish,type:'botFinish',botId:f.bots[0].id});
+ if(leave)f.send(f.a,{type:'leave'});else f.rooms.disconnect(f.a);
+ assert.equal(f.last(f.b,'room').hostId,f.last(f.b,'welcome').id);f.send(f.b,{...finish,type:'botFinish',botId:f.bots[1].id});f.send(f.b,finish);if(!leave)f.advance(30000);
+ const rows=f.last(f.b,'results').results;assert.equal(rows.find(p=>p.id===f.bots[0].id).dnf,false);assert.equal(rows.find(p=>p.id===f.bots[1].id).dnf,true);assert.ok(f.last(f.b,'room').players.every(p=>!p.bot));}
+});
+test('大厅房主离开或断线移交时移除机器人，恢复旧房主不会带回机器人',()=>{
+ for(const leave of [true,false]){const f=fixture(),a=f.connect(),code=f.last(a,'room').code,b=f.connect('乙',code),w=f.last(a,'welcome');f.send(a,{type:'addBot',difficulty:'normal'});assert.equal(f.last(a,'room').players.length,3);if(leave)f.send(a,{type:'leave'});else f.rooms.disconnect(a);assert.ok(f.last(b,'room').players.every(p=>!p.bot));assert.equal(f.last(b,'room').hostId,f.last(b,'welcome').id);if(!leave){const c=f.connect('甲',code,w.resumeToken);assert.ok(f.last(c,'room').players.every(p=>!p.bot));}}
+});
+
+test('所有真人已完赛时房主断线立即结算机器人 DNF，重连不能补报覆盖',()=>{
+ const f=botsRace();assert.equal(f.bots.length,2);f.advance(1500);f.send(f.a,finish);f.send(f.b,finish);const token=f.last(f.a,'welcome').resumeToken;
+ f.rooms.disconnect(f.a);const rows=f.last(f.b,'results').results;assert.equal(rows.filter(p=>p.dnf).length,2);assert.ok(rows.filter(p=>p.dnf).every(p=>p.bot));
+ const resumed=f.connect('甲',f.code,token);f.send(resumed,{...finish,type:'botFinish',botId:f.bots[0].id});assert.deepEqual(f.last(resumed,'results').results,rows);assert.ok(f.last(resumed,'room').players.every(p=>!p.bot));
+});

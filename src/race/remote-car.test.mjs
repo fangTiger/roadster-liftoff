@@ -15,3 +15,9 @@ test('独立远端车按座位着色、全不透明、有名牌、轮子跟随�
   car.update({...state,stale:true},1);assert.equal(root.visible,false);car.update(state,1);assert.equal(root.visible,true);assert.equal(mesh.material.opacity,1);assert.equal(mesh.material.transparent,false);car.dispose();assert.equal(freedGeometry,1);assert.equal(freedTexture,1);
  }finally{globalThis.document=before;}
 });
+
+test('机器人名牌按难度本地化，切换语言重绘，销毁取消监听',async()=>{
+ const {setLang}=await import('../i18n/i18n.js'),before=globalThis.document,text=[];globalThis.document={createElement:()=>({getContext:()=>({clearRect(){},fillRect(){},fillText:s=>text.push(s)})})};
+ try{const root=new THREE.Group(),remote=prepareRemoteCar({root,chassis:new THREE.Group(),wheels:[],setSteer(){}},{bot:true,difficulty:'easy'});assert.equal(text.at(-1),'机器人·简单');setLang('en');assert.equal(text.at(-1),'Bot · Easy');remote.dispose();const count=text.length;setLang('zh');assert.equal(text.length,count);
+ }finally{setLang('zh');globalThis.document=before;}
+});

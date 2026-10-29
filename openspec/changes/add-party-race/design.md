@@ -8,11 +8,11 @@
 ## 机器人
 - 大厅里房主可以「加机器人」并选难度。服务端把机器人当成座位处理：带 bot:true 和 ownerId（房主），始终是已准备状态。房主可以移除机器人。
 - 开赛后，房主的电脑为每个机器人各开一个 session：用发车格的出生点，输入用 autopilot 生成。机器人同样参与软碰撞、尾流和道具。房主按每秒 15 次代发 botState{botId,…}，服务端只接受该机器人所属房主发来的状态，然后像普通 peer 一样转发。
-- autopilot 新增参数 {cruise, cornerGrip, reaction}：
-  - 简单：巡航速度 0.82 倍，过弯偏保守；
-  - 普通：0.9 倍；
-  - 困难：1.0 倍。
-  - 用转向延迟模拟反应，避免机器人走线完美得像录像。
+- autopilot 新增可选参数 `{cruise=1, cornerGrip=1}`，反应延迟由独立的 bot-driver 管理：
+  - 简单：`{cruise:.82, cornerGrip:.8, reaction:18}`；
+  - 普通：`{cruise:.9, cornerGrip:.9, reaction:10}`；
+  - 困难：`{cruise:1, cornerGrip:1, reaction:4}`。
+  - reaction 单位为 120Hz 物理步，初始转向队列填零；仅延迟转向位，油门、刹车和喷气即时生效，不传 opts 时 autopilot 输出保持逐位一致。
 - 比赛中房主掉线：他的机器人记为未完成。在大厅里房主离开：机器人随之移除。
 - 每次逐步只读 session.race 和 session.car，不用每次深拷贝的 snapshot。
 
@@ -75,3 +75,15 @@
 - 尾流新增 draftMin=4、draftRange=25、draftWidth=1.6、draftMinSpeed=20、draftCharge=1.2、draftBoost=0.8，既有参数不变。沿用确定性三角函数，将车头方向单位化并归一化角度，距离端点包含，横向、角差、速度严格比较；充满浮点边界允许 1e-12 的误差。
 - contacts 只在原软碰撞前置条件成立时取一次，同一列表先碰撞再尾流；不传 others 不初始化 draft，不传 contacts 的单人路径与 golden 不变。空 contacts 的房间会初始化 draft=0，原快照比较测试只排除此新增字段。持续跟车可每充满一次再次触发，不按符合条件的前车数量重复发奖。
 - 房间 HUD 在速度表附近显示 rh- 前缀的尾流槽，按模拟步记录 draft 事件并闪亮 0.3 秒；事件驱动短促上扬合成音及现有 boostFx.trigger。
+
+
+## 第 2 部分实施约定
+- 服务端机器人使用独立递增的 `b` 前缀 id，占用六席之一；只存 `difficulty`，不存本地化名字。room 消息包含 `bot`、`difficulty`、`ownerId`，results 保留 `bot`、`difficulty`，大厅、排名、结算、车顶名牌统一在客户端翻译，语言切换即时重绘名牌。
+- `addBot` / `removeBot` 仅大厅房主可用，非房主返回 NOT_HOST，非大厅返回 BAD_PHASE，满员返回 ROOM_FULL，非法难度、botId 类型或移除非机器人返回 BAD_MESSAGE。增加机器人后沿用全员准备自动开赛规则；一位已准备真人和一位机器人即可开赛，结算后机器人保持准备。
+- `botState` / `botFinish` 与真人复用字段白名单及 validState / validFinish；所属身份从连接与 ownerId 判断，不信任消息自报身份。未知、非所属或已失去连接的机器人返回 NOT_HOST；只在 racing 接收，state 在其他阶段静默丢弃，finish 返回 BAD_PHASE。每个机器人单独维护序列和每秒 30 条限流窗口，peer 发给同房其他真人，不回送所属房主；重复 finish 保留首次成绩。
+- 机器人不参与网络广播出口、房主候选和真人恢复令牌。房主在大厅离开或断线移交时移除名下全部机器人（包括只剩自己时）；倒数或比赛中离开/断线则立即将未完赛机器人标为 DNF，已完赛成绩保留，旧机器人停止接收状态。回大厅移除失去所属房主的机器人，新房主不接管，旧房主重连也不复活；异步赛道加载结束后以最新 room 座位状态决定是否建立机器人 session。
+- 房主为所属机器人建立独立 session、输入延迟队列和步数计数，使用 gridSpawn 和机器人 id 作为 contactId。逐步只读 session.car / session.race，不取 snapshot；每推进房主一物理步，机器人也各推进一步（每帧仍最多追 240 步）。按本轮座位列表的稳定顺序推进，接触列表直接读本机车当前状态，远端仍按模拟步采样、最多外推 250ms，过滤 stale、ghost 和离地状态；原软碰撞与尾流函数不改。
+- 每个机器人独立按 15Hz 代发 botState，完赛后仍同步推进刹停并每秒重试 botFinish，直到统一结算；暂停只影响真人操控，不暂停机器人。返回大厅、换局或销毁时清空机器人，房主移交时立即停止旧机器人代发。
+- `scripts/rooms-e2e.mjs` 默认仍是两个真人页面；`SCENARIO=bots` 使用一个带 autopilot 的真人页面，加普通、困难机器人，检查三条成绩、两条机器人 id 和全部完赛，不调用成绩核验或钱包。
+
+- 本部分验证：全量 `node --test $(git ls-files -co --exclude-standard | grep -E '\.test\.mjs$')` 340 项通过，`npx vite build` 通过，`openspec validate add-party-race --strict --no-interactive` 通过；默认双页结算一致，`SCENARIO=bots` 三行全部完赛。简单地图独立三圈计时为困难 158.58 秒、普通 164.38 秒、简单 173.06 秒；原 autopilot 的 2000 步输入摘要回归通过。
