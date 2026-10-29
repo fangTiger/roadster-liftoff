@@ -12,7 +12,7 @@ test('独立远端车按座位着色、全不透明、有名牌、轮子跟随�
   const state={x:1,y:2,z:3,yaw:.5,pitch:.1,steer:.8,vx:10,vz:0,stale:false};car.update(state,.1);assert.equal(root.position.x,1);assert.equal(chassis.rotation.x,.1);assert.ok(wheels[0].spin.rotation.x<0);assert.equal(wheels[0].steer.rotation.y,.8*.35);
   car.update({...state,ghost:true},.1);assert.equal(mesh.material.opacity,.35);assert.equal(mesh.material.transparent,true);assert.equal(mesh.material.depthWrite,false);assert.equal(source.opacity,1);
   car.update(state,.1);assert.equal(mesh.material.opacity,1);assert.equal(mesh.material.transparent,false);assert.equal(mesh.material.depthWrite,true);
-  car.update({...state,stale:true},1);assert.equal(root.visible,false);car.update(state,1);assert.equal(root.visible,true);assert.equal(mesh.material.opacity,1);assert.equal(mesh.material.transparent,false);car.dispose();assert.equal(freedGeometry,1);assert.equal(freedTexture,1);
+  car.update({...state,spinning:true},.1);assert.ok(root.rotation.y>state.yaw+Math.PI);assert.equal(state.yaw,.5);car.update({...state,spinning:true},1.4);assert.ok(root.rotation.y>state.yaw+Math.PI,'连续命中延长打转时应继续旋转');car.update({...state,spinning:false},.1);assert.equal(root.rotation.y,state.yaw+Math.PI);car.update({...state,stale:true},1);assert.equal(root.visible,false);car.update(state,1);assert.equal(root.visible,true);assert.equal(mesh.material.opacity,1);assert.equal(mesh.material.transparent,false);car.dispose();assert.equal(freedGeometry,1);assert.equal(freedTexture,1);
  }finally{globalThis.document=before;}
 });
 

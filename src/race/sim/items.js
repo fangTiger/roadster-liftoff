@@ -1,3 +1,4 @@
+import { sin,cos } from './fmath.js';
 import { ROAD } from '../track/build.js';
 // 所有几何与抽取只依赖入参；随机源由房间注入，模拟和测试无需全局随机数。
 export function itemBoxes(track) {
@@ -31,4 +32,21 @@ export const mineAlive=(mine,time)=>time<mine.placedAt+30;
 export function mineHits(mine,car,id,time) {
  const dx=car.x-mine.x,dz=car.z-mine.z;
  return mineAlive(mine,time)&&time>=mine.placedAt+.6&&(id!==mine.from||time>=mine.placedAt+1.5)&&dx*dx+dz*dz<=1.6*1.6;
+}
+
+export const raceProgress=(car,trackLength)=>(car.lap-1)*trackLength+car.s;
+export const itemTargetValid=car=>!!car&&!car.finished&&!car.ghost&&!car.stale&&car.connected!==false;
+export function pickMissileTarget(self,cars,trackLength) {
+ let target=null,nearest=Infinity;
+ for(const car of cars){
+  const ahead=raceProgress(car,trackLength)-raceProgress(self,trackLength);
+  if(car.id!==self.id&&itemTargetValid(car)&&ahead>0&&ahead<=200&&ahead<nearest){nearest=ahead;target=car;}
+ }
+ return target;
+}
+// 发射点高度固定在路面上方，末端跟随目标当帧的显示位置。
+export function missilePosition(missile,target,time) {
+ const p=Math.max(0,Math.min(1,(time-missile.firedAt)/1.5)),blend=target?p*p*(3-2*p):0;
+ const x=missile.x+sin(missile.yaw)*120*p,z=missile.z+cos(missile.yaw)*120*p,y=(missile.y??0)+1.5;
+ return {x:x+((target?.x??x)-x)*blend,y:y+((target?.y??0)+.8-y)*blend,z:z+((target?.z??z)-z)*blend};
 }

@@ -164,3 +164,32 @@ test('恢复连接重放存活水雷，已命中或到期不重放，下一局�
 test('恢复连接也重放断线期间的 mineGone，以清除客户端旧实体',()=>{
  const f=fixture(),{a,b,code}=f.start(),id=f.last(a,'welcome').id,token=f.last(b,'welcome').resumeToken;f.advance(1500);f.send(a,{type:'item',kind:'mine',itemId:id+'-1',x:0,z:10,placedAt:3});f.rooms.disconnect(b);f.send(a,{type:'mineHit',itemId:id+'-1'});const resumed=f.connect('乙',code,token);assert.deepEqual(f.last(resumed,'mineGone'),{type:'mineGone',itemId:id+'-1',by:id});
 });
+
+test('导弹校验 target、朝向和模拟时间，与水雷共享限流和整局去重',()=>{
+ const f=fixture(),{a,b}=f.start(),id=f.last(a,'welcome').id,target=f.last(b,'welcome').id,m={type:'item',kind:'missile',itemId:id+'-1',target,x:0,z:0,yaw:1,firedAt:3};
+ f.send(a,m);assert.equal(f.last(a,'error').code,'BAD_PHASE');f.advance(1500);
+ for(const patch of [{target:1},{target:'unknown'},{target:undefined},{yaw:null},{firedAt:-1}]){f.send(a,{...m,...patch});assert.equal(f.last(a,'error').code,'BAD_MESSAGE');}assert.equal(f.last(b,'item'),undefined);
+ f.send(a,{...m,from:'伪造'});assert.deepEqual(f.last(b,'item'),{...m,from:id});f.advance(500);f.send(a,m);assert.equal(f.out.get(b).filter(m=>m.type==='item').length,1);
+ f.send(a,{type:'item',kind:'mine',itemId:id+'-2',x:0,z:0,placedAt:3});f.send(a,{...m,itemId:id+'-3',target:null});assert.equal(f.out.get(b).filter(m=>m.type==='item').length,2);f.advance(500);f.send(a,{...m,itemId:id+'-3',target:null});assert.equal(f.last(b,'item').target,null);
+ f.send(b,{type:'finish',elapsed:10,bestLap:3,lapTimes:[3,3,4]});f.advance(500);f.send(a,{...m,itemId:id+'-4'});assert.equal(f.last(a,'error').code,'BAD_MESSAGE');
+});
+test('只有导弹目标可报 hit，首次广播 hitAt 并保留护盾判定，不能以 mineHit 命中导弹',()=>{
+ const f=fixture(),{a,b}=f.start(),id=f.last(a,'welcome').id,target=f.last(b,'welcome').id,m={type:'item',kind:'missile',itemId:id+'-1',target,x:0,z:0,yaw:0,firedAt:0};f.advance(1500);f.send(a,m);
+ f.send(a,{type:'hit',itemId:m.itemId,shielded:false});f.send(b,{type:'mineHit',itemId:m.itemId});assert.equal(f.last(a,'hitAt'),undefined);assert.equal(f.last(a,'mineGone'),undefined);
+ f.send(b,{type:'hit',itemId:m.itemId,shielded:'true'});assert.equal(f.last(b,'error').code,'BAD_MESSAGE');f.advance(1500);f.send(b,{type:'hit',itemId:m.itemId,shielded:true,by:id});assert.deepEqual(f.last(a,'hitAt'),{type:'hitAt',itemId:m.itemId,by:target,shielded:true});f.send(b,{type:'hit',itemId:m.itemId,shielded:false});assert.equal(f.out.get(a).filter(m=>m.type==='hitAt').length,1);
+});
+test('导弹不能锁定离线车，目标掉线或完赛后不接受命中，机器人只能由所属房主报 hit',()=>{
+ const f=fixture(),a=f.connect(),code=f.last(a,'room').code,b=f.connect('乙',code);f.send(a,{type:'addBot',difficulty:'hard'});const bot=f.last(a,'room').players.find(p=>p.bot),id=f.last(a,'welcome').id;for(const c of [a,b])f.send(c,{type:'ready',on:true});f.send(a,{type:'pickTrack',trackId:1});f.advance(1500);
+ const m={type:'item',kind:'missile',itemId:id+'-1',target:bot.id,x:0,z:0,yaw:0,firedAt:0};f.send(a,m);f.send(b,{type:'hit',botId:bot.id,itemId:m.itemId});assert.equal(f.last(b,'error').code,'NOT_HOST');f.advance(1500);f.send(a,{type:'hit',botId:bot.id,itemId:m.itemId,shielded:false});assert.equal(f.last(b,'hitAt').by,bot.id);
+ f.advance(500);f.send(a,{...m,itemId:id+'-2',target:f.last(b,'welcome').id});f.rooms.disconnect(b);f.advance(500);f.send(a,{...m,itemId:id+'-3',target:f.last(b,'welcome').id});assert.equal(f.last(a,'error').code,'BAD_MESSAGE');
+});
+test('spinning 和 finished 为可选布尔状态并经过白名单转发',()=>{
+ const f=fixture(),{a,b}=f.start();f.advance(1500);for(const key of ['spinning','finished']){f.send(a,{...state(1),[key]:1});assert.equal(f.last(a,'error').code,'BAD_MESSAGE');}f.send(a,{...state(2),spinning:true,finished:false});assert.equal(f.last(b,'peer').spinning,true);assert.equal(f.last(b,'peer').finished,false);
+});
+
+test('目标飞行中断线后恢复也不能补命中，已完赛目标不能报命中',()=>{
+ for(const finish of [false,true]){const f=fixture(),{a,b,code}=f.start(),id=f.last(a,'welcome').id,target=f.last(b,'welcome').id,token=f.last(b,'welcome').resumeToken;f.advance(1500);f.send(a,{type:'item',kind:'missile',itemId:id+'-1',target,x:0,z:0,yaw:0,firedAt:0});let connection=b;
+  if(finish)f.send(b,{type:'finish',elapsed:10,bestLap:3,lapTimes:[3,3,4]});else{f.rooms.disconnect(b);connection=f.connect('乙',code,token);assert.equal(f.last(connection,'item'),undefined);}
+  f.advance(1500);f.send(connection,{type:'hit',itemId:id+'-1',shielded:false});assert.equal(f.last(a,'hitAt'),undefined);
+ }
+});

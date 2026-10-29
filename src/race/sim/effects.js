@@ -27,3 +27,6 @@ export function effectInput(car,bits) {
 export function tickEffects(car,dt) {
  for(const key of ['spinTime','trapTime','shieldTime'])if(car[key]>0){const next=car[key]-dt;car[key]=next<1e-12?0:next;}
 }
+
+// 两圈视觉转动只用于渲染，不写回车辆物理朝向。
+export const spinRotation=remaining=>remaining>0?(1-Math.min(1,remaining/T.spinTime))*Math.PI*4:0;

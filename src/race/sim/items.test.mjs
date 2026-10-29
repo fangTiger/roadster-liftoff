@@ -30,3 +30,19 @@ test('水雷生效、本人豁免、闭合半径与存活时间边界',()=>{
 test('道具箱避开跳台全长、落石和成排锥桶的实际区域',()=>{
  const track={length:100,features:[{type:'ramp',from:20,to:20,length:10},{type:'cones',from:50,to:50,items:[{s:51},{s:56}]},{type:'rockfall',from:80,to:80}],at:s=>({x:0,z:s,y:0,w:10,tx:0,tz:1,bank:0}),surfaceAt:()=>ROAD};const boxes=items.itemBoxes(track);assert.ok(boxes[0].s>30);assert.ok(boxes[4].s>56);assert.ok(boxes[8].s>83);
 });
+
+test('导弹选最近领先者，包含 200 米边界，排除落后、同进度、完赛、ghost、stale 和离线',()=>{
+ assert.equal(typeof items.pickMissileTarget,'function');const self={id:'a',lap:1,s:10},near={id:'b',lap:1,s:30},far={id:'c',lap:1,s:210};
+ assert.equal(items.pickMissileTarget(self,[far,near,self],1000),near);
+ assert.equal(items.pickMissileTarget(self,[far],1000),far);
+ for(const patch of [{s:211},{s:9},{s:10},{s:20,finished:true},{s:20,ghost:true},{s:20,stale:true},{s:20,connected:false}])assert.equal(items.pickMissileTarget(self,[{...near,...patch}],1000),null);
+});
+test('导弹跨圈按累计进度选敌，不将圈后车辆误判为前车',()=>{
+ assert.equal(typeof items.pickMissileTarget,'function');const self={id:'a',lap:2,s:980},next={id:'b',lap:3,s:5};assert.equal(items.pickMissileTarget(self,[{id:'c',lap:2,s:990},next],1000).id,'c');assert.equal(items.pickMissileTarget(self,[next,{id:'d',lap:2,s:5}],1000),next);
+});
+test('导弹轨迹从发射点沿朝向出发，以 smoothstep 追逐当前显示位置，无目标直飞',()=>{
+ assert.equal(typeof items.missilePosition,'function');const m={x:1,z:2,yaw:0,firedAt:10},target={x:21,y:4,z:42};
+ assert.deepEqual(items.missilePosition(m,target,10),{x:1,y:1.5,z:2});
+ assert.deepEqual(items.missilePosition(m,target,11.5),{x:21,y:4.8,z:42});
+ const p=items.missilePosition(m,target,10.75);assert.equal(p.x,11);assert.ok(Math.abs(p.z-52)<1e-8);assert.ok(Math.abs(items.missilePosition(m,null,11.5).z-122)<1e-8);
+});
