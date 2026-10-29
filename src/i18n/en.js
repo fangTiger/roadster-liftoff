@@ -313,6 +313,8 @@ export default {
   "race.fuel": "Fuel {n}%",
   "race.missed": "Missed checkpoint {n}",
   "race.controls": "W / ↑ Throttle · S / ↓ Brake / Reverse · A D Steer · Space Thrusters · Shift Drift (countersteer to switch; release and press throttle for counter boost) · T Reset · C Camera · Esc / P Pause / Exit",
+  "race.controlsItems": " · E Use item",
+  "race.controlsRoom": " · 1–6 Emotes",
   "race.loading": "Loading track…",
   "race.generating": "Building track…",
   "race.pick": "Choose a track",
