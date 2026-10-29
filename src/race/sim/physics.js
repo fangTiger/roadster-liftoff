@@ -17,7 +17,7 @@ export function coinPositions(track) {
  return coins;
 }
 // 两线段最近点，含平行、端点及退化圆柱中心线。
-function closest(a,b,c,d) {
+export function closest(a,b,c,d) {
  const ux=b.x-a.x,uz=b.z-a.z,vx=d.x-c.x,vz=d.z-c.z,wx=a.x-c.x,wz=a.z-c.z;
  const aa=ux*ux+uz*uz,bb=ux*vx+uz*vz,cc=vx*vx+vz*vz,dd=ux*wx+uz*wz,ee=vx*wx+vz*wz,den=aa*cc-bb*bb;
  let s=den>1e-12?clamp((bb*ee-cc*dd)/den,0,1):0,t=cc>1e-12?clamp((bb*s+ee)/cc,0,1):0;

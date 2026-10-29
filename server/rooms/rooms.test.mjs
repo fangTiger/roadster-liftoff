@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRooms } from './rooms.js';
-const state = seq => ({ type:'state',seq,step:seq,x:1,y:0,z:2,yaw:0,pitch:0,vx:10,vz:0,steer:0,drifting:false,boost:false,lap:1,s:2 });
+const state = seq => ({ type:'state',seq,step:seq,x:1,y:0,z:2,yaw:0,pitch:0,vx:10,vz:0,steer:0,drifting:false,boost:false,ghost:false,air:false,lap:1,s:2 });
 function fixture() {
  let time=1000,seed=1;
  const out=new Map(),closed=[];
@@ -65,4 +65,13 @@ test('断线期间不会自动开始，恢复后需要重新准备；重复 fini
  f.send(b,{type:'ready',on:true});f.rooms.disconnect(b);f.send(a,{type:'ready',on:true});f.send(a,{type:'pickTrack',trackId:1});assert.equal(f.last(a,'start'),undefined);
  const c=f.connect('乙',code,w.resumeToken);assert.equal(f.last(c,'room').players.find(p=>p.id===w.id).ready,false);f.send(c,{type:'ready',on:true});f.advance(1500);
  f.send(a,{type:'finish',elapsed:120,bestLap:40,lapTimes:[40,40,40]});f.send(a,{type:'finish',elapsed:100,bestLap:30,lapTimes:[30,30,40]});f.send(c,{type:'finish',elapsed:117,bestLap:38,lapTimes:[38,39,40]});assert.equal(f.last(a,'results').results.find(p=>p.id===f.last(a,'welcome').id).elapsed,120);
+});
+test('air 与 ghost 必须是布尔值，白名单转发与恢复保留真实值',()=>{
+ const f=fixture(),{a,b,code}=f.start();f.advance(1500);
+ for(const patch of [{air:undefined},{air:1},{air:'true'},{air:null},{ghost:undefined},{ghost:0}]){
+  f.send(a,{...state(1),...patch});assert.equal(f.last(a,'error')?.code,'BAD_MESSAGE');assert.equal(f.last(b,'peer'),undefined);
+ }
+ f.send(a,{...state(2),air:true,ghost:true,simT:123,extra:'丢弃'});const peer=f.last(b,'peer');assert.equal(peer.air,true);assert.equal(peer.ghost,true);assert.equal(peer.simT,undefined);assert.equal(peer.extra,undefined);
+ const token=f.last(b,'welcome').resumeToken;f.rooms.disconnect(b);const resumed=f.connect('乙',code,token);assert.deepEqual(f.last(resumed,'peer'),peer);
+ f.send(a,state(3));assert.equal(f.last(resumed,'peer').air,false);assert.equal(f.last(resumed,'peer').ghost,false);
 });

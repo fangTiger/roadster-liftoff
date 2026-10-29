@@ -8,9 +8,9 @@
 - [x] 1.7 本地两个浏览器的端到端脚本（Playwright 开两个页面，跑完一局，核对双方名次一致）
 
 ## 2. 软碰撞（Codex 第 2 批）
-- [ ] 2.1 src/race/sim/contact.js 与 tuning 参数；session 的 contacts 回调
-- [ ] 2.2 测试：不传 contacts 时 golden 回归不变；碰撞后速度不增加；追尾方掉速更多；免碰撞时段生效；离地时不碰撞
-- [ ] 2.3 免碰撞时段内车身半透明；碰撞时的音效和轻微震屏
+- [x] 2.1 src/race/sim/contact.js 与 tuning 参数；session 的 contacts 回调
+- [x] 2.2 测试：不传 contacts 时 golden 回归不变；碰撞后速度不增加；追尾方掉速更多；免碰撞时段生效；离地时不碰撞
+- [x] 2.3 免碰撞时段内车身半透明；碰撞时的音效和轻微震屏
 
 ## 3. 手感与验收（Claude 与用户）
 - [ ] 3.1 用户本地试玩，调软碰撞参数

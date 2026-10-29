@@ -10,6 +10,8 @@ test('独立远端车按座位着色、全不透明、有名牌、轮子跟随�
   const wheels=[{front:true,spin:new THREE.Group(),steer:new THREE.Group()}],car=prepareRemoteCar({root,chassis,wheels,setSteer(){}},{name:'甲',color:'#42b9ff'});
   assert.notEqual(mesh.material,source);assert.equal(source.color.getHexString(),'ffffff');assert.equal(mesh.material.color.getHexString(),'42b9ff');assert.equal(mesh.material.opacity,1);assert.equal(mesh.material.transparent,false);assert.ok(root.children.some(c=>c.isSprite));assert.deepEqual(text,['甲']);
   const state={x:1,y:2,z:3,yaw:.5,pitch:.1,steer:.8,vx:10,vz:0,stale:false};car.update(state,.1);assert.equal(root.position.x,1);assert.equal(chassis.rotation.x,.1);assert.ok(wheels[0].spin.rotation.x<0);assert.equal(wheels[0].steer.rotation.y,.8*.35);
+  car.update({...state,ghost:true},.1);assert.equal(mesh.material.opacity,.35);assert.equal(mesh.material.transparent,true);assert.equal(mesh.material.depthWrite,false);assert.equal(source.opacity,1);
+  car.update(state,.1);assert.equal(mesh.material.opacity,1);assert.equal(mesh.material.transparent,false);assert.equal(mesh.material.depthWrite,true);
   car.update({...state,stale:true},1);assert.equal(root.visible,false);car.update(state,1);assert.equal(root.visible,true);assert.equal(mesh.material.opacity,1);assert.equal(mesh.material.transparent,false);car.dispose();assert.equal(freedGeometry,1);assert.equal(freedTexture,1);
  }finally{globalThis.document=before;}
 });

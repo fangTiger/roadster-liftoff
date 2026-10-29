@@ -193,3 +193,9 @@ test('竞速音效只用合成，静音沿用主总线，轮胎层每帧复用',
  a.setMuted(true); assert.equal(a.muted, true);
  assert.equal(JSON.parse(storage.get('liftoff.audio.v1')).muted, true);
 });
+test('车辆接触合成短促低频闷响，冲击越大音量越大',async()=>{
+ const a=module.createAudio({music:false});await a.unlock();
+ const shot=impact=>{const start=nodes.length;a.event('raceContact',{impact});return nodes.slice(start);};
+ const soft=shot(2),hard=shot(20),level=graph=>Math.max(...graph.flatMap(n=>n.gain.calls.map(c=>c.value)));
+ assert.ok(level(hard)>level(soft));assert.ok(hard.some(n=>n.type==='bufferSource'));assert.ok(hard.some(n=>n.type==='sine'));assert.ok(hard.filter(n=>n.started).every(n=>n.stopped&&n.disconnected));
+});

@@ -2,6 +2,7 @@ import './race.css';
 import './room.css';
 import { mountRoomRace } from './room-race.js';
 import { gridSpawn } from './grid.js';
+import { createCarOpacity } from './car-opacity.js';
 import { t, onLangChange, mountLangToggle } from '../i18n/i18n.js';
 import { createAchievements } from '../achievements/achievements.js';
 import { achievementsToBits } from '../chain/records.js';
@@ -68,6 +69,7 @@ engine.camera.far = 1800; engine.camera.updateProjectionMatrix();
 const storedSky = (() => { try { return localStorage.getItem('race.sky'); } catch { return null; } })();
 const skyKey = SKIES[params.get('sky')] ? params.get('sky') : SKIES[storedSky] ? storedSky : DEFAULT_SKY;
 const sky = await createSky(engine.scene, engine.renderer, skyKey), skid = createSkidmarks(engine.scene), car = await createCar(); engine.scene.add(car.root);
+const setCarOpacity = roomMode ? createCarOpacity(car.root) : null;
 const boostFx = createBoostFx(engine.scene, car), camera = createRaceCamera(engine.camera, engine.renderer.domElement), celebration = createCelebration(engine.scene);
 const hideLoading = () => { loading.style.opacity = '0'; setTimeout(() => loading.remove(), 700); };
 
@@ -86,7 +88,7 @@ async function setup(difficulty, replay = null, ghostName = '', roomStart = null
   try { scene = params.has('greybox') ? createGreybox(engine.scene, track, { tint: sky.tint }) : await createAlpine(engine.scene, track, { tint: sky.tint, renderer: engine.renderer }); }
   finally { if (roomMode) raceObjects = engine.scene.children.filter(object => !before.has(object)); }
   gate = createStartGate(engine.scene, track, t('race.track' + def.id)); hud = createHud(track, () => `${t('race.track' + def.id)} · ${t('race.' + entry.difficulty)}`, { roomMode });
-  session = createSession(track, { laps: roomStart?.laps ?? def.laps, ...(roomStart ? { spawn: gridSpawn(track, roomStart.seat) } : {}) }); recorder = createRecorder(); previous = current = session.snapshot;
+  session = createSession(track, { laps: roomStart?.laps ?? def.laps, ...(roomStart ? { spawn: gridSpawn(track, roomStart.seat), contacts: roomStart.contacts, contactId: roomStart.contactId } : {}) }); recorder = createRecorder(); previous = current = session.snapshot; raceAudio.reset();
   if (roomMode) { raceObjects = engine.scene.children.filter(object => !before.has(object)); car.root.visible = true; camera.setMode('follow'); }
   const selectedReplay = roomMode ? null : replay ?? (capture && params.get('ghost') === 'best' ? readBestGhost(def)?.replay : null);
   if (selectedReplay) {
@@ -133,6 +135,7 @@ function simulate(bits) {
   wheelAngle += Math.hypot(current.car.vx, current.car.vz) * DT / .34;
 }
 function render(alpha = 1, dt = 1 / 60) {
+  if (roomMode) setCarOpacity(session.ghost ? .35 : 1);
   const a = previous.car, b = current.car, blend = (x, y) => x + (y - x) * alpha;
   const c = { ...b, x: blend(a.x, b.x), y: blend(a.y, b.y), z: blend(a.z, b.z) };
   let delta = b.yaw - a.yaw; delta -= Math.PI * 2 * Math.floor((delta + Math.PI) / (Math.PI * 2)); const yaw = a.yaw + delta * alpha;
@@ -149,7 +152,11 @@ function render(alpha = 1, dt = 1 / 60) {
     for (const wheel of ghostCar.wheels) { wheel.spin.rotation.x = -ghostWheelAngle; if (wheel.front) wheel.steer.rotation.y = gb.steer * .35; }
   }
   // 压上加速带、二次加速：冲击波环 + 视野猛张；处在加速状态时喷金色火焰
-  for (; seenEvents < current.events.length; seenEvents++) { const t = current.events[seenEvents].type; if (t === 'counterBoost' || t === 'boost') { boostFx.trigger(c); camera.kick(); } }
+  for (; seenEvents < current.events.length; seenEvents++) {
+    const event = current.events[seenEvents], t = event.type;
+    if (t === 'counterBoost' || t === 'boost') { boostFx.trigger(c); camera.kick(); }
+    if (t === 'contact') camera.kick(Math.min(.2, .06 + event.impact * .005));
+  }
   boostFx.update(dt, current.step * DT, c.boostTime > 0);
   // 冲线：彩带、烟花、镜头环拍
   if (current.race.finished && !celebrated && !roomMode) {
@@ -179,7 +186,7 @@ if (roomMode) {
     if (sceneRestore) { engine.scene.environmentIntensity = sceneRestore.environment; if (sceneRestore.sun) sceneRestore.sun.intensity = sceneRestore.intensity; engine.scene.onAfterRender = sceneRestore.afterRender; if (engine.scene.fog && sceneRestore.fog !== undefined) engine.scene.fog.density = sceneRestore.fog; sceneRestore = null; }
     seenEvents = 0; wheelAngle = 0; celebrated = false; keys.clear();
   };
-  roomRace = mountRoomRace({ engine, params, setup: (difficulty, start) => setup(difficulty, null, '', start), clear, simulate, render, getState: () => current, getTrack: () => track, getBits: () => { let bits = 0; for (const code of keys) bits |= map[code] || 0; return bits; }, isPaused: () => !!raceMenu?.paused });
+  roomRace = mountRoomRace({ engine, params, setup: (difficulty, start) => setup(difficulty, null, '', start), clear, simulate, render, getState: () => current, getGhost: () => session.ghost, getTrack: () => track, getBits: () => { let bits = 0; for (const code of keys) bits |= map[code] || 0; return bits; }, isPaused: () => !!raceMenu?.paused });
   addEventListener('pagehide', () => roomRace.client.leave());
 } else if (capture) {
   await setup(params.get('map') || DEFAULT_DIFFICULTY); hideLoading();

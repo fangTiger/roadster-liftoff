@@ -22,3 +22,16 @@ test('远端模型加载途中玩家离开，迟到的模型必须释放而非�
  const loop=mountRoomRace({engine:{scene:{add(){added++;}},render(){}},params:new URLSearchParams(),client,ui,requestFrame:()=>{},setup:async()=>{},clear(){},createRemote:()=>new Promise(resolve=>{finishRemote=resolve;}),getTrack:()=>({length:1000,at:s=>({x:0,z:s,tx:0,tz:1})})});
  const pending=handlers.get('start')({startAt:2500,trackId:1,laps:3,grid:[{id:'a',seat:0},{id:'b',seat:1}]});await Promise.resolve();await Promise.resolve();handlers.get('left')({id:'b'});finishRemote({root:{},dispose(){disposed++;}});await pending;assert.equal(added,0);assert.equal(disposed,1);loop.destroy();
 });
+test('按远端 step 建立 simT，为当前步提供接触位置，过滤保护、离地和掉线，必发本地 air/ghost',async()=>{
+ let now=3600,startOptions,rendered,snapshot={step:132,car:{x:0,y:0,z:0,yaw:0,pitch:0,vx:0,vz:0,steer:0,grounded:false,near:{s:0}},race:{lap:1,finished:false}};
+ const handlers=new Map(),sent=[],client={id:'a',serverNow:()=>now,on(type,fn){handlers.set(type,fn);return ()=>{};},send:m=>sent.push(m),leave(){}},ui={room:{players:[{id:'a'},{id:'b'}]},racing(){},update(){},destroy(){},fail(){assert.fail('加载失败');}};
+ const loop=mountRoomRace({engine:{scene:{add(){}},render(){}},params:new URLSearchParams(),client,ui,requestFrame:()=>{},setup:async(_,opts)=>{startOptions=opts;},clear(){},createRemote:async()=>({root:{},update:s=>{rendered=s;},dispose(){}}),getTrack:()=>({length:1000,at:s=>({x:0,y:0,z:s,tx:0,tz:1})}),getState:()=>snapshot,getGhost:()=>true,getBits:()=>0,simulate(){snapshot={...snapshot,step:snapshot.step+1};},render(){}});
+ await handlers.get('start')({startAt:2500,trackId:1,laps:3,grid:[{id:'a',seat:0},{id:'b',seat:1}]});
+ assert.equal(startOptions.contactId,'a');
+ const peer={id:'b',seq:1,step:120,serverT:3590,x:10,y:0,z:0,yaw:0,pitch:0,vx:20,vz:0,steer:0,lap:1,s:10,ghost:false,air:false};
+ handlers.get('peer')(peer);assert.equal(startOptions.contacts(132)[0].x,12);assert.equal(startOptions.contacts(240)[0].x,15);
+ loop.frame(0);assert.equal(rendered.x,10);assert.equal(sent[0].air,true);assert.equal(sent[0].ghost,true);
+ for(const patch of [{ghost:true},{air:true}]){handlers.get('peer')({...peer,seq:++peer.seq,...patch});assert.deepEqual(startOptions.contacts(132),[]);}
+ handlers.get('peer')({...peer,seq:10});now=6591;assert.deepEqual(startOptions.contacts(132),[]);
+ handlers.get('left')({id:'b'});assert.deepEqual(startOptions.contacts(132),[]);loop.destroy();
+});
