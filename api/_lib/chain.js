@@ -59,3 +59,29 @@ export function tokenErrorResponse(error) {
     ? jsonResponse({ error: 'Token not found' }, 404)
     : jsonResponse({ error: 'Unable to read NFT record' }, 503);
 }
+
+// 与浏览器同源 ABI；服务器榜单不截断，过滤 verified 后才取前二十。
+export function createRaceReader({ readContract, address, chain = getArcChain() } = {}) {
+  let client;
+  const read = (functionName, args = []) => {
+    if (!address) throw new Error('未配置 RACING_ADDRESS');
+    const call = readContract || (params => {
+      client ||= createPublicClient({ chain, transport: http() });
+      return client.readContract(params);
+    });
+    return call({ address, abi: recordsAbi, functionName, args });
+  };
+  return {
+    readTrack: trackId => read('trackOf', [trackId]),
+    async readLeaderboard(trackId) {
+      const count = BigInt(await read('playerCount')), rows = [];
+      for (let start = 0n; start < count; start += 100n) {
+        const size = count - start < 100n ? count - start : 100n;
+        const [addresses, , bests] = await read('players', [trackId, start, size]);
+        rows.push(...bests.map((best, index) => ({ ...best, address: addresses[index] })));
+        if (!addresses.length) break;
+      }
+      return rows;
+    },
+  };
+}

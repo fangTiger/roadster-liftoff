@@ -5,8 +5,8 @@
  */
 import { t, onLangChange } from '../i18n/i18n.js';
 
-// 高手线按秒配置，与链上的资格线独立。
-export const PRO_LAP_SECONDS = { easy: 48, normal: 52, hard: 90 };
+import { raceAchievements } from './race.js';
+export { PRO_LAP_SECONDS } from './race.js';
 
 // ─── 常量 ────────────────────────────────────────────────────────────────────
 
@@ -542,19 +542,7 @@ export function createAchievements({ storageKey = 'liftoff.achievements.v1' } = 
 
   // 只读取会话快照，不参与模拟；完成圈统计与当前圈分开判断。
   function reportRace(snapshot, { difficulty, qualifyMs } = {}) {
-    const { stats = {}, completedStats = [], events = [] } = snapshot;
-    for (const value of [stats, ...completedStats]) {
-      if (value.canyonJump) unlock('canyon_jump');
-      if (value.slotPass) unlock('slot_pass');
-      if (value.driftBoost3 >= 3) unlock('drift_king');
-      if (value.saltTopKmh >= 300) unlock('valley_speed');
-    }
-    for (const { lap, time } of events.filter(e => e.type === 'lap')) {
-      unlock('first_lap');
-      if (Number(qualifyMs) > 0 && time * 1000 <= Number(qualifyMs)) unlock('qualified');
-      if (completedStats[lap - 1]?.clean) unlock('clean_lap');
-      if (time < PRO_LAP_SECONDS[difficulty]) unlock('pro_lap');
-    }
+    for (const id of raceAchievements(snapshot, { difficulty, qualifyMs })) unlock(id);
   }
 
   /**

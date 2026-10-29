@@ -6,21 +6,26 @@ import { bitsToCount, formatMs, shortAddr, errorKind } from './records.js';
 import { el, raceRoot, sessionKey, dateText } from './race-ui.js';
 
 export function mountRaceBoard(container, { wallet = defaultWallet } = {}) {
-  const root = raceRoot(container), mine = el('section', null, 'rc-mine'), tabs = el('nav', null, 'rc-tabs'), board = el('section', null, 'rc-board');
-  root.append(el('h2', t('race.chain.title'), 'rc-title'), el('p', t('race.chain.intro'), 'rc-dim'), mine, tabs, board);
-  let trackId = 1, boardVersion = 0, mineVersion = 0, key = sessionKey(wallet), dead = false, connecting = false;
+  const root = raceRoot(container), mine = el('section', null, 'rc-mine'), tabs = el('nav', null, 'rc-tabs'), board = el('section', null, 'rc-board'), filters = el('nav', null, 'rc-tabs');
+  root.append(el('h2', t('race.chain.title'), 'rc-title'), el('p', t('race.chain.intro'), 'rc-dim'), mine, tabs, filters, board);
+  let verifiedOnly = true, trackId = 1, boardVersion = 0, mineVersion = 0, key = sessionKey(wallet), dead = false, connecting = false;
   const buttons = RACE_TRACKS.map(track => {
     const button = el('button', t('race.track' + track.id), 'rc-button'); button.type = 'button';
     button.onclick = () => { trackId = track.id; return loadBoard(); }; tabs.append(button); return button;
   });
+  const filterButtons = [true, false].map(value => {
+    const button = el('button', t(value ? 'race.chain.verifiedOnly' : 'race.chain.all'), 'rc-button'); button.type = 'button';
+    button.onclick = () => { verifiedOnly = value; return loadBoard(); }; filters.append(button); return button;
+  });
   async function loadBoard() {
     if (dead) return;
     const id = ++boardVersion, selected = trackId;
+    filterButtons.forEach((button, index) => button.setAttribute('aria-pressed', String(verifiedOnly === (index === 0))));
     for (let i = 0; i < buttons.length; i++) buttons[i].setAttribute('aria-pressed', String(RACE_TRACKS[i].id === selected));
     board.replaceChildren(el('p', enabled ? t('race.chain.loadingBoard') : t('race.chain.unconfigured'), 'rc-dim'));
     if (!enabled) return;
     try {
-      const rows = await wallet.readLeaderboard(selected);
+      const rows = (await wallet.readLeaderboard(selected, { verifiedOnly })).filter(row => !verifiedOnly || row.verified === true);
       if (dead || id !== boardVersion) return;
       if (!rows.length) { board.replaceChildren(el('p', t('race.chain.empty'), 'rc-dim')); return; }
       const scroll = el('div', null, 'rc-scroll'), table = el('table', null, 'rc-table'), head = el('thead'), header = el('tr'), body = el('tbody');
@@ -78,6 +83,7 @@ export function mountRaceBoard(container, { wallet = defaultWallet } = {}) {
   const unlang = onLangChange(() => {
     root.children[0].textContent = t('race.chain.title'); root.children[1].textContent = t('race.chain.intro');
     buttons.forEach((button, i) => { button.textContent = t('race.track' + RACE_TRACKS[i].id); });
+    filterButtons.forEach((button, index) => { button.textContent = t(index === 0 ? 'race.chain.verifiedOnly' : 'race.chain.all'); });
     void loadMine(); void loadBoard();
   });
   void loadMine(); void loadBoard();

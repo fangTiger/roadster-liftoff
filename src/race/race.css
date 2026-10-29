@@ -26,3 +26,8 @@
 #race-pick .cards .race-ghost-options button:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;border-color:#ffffff26}
 #race-pick .cards button:focus-visible{outline:2px solid #4bc8e5;outline-offset:3px}
 #race-pick{overflow-y:auto;padding:24px 0;box-sizing:border-box;align-items:safe center}
+#race-pick .race-ghost-ranked{display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;width:100%}
+#race-pick .race-ghost-ranked[hidden]{display:none}
+#race-pick .cards .race-ghost-ranked button{width:100%}
+#race-pick .race-ghost-options p{font-size:12px;line-height:1.5;margin:0;color:#aab7bd;text-wrap:pretty}
+#race-pick .race-ghost-options p:empty{display:none}
