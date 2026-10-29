@@ -13,3 +13,4 @@ docs/studio/
 .vercel
 .env*
 docs/codex/
+output/
