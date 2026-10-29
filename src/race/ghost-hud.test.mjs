@@ -25,3 +25,10 @@ test('HUD 领先绿、落后红、约两秒后隐藏，缺失时不显示，完�
     assert.match(elements.get('.rh-result').innerHTML, /与影子总时间差.*−1.23/);
   } finally { Object.assign(globalThis, previous); }
 });
+
+test('房间 HUD 完赛等待统一结算，不显示单人成绩与重新选图提示',async()=>{
+ const {createHud}=await import('./hud.js');const previous={document:globalThis.document,innerWidth:globalThis.innerWidth,devicePixelRatio:globalThis.devicePixelRatio},elements=new Map(),context=new Proxy({},{get:()=>()=>{}});
+ const element=()=>({style:{},dataset:{},getContext:()=>context,remove(){},querySelector(selector){if(!elements.has(selector))elements.set(selector,element());return elements.get(selector);}});
+ globalThis.document={createElement:element,head:{append(){}},body:{append(){}}};globalThis.innerWidth=1200;globalThis.devicePixelRatio=1;
+ try{const track=buildTrack(def),hud=createHud(track,'',{roomMode:true}),s=createSession(track).snapshot;hud.update({...s,race:{...s.race,finished:true,bestLap:50,lapTimes:[50,51,52]}});assert.equal(elements.get('.rh-result').hidden,true);assert.match(elements.get('.rh-notice').textContent,/等待其他玩家/);hud.destroy();}finally{Object.assign(globalThis,previous);}
+});

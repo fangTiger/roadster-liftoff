@@ -1,0 +1,24 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mountRoomRace } from './room-race.js';
+test('房间循环等待 startAt、每帧追 240 步、15Hz 上报并可靠补发完赛',async()=>{
+ let now=1000,snapshot={step:0,car:{x:0,y:0,z:0,yaw:0,pitch:0,vx:0,vz:0,steer:0,drifting:false,boostTime:0,near:{s:0}},race:{lap:1,finished:false}},steps=0;
+ const handlers=new Map(),sent=[],client={id:'a',serverNow:()=>now,on(type,fn){handlers.set(type,fn);return ()=>{};},send:m=>{sent.push(m);return true;},leave(){}},ui={room:{phase:'countdown',players:[{id:'a',seat:0},{id:'b',seat:1}]},racing(){},update(){},destroy(){},fail(){assert.fail('不应加载失败');}};
+ const scene={add(){}},remote={root:{},update(){},dispose(){}};
+ const loop=mountRoomRace({engine:{scene,render(){}},params:new URLSearchParams(),client,ui,requestFrame:()=>{},createRemote:async()=>remote,setup:async()=>{},clear(){},simulate(){snapshot={...snapshot,step:snapshot.step+1};steps++;},getState:()=>snapshot,getTrack:()=>({length:1000,at:s=>({x:0,y:0,z:s,tx:0,tz:1,bank:0})}),getBits:()=>0,render(){}});
+ await handlers.get('start')({startAt:2500,trackId:1,laps:3,grid:[{id:'a',seat:0},{id:'b',seat:1}]});loop.frame(0);assert.equal(steps,0);
+ now=12500;ui.room.phase='racing';loop.frame(100);assert.equal(steps,240);assert.equal(sent.filter(m=>m.type==='state').length,1);loop.frame(110);assert.equal(steps,480);assert.equal(sent.filter(m=>m.type==='state').length,1);
+ now+=67;loop.frame(180);assert.equal(sent.filter(m=>m.type==='state').length,2);
+ snapshot.race={lap:3,finished:true,elapsed:117,bestLap:38,lapTimes:[38,39,40]};loop.frame(200);assert.equal(sent.at(-1).type,'finish');now+=1001;loop.frame(210);assert.equal(sent.filter(m=>m.type==='finish').length,2);
+ handlers.get('results')({results:[]});const before=steps;loop.frame(220);assert.equal(steps,before);loop.destroy();
+});
+test('加载期间已收到结算时，迟到的 setup 不得覆盖结果或恢复比赛',async()=>{
+ let finishSetup,racing=0,cleared=0;const handlers=new Map(),client={id:'a',serverNow:()=>1000,on(type,fn){handlers.set(type,fn);return ()=>{};},send(){},leave(){}},ui={room:{players:[]},view:'results',racing(){racing++;},update(){},destroy(){},fail(){assert.fail('不应加载失败');}};
+ const loop=mountRoomRace({engine:{scene:{add(){}},render(){}},params:new URLSearchParams(),client,ui,requestFrame:()=>{},setup:()=>new Promise(resolve=>{finishSetup=resolve;}),clear(){cleared++;},simulate(){assert.fail('结果后不应推进');},getState:()=>({step:0}),getTrack:()=>({length:1000}),getBits:()=>0,render(){}});
+ const pending=handlers.get('start')({startAt:2500,trackId:1,laps:3,grid:[{id:'a',seat:0}]});await Promise.resolve();handlers.get('results')({results:[]});finishSetup();await pending;assert.equal(racing,0);assert.equal(cleared,2);loop.frame(0);loop.destroy();
+});
+test('远端模型加载途中玩家离开，迟到的模型必须释放而非加回场景',async()=>{
+ let finishRemote,added=0,disposed=0;const handlers=new Map(),client={id:'a',on(type,fn){handlers.set(type,fn);return ()=>{};},leave(){}},ui={room:{players:[{id:'b',name:'乙',seat:1}]},racing(){},destroy(){},fail(){assert.fail('不应加载失败');}};
+ const loop=mountRoomRace({engine:{scene:{add(){added++;}},render(){}},params:new URLSearchParams(),client,ui,requestFrame:()=>{},setup:async()=>{},clear(){},createRemote:()=>new Promise(resolve=>{finishRemote=resolve;}),getTrack:()=>({length:1000,at:s=>({x:0,z:s,tx:0,tz:1})})});
+ const pending=handlers.get('start')({startAt:2500,trackId:1,laps:3,grid:[{id:'a',seat:0},{id:'b',seat:1}]});await Promise.resolve();await Promise.resolve();handlers.get('left')({id:'b'});finishRemote({root:{},dispose(){disposed++;}});await pending;assert.equal(added,0);assert.equal(disposed,1);loop.destroy();
+});

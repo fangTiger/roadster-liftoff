@@ -5,9 +5,9 @@ const formatDelta = value => `${value < 0 ? '−' : '+'}${Math.abs(value).toFixe
 const format = t => t === null ? '—' : `${Math.floor(t / 60)}:${(t % 60).toFixed(3).padStart(6, '0')}`;
 const LAPS = 3;
 const EVENT_TEXT = { lap: e => e.lap >= LAPS ? '' : e.lap === LAPS - 1 ? t('race.lastLap') : t('race.nextLap', { n: e.lap + 1 }), driftBoost: e => t('race.driftBoost', { tier: 'Ⅰ Ⅱ Ⅲ'.split(' ')[e.tier - 1] }), counterBoost: () => t('race.counterBoost'), driftSwitch: () => t('race.driftSwitch'), boost: () => t('race.boost'), coin: () => '', wall: () => '', land: () => '' };
-export function createHud(track, title = '') {
+export function createHud(track, title = '', { roomMode = false } = {}) {
   const style = document.createElement('style');
-  style.textContent = `body{margin:0;overflow:hidden;background:#0b0f14}body> :not(canvas):not(#race-hud):not(#race-pick):not(#race-loading):not(#race-tools):not(#ach-toast):not(#ach-panel-wrap):not(#roadster-wallet):not(w3m-modal):not(:has([data-rk])):not(script):not(style){display:none!important}
+  style.textContent = `body{margin:0;overflow:hidden;background:#0b0f14}body> :not(canvas):not(#race-hud):not(#race-pick):not(#race-loading):not(#race-tools):not(.rm-root):not(#ach-toast):not(#ach-panel-wrap):not(#roadster-wallet):not(w3m-modal):not(:has([data-rk])):not(script):not(style){display:none!important}
 #race-hud{position:fixed;inset:0;color:#f4eee1;font:16px 'Helvetica Neue','PingFang SC',sans-serif;pointer-events:none;z-index:10;font-variant-numeric:tabular-nums}
 #race-hud .rh-panel{background:#101a20c4;border:1px solid #ffffff1f;border-radius:10px;backdrop-filter:blur(6px)}
 #race-hud header{position:absolute;top:22px;left:24px;padding:14px 18px;min-width:210px}
@@ -75,8 +75,9 @@ export function createHud(track, title = '') {
     $('.rh-flash').textContent = flashEvent ? EVENT_TEXT[flashEvent.type]?.(flashEvent) : ''; $('.rh-flash').style.opacity = s.step < flashUntil ? 1 : 0;
     const recent = s.events.slice(-8).findLast(e => e.type === 'reset' && s.step - e.step < 240);
     $('.rh-notice').textContent = r.frozen ? Math.ceil(r.countdown) : r.wrongWay ? t('race.wrongWay') : r.missed !== null ? t('race.missed', { n: r.missed }) : recent ? t('race.reset') : '';
-    const result = $('.rh-result'); result.hidden = !r.finished;
-    if (r.finished) result.innerHTML = `<h2>${t('race.finish')}</h2><div class="best">${t('race.bestLap')} ${format(r.bestLap)}</div><div class="laps">${r.lapTimes.map((time, i) => `${t('race.nextLap', { n: i + 1 })}　${format(time)}${time === r.bestLap ? '　★' : ''}`).join('<br>')}</div>${totalDelta === null ? '' : `<div data-tone="${totalDelta < 0 ? 'ahead' : 'behind'}">${t('race.ghost.totalDelta')} ${formatDelta(totalDelta)}</div>`}<small style="font-size:14px;color:#aab7bd">${t('race.retry')}</small>`;
+    const result = $('.rh-result'); result.hidden = !r.finished || roomMode;
+    if (roomMode && r.finished) $('.rh-notice').textContent = t('room.finished');
+    if (r.finished && !roomMode) result.innerHTML = `<h2>${t('race.finish')}</h2><div class="best">${t('race.bestLap')} ${format(r.bestLap)}</div><div class="laps">${r.lapTimes.map((time, i) => `${t('race.nextLap', { n: i + 1 })}　${format(time)}${time === r.bestLap ? '　★' : ''}`).join('<br>')}</div>${totalDelta === null ? '' : `<div data-tone="${totalDelta < 0 ? 'ahead' : 'behind'}">${t('race.ghost.totalDelta')} ${formatDelta(totalDelta)}</div>`}<small style="font-size:14px;color:#aab7bd">${t('race.retry')}</small>`;
   }
-  return { update };
+  return { update, destroy() { root.remove(); style.remove(); } };
 }

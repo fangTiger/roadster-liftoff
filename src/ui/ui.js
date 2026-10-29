@@ -31,7 +31,7 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
         <p class="ui-subtitle">${L('start.subtitle')}</p>
         <div class="ui-launch-status">
           <div class="ui-progress-wrap"><div class="ui-progress-label"><span role="status">${t('load.ready')}</span><span class="ui-percent">0%</span></div><div class="ui-progress" role="progressbar" aria-label="${t('load.progress')}" data-i18n-attr="aria-label:load.progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div></div>
-          <div class="ui-start" hidden><button data-mode="race">${L('mode.race')}</button><button data-mode="space">${L('mode.space')}</button><button data-mode="season" class="ui-season">${L('mode.season')}</button></div>
+          <div class="ui-start" hidden><button data-mode="race">${L('mode.race')}</button><button data-mode="room">${L('mode.room')}</button><button data-mode="space">${L('mode.space')}</button><button data-mode="season" class="ui-season">${L('mode.season')}</button></div>
         </div>
         <div class="g ui-control-panel"><h2>${L('start.guide')} <span>${L('start.guideSub')}</span></h2>${controlsHTML()}</div>
         <footer>${L('credit.author')} Captain@mycndota · Built with Arc Studio + Claude Code <a href="https://github.com/fangTiger/roadster-liftoff/blob/main/CREDITS.md" target="_blank" rel="noopener noreferrer">${L('start.credits')} ↗</a></footer>
@@ -180,6 +180,7 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
   loading.addEventListener('click', e => {
     const mode = e.target.closest('[data-mode]')?.dataset.mode;
     if (mode === 'race') { location.href = '/?race'; return; }
+    if (mode === 'room') { location.href = '/?race&room'; return; }
     if (mode === 'season') { toast(t('mode.soon')); return; }
     if (mode === 'space' || !e.composedPath().some(node => node.matches?.('a,button,[role="button"]'))) start();
   });
