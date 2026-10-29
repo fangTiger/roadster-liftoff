@@ -1,0 +1,19 @@
+## 1. 录像与影子（Codex 第 1 批）
+- [ ] 1.1 录像加入 trackId；完赛后保存本地最佳录像（localStorage，try/catch）
+- [ ] 1.2 影子会话：用录像按键同步推进的第二个会话
+- [ ] 1.3 影子车外观（半透明、不投影、名字标签）
+- [ ] 1.4 HUD 检查点时间差；选图界面的影子选项（无 / 我的最佳 / 排行榜第 N 名）
+- [ ] 1.5 测试：影子与原局逐步一致、时间差计算
+
+## 2. 核实与影子接口（Codex 第 2 批）
+- [ ] 2.1 api/_lib/replay：校验与 Node 重放，计算竞速成就位
+- [ ] 2.2 api/_lib/sign：EIP-712 Lap 签名（私钥只从环境变量读）
+- [ ] 2.3 api/_lib/ghost-store：Blob 存取（可注入，测试用内存实现）
+- [ ] 2.4 POST /api/verify、GET /api/ghost 与单元测试
+- [ ] 2.5 前端提交流程：先调 /api/verify 取签名再 submit；排行榜默认只显示已核实
+- [ ] 2.6 scripts/chain/set-verifier.mjs（OWNER_KEY 环境变量，--yes 才发交易）
+
+## 3. 上线（Claude）
+- [ ] 3.1 生成核实者私钥（本机 600 权限文件），配置 Vercel 环境变量与 Blob 存储
+- [ ] 3.2 测试网端到端：跑完三圈 → 核实签名 → 上链 verified=true → 另一浏览器下载影子同场
+- [ ] 3.3 用户确认后主网 setVerifier 并部署
