@@ -1,3 +1,5 @@
+import { spinRotation } from './sim/effects.js';
+import T from './sim/tuning.js';
 import { onLangChange } from '../i18n/i18n.js';
 import { playerName } from './room-player.js';
 import * as THREE from 'three';
@@ -22,14 +24,15 @@ export function prepareRemoteCar(car,player) {
  paintLabel();const unsubscribe=onLangChange(paintLabel);
  const labelMaterial=new THREE.SpriteMaterial({map:texture,transparent:true,depthWrite:false,toneMapped:false}),label=new THREE.Sprite(labelMaterial);
  label.position.set(0,2.3,0);label.scale.set(3.2,.6,1);car.root.add(label);
- let opacity=1,wheelAngle=0;
+ let opacity=1,wheelAngle=0,spinElapsed=0,wasSpinning=false;
  return {...car,
   update(state,dt){
    if(!state){car.root.visible=false;return;}
    const target=state.stale?0:1;opacity+=Math.sign(target-opacity)*Math.min(Math.abs(target-opacity),Math.max(0,dt)*2);
    car.root.visible=opacity>.001;
    setOpacity(opacity*(state.ghost?.35:1));
-   labelMaterial.opacity=opacity;car.root.position.set(state.x,state.y,state.z);car.root.rotation.y=state.yaw+Math.PI;car.chassis.rotation.x=state.pitch;car.chassis.rotation.z=-state.steer*Math.min(.06,Math.hypot(state.vx,state.vz)*.001);
+   if(state.spinning){if(!wasSpinning)spinElapsed=0;spinElapsed+=Math.max(0,dt);}else spinElapsed=0;wasSpinning=!!state.spinning;
+   labelMaterial.opacity=opacity;car.root.position.set(state.x,state.y,state.z);car.root.rotation.y=state.yaw+Math.PI+(state.spinning?spinRotation(T.spinTime-spinElapsed%T.spinTime):0);car.chassis.rotation.x=state.pitch;car.chassis.rotation.z=-state.steer*Math.min(.06,Math.hypot(state.vx,state.vz)*.001);
    car.setSteer(state.steer);wheelAngle+=Math.hypot(state.vx,state.vz)*Math.min(.1,dt)/.34;
    for(const wheel of car.wheels){wheel.spin.rotation.x=-wheelAngle;if(wheel.front)wheel.steer.rotation.y=state.steer*.35;}
   },

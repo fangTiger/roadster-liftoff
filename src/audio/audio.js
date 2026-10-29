@@ -3,7 +3,7 @@ const MUSIC_LEVEL = 0.65;
 const SFX_LEVEL = 0.72;
 const FADE_SECONDS = 2.5;
 const NAMES = ['road', 'space', 'oldfriend'];
-const EVENTS = ['launch', 'land', 'whiteout', 'achievement', 'horn', 'roll', 'coin', 'raceWall', 'raceContact', 'raceDraft', 'raceBoost', 'raceBeep', 'raceGo', 'raceLap', 'raceFinish', 'racePickup', 'raceRoulette', 'raceNitro', 'raceShield', 'raceShieldBreak', 'raceMine', 'raceBubble'];
+const EVENTS = ['launch', 'land', 'whiteout', 'achievement', 'horn', 'roll', 'coin', 'raceWall', 'raceContact', 'raceDraft', 'raceBoost', 'raceBeep', 'raceGo', 'raceLap', 'raceFinish', 'racePickup', 'raceRoulette', 'raceNitro', 'raceShield', 'raceShieldBreak', 'raceMine', 'raceBubble', 'raceMissile', 'raceMissileWarning', 'raceExplosion'];
 const STORE = 'liftoff.audio.v1';
 const clamp = (v, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, Number.isFinite(v) ? v : lo));
 const db = value => 10 ** (value / 20);
@@ -353,6 +353,13 @@ export function createAudio({ urls, music = true } = {}) {
     } else if (name === 'raceShieldBreak') {
       shot({ kind: 'white', duration: .2, level: .16, type: 'highpass', cutoff: 2200 });
       shot({ frequency: 1200, end: 250, duration: .22, level: .10 });
+    } else if (name === 'raceMissile') {
+      shot({ kind: 'pink', duration: .3, level: .16, cutoff: 2500, cutoffEnd: 500 });
+    } else if (name === 'raceMissileWarning') {
+      [0,.12].forEach(delay => shot({ kind: 'square', frequency: 880, end: 660, duration: .08, level: .07, delay }));
+    } else if (name === 'raceExplosion') {
+      shot({ kind: 'brown', duration: .4, level: .23, cutoff: 1600, cutoffEnd: 180 });
+      shot({ frequency: 100, end: 30, duration: .3, level: .15 });
     } else if (name === 'raceMine') {
       shot({ frequency: 260, end: 100, duration: .2, level: .14 });
     } else if (name === 'raceBubble') {

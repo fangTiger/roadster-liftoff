@@ -1,3 +1,4 @@
+import { spinRotation } from './sim/effects.js';
 import './race.css';
 import './room.css';
 import { mountRoomRace } from './room-race.js';
@@ -139,7 +140,7 @@ function render(alpha = 1, dt = 1 / 60) {
   const a = previous.car, b = current.car, blend = (x, y) => x + (y - x) * alpha;
   const c = { ...b, x: blend(a.x, b.x), y: blend(a.y, b.y), z: blend(a.z, b.z) };
   let delta = b.yaw - a.yaw; delta -= Math.PI * 2 * Math.floor((delta + Math.PI) / (Math.PI * 2)); const yaw = a.yaw + delta * alpha;
-  car.root.position.set(c.x, c.y, c.z); car.root.rotation.y = yaw + Math.PI + (c.spinTime > 0 ? c.spinTime * Math.PI * 5 : 0); car.chassis.rotation.x = c.pitch; car.chassis.rotation.z = -c.steer * Math.min(.06, Math.hypot(c.vx, c.vz) * .001);
+  car.root.position.set(c.x, c.y, c.z); car.root.rotation.y = yaw + Math.PI + spinRotation(c.spinTime); car.chassis.rotation.x = c.pitch; car.chassis.rotation.z = -c.steer * Math.min(.06, Math.hypot(c.vx, c.vz) * .001);
   car.setRoll(0); car.setThrust((lastBits & B.THROTTLE) || c.boostTime > 0 ? 1 : 0, current.step * DT); car.setLift(lastBits & B.JET && c.fuel > 0 ? 1 : 0, current.step * DT);
   const rcs = c.drifting ? .65 : 0; car.setRCS(c.steer < 0 ? rcs : 0, c.steer > 0 ? rcs : 0, c.steer > 0 ? rcs : 0, c.steer < 0 ? rcs : 0, current.step * DT);   // 左转时前右、后左喷气
   car.setBrake(lastBits & B.BRAKE ? 1 : 0); car.setSteer(c.steer); for (const wheel of car.wheels) { wheel.spin.rotation.x = -wheelAngle; if (wheel.front) wheel.steer.rotation.y = c.steer * .35; }
@@ -168,7 +169,7 @@ function render(alpha = 1, dt = 1 / 60) {
     mountRaceChain(slot, { trackId: def.id, trackName: t('race.track' + def.id), bestLap: current.race.bestLap, bits: achievementsToBits(achievements.list()), replay: recorder.encode({ track: hash, trackId: def.id, laps: def.laps }) });
   }
   celebration.update(dt); gate.update(current);
-  camera.update(c, dt); sky.update(engine.camera, car.root.position); skid.update(c); scene.update(current); hud.update(current, { itemSlot: roomRace?.itemSlot, delta: ghostDelta, deltaStep: ghostDeltaStep, totalDelta: current.race.finished && ghost ? timeDelta(current.race.elapsed, ghost.totalTime) : null });
+  camera.update(c, dt); sky.update(engine.camera, car.root.position); skid.update(c); scene.update(current); hud.update(current, { itemSlot: roomRace?.itemSlot, missileLocked: roomRace?.missileLocked, delta: ghostDelta, deltaStep: ghostDeltaStep, totalDelta: current.race.finished && ghost ? timeDelta(current.race.elapsed, ghost.totalTime) : null });
   // 成绩文字高度随语言变化，上链区块始终排在完整成绩之后。
   const chainSlot = document.getElementById('race-chain-slot');
   if (chainSlot) chainSlot.style.top = `${document.querySelector('#race-hud .rh-result').getBoundingClientRect().bottom + 12}px`;

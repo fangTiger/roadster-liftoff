@@ -410,6 +410,7 @@ export default {
   "room.mode": "比赛模式",
   "room.mode.items": "道具赛",
   "room.mode.speed": "竞速赛",
+  "race.item.warning": "导弹来袭",
   "race.item.empty": "穿过道具箱",
   "race.item.rolling": "抽取中…",
   "race.item.missile": "导弹",

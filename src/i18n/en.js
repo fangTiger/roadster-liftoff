@@ -411,6 +411,7 @@ export default {
   "room.mode": "Race mode",
   "room.mode.items": "Item race",
   "room.mode.speed": "Speed race",
+  "race.item.warning": "Missile incoming",
   "race.item.empty": "Find an item box",
   "race.item.rolling": "Rolling…",
   "race.item.missile": "Missile",

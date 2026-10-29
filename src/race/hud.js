@@ -28,11 +28,12 @@ export function createHud(track, title = '', { roomMode = false, itemsMode = fal
 #race-hud .rh-result{position:absolute;top:5%;left:50%;transform:translateX(-50%);padding:26px 44px;line-height:1.9;font-size:20px;text-align:center;min-width:300px}#race-hud .rh-result h2{margin:0 0 6px;font-size:46px;letter-spacing:.2em;color:#ffd34d;text-shadow:0 0 24px #ffb30088}#race-hud .rh-result .best{font-size:30px;color:#fff;margin:6px 0}#race-hud .rh-result .laps{color:#c9d3d8;font-size:17px}
 #race-hud .rh-item{position:absolute;top:22px;left:50%;transform:translateX(-50%);padding:10px 18px;text-align:center;min-width:112px;border-color:#4bc8e566;box-shadow:0 0 22px #4bc8e522}#race-hud .rh-item-icon{display:block;font-size:38px;height:48px}#race-hud .rh-item-label{font-size:13px;color:#b9c4c9}#race-hud .rh-item kbd{font:11px inherit;display:block;color:#8ef0ff;margin-top:5px}#race-hud .rh-item[data-rolling=true]{border-color:#f8d28d;box-shadow:0 0 24px #f8d28d44}#race-hud .rh-shield-time{display:block;min-height:14px;font-size:12px;color:#8ef0ff;margin-top:4px}
 @media(max-width:700px){#race-hud header{left:10px;top:10px;min-width:150px}#race-hud .rh-map{right:10px;top:10px}#race-hud .rh-speed{right:10px;bottom:70px}#race-hud footer{font-size:11px}}`;
+  style.textContent+=`#race-hud .rh-missile-warning{position:absolute;inset:0;border:6px solid #ff4055;box-shadow:inset 0 0 70px #ff204055;color:#ff5265;text-align:center;padding-top:135px;font-size:28px;font-weight:700;text-shadow:0 2px 10px #000;box-sizing:border-box}`;
   document.head.append(style);
   const root = document.createElement('div'); root.id = 'race-hud';
   root.innerHTML = `<header class="rh-panel"><small>MARS ROADSTER · ${typeof title === 'function' ? title() : title}</small><div class="rh-lap"><b>1</b>/ 3 ${t('race.laps')}</div><div class="rh-progress"><i></i></div><div class="rh-timing"></div></header>
 <div class="rh-map rh-panel"><canvas></canvas></div><div class="rh-speed rh-panel"><strong>0</strong> km/h<meter min="0" max="1" value="1"></meter><div class="rh-drift"></div><div class="rh-draft" hidden><span></span><meter min="0" max="1" value="0"></meter></div></div>
-${itemsMode?'<div class="rh-item rh-panel"><span class="rh-item-icon"></span><span class="rh-item-label"></span><kbd></kbd><span class="rh-shield-time"></span></div>':''}<div class="rh-delta" hidden></div><div class="rh-notice"></div><div class="rh-flash"></div><div class="rh-result rh-panel" hidden></div>
+${itemsMode?'<div class="rh-missile-warning" role="status" hidden></div><div class="rh-item rh-panel"><span class="rh-item-icon"></span><span class="rh-item-label"></span><kbd></kbd><span class="rh-shield-time"></span></div>':''}<div class="rh-delta" hidden></div><div class="rh-notice"></div><div class="rh-flash"></div><div class="rh-result rh-panel" hidden></div>
 <footer>${t('race.controls')}</footer>`;
   document.body.append(root);
   const $ = q => root.querySelector(q);
@@ -54,13 +55,14 @@ ${itemsMode?'<div class="rh-item rh-panel"><span class="rh-item-icon"></span><sp
   }
   const lapProgress = c => { const n = c.near; if (!n) return 0; if (n.path === 'main') return n.s / track.length; const b = track.branches.find(b => b.id === n.path); return (b.from + (b.to - b.from) * n.s / b.length) / track.length; };
   let flashEvent = null, flashUntil = 0, draftUntil = 0, seen = 0;
-  function update(s, { delta = null, deltaStep = 0, totalDelta = null, itemSlot = null } = {}) {
+  function update(s, { delta = null, deltaStep = 0, totalDelta = null, itemSlot = null, missileLocked = false } = {}) {
     const comparison = $('.rh-delta');
     comparison.hidden = delta === null || s.step >= deltaStep + Math.ceil(2 / DT);
     comparison.textContent = delta === null ? '' : formatDelta(delta);
     comparison.dataset.tone = delta < 0 ? 'ahead' : 'behind';
     const r = s.race, c = s.car;
     if(itemsMode){
+      $('.rh-missile-warning').hidden=!missileLocked;$('.rh-missile-warning').textContent=t('race.item.warning');
       const rolling=!!itemSlot?.kind&&s.step*DT<itemSlot.readyAt,kind=rolling?Object.keys(ITEM_ICONS)[Math.floor(s.step*DT*12)%4]:itemSlot?.kind;
       $('.rh-item').dataset.rolling=String(rolling);$('.rh-item-icon').textContent=ITEM_ICONS[kind]||'?';
       $('.rh-item-label').textContent=t(rolling?'race.item.rolling':kind?'race.item.'+kind:'race.item.empty');

@@ -26,3 +26,7 @@ test('护盾五秒过期；按队列顺序抵消一次 spin / trap，只有 shie
 test('效果接口在下一次 step 消费队列，倒数中同样记录生效事件',()=>{
  const s=createSession(track);s.applyEffect('shield');assert.equal(s.car.shieldTime,undefined);s.step(0);assert.equal(s.car.shieldTime,T.shieldTime);assert.equal(s.snapshot.events.at(-1).kind,'shield');
 });
+
+test('打转视觉在 1.2 秒中匀速转两圈，首尾与物理朝向重合',async()=>{
+ const {spinRotation}=await import('./effects.js');assert.equal(typeof spinRotation,'function');assert.equal(spinRotation(1.2),0);assert.ok(Math.abs(spinRotation(.6)-Math.PI*2)<1e-12);assert.ok(spinRotation(.001)>Math.PI*3.99);assert.equal(spinRotation(0),0);
+});
