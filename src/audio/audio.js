@@ -3,7 +3,7 @@ const MUSIC_LEVEL = 0.65;
 const SFX_LEVEL = 0.72;
 const FADE_SECONDS = 2.5;
 const NAMES = ['road', 'space', 'oldfriend'];
-const EVENTS = ['launch', 'land', 'whiteout', 'achievement', 'horn', 'roll', 'coin', 'raceWall', 'raceContact', 'raceDraft', 'raceBoost', 'raceBeep', 'raceGo', 'raceLap', 'raceFinish'];
+const EVENTS = ['launch', 'land', 'whiteout', 'achievement', 'horn', 'roll', 'coin', 'raceWall', 'raceContact', 'raceDraft', 'raceBoost', 'raceBeep', 'raceGo', 'raceLap', 'raceFinish', 'racePickup', 'raceRoulette', 'raceNitro', 'raceShield', 'raceShieldBreak', 'raceMine', 'raceBubble'];
 const STORE = 'liftoff.audio.v1';
 const clamp = (v, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, Number.isFinite(v) ? v : lo));
 const db = value => 10 ** (value / 20);
@@ -342,6 +342,22 @@ export function createAudio({ urls, music = true } = {}) {
       const level = .08 + .2 * clamp(opts.impact / 20);
       shot({ kind: 'brown', duration: .12, level, cutoff: 420 });
       shot({ frequency: 80, end: 38, duration: .1, level: level * .6, cutoff: 300 });
+    } else if (name === 'racePickup') {
+      shot({ kind: 'triangle', frequency: 700, end: 1600, duration: .18, level: .14 });
+    } else if (name === 'raceRoulette') {
+      shot({ frequency: 1100, end: 850, duration: .035, level: .055 });
+    } else if (name === 'raceNitro') {
+      shot({ kind: 'pink', duration: .65, level: .23, type: 'bandpass', cutoff: 500, cutoffEnd: 4500 });
+    } else if (name === 'raceShield') {
+      [520,780].forEach(frequency => shot({ kind: 'sine', frequency, end: frequency * 1.4, duration: .45, level: .10 }));
+    } else if (name === 'raceShieldBreak') {
+      shot({ kind: 'white', duration: .2, level: .16, type: 'highpass', cutoff: 2200 });
+      shot({ frequency: 1200, end: 250, duration: .22, level: .10 });
+    } else if (name === 'raceMine') {
+      shot({ frequency: 260, end: 100, duration: .2, level: .14 });
+    } else if (name === 'raceBubble') {
+      shot({ frequency: 180, end: 650, duration: .32, level: .18 });
+      shot({ kind: 'pink', duration: .25, level: .10, cutoff: 900 });
     } else if (name === 'raceDraft') {
       // 尾流充满：短促上扬音，沿用合成音效总线与主音量。
       shot({ kind: 'triangle', frequency: 520, end: 1400, duration: .24, level: .18 });

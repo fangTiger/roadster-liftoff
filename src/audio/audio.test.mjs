@@ -203,3 +203,6 @@ test('尾流使用短促上扬的合成音并释放节点',async()=>{
  const a=module.createAudio({music:false});await a.unlock();const first=nodes.length;a.event('raceDraft');const graph=nodes.slice(first),osc=graph.find(n=>n.started&&n.frequency.calls.length);
  assert.ok(osc);assert.ok(osc.frequency.calls[0].value>osc.frequency.calls[0].from);assert.ok(osc.frequency.calls[0].tau<.1);assert.ok(graph.filter(n=>n.started).every(n=>n.stopped&&n.disconnected));
 });
+test('七类道具音效使用现有总线合成、音量适中并释放节点',async()=>{
+ const a=module.createAudio({music:false});await a.unlock();for(const name of ['racePickup','raceRoulette','raceNitro','raceShield','raceShieldBreak','raceMine','raceBubble']){const first=nodes.length;a.event(name);const graph=nodes.slice(first);assert.ok(graph.some(n=>n.started));assert.ok(graph.filter(n=>n.started).every(n=>n.stopped&&n.disconnected));assert.ok(Math.max(...graph.flatMap(n=>n.gain.calls.map(c=>c.value)))<=.3);}
+});
