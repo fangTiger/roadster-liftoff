@@ -5,7 +5,7 @@ import { decode } from './sim/replay.js';
 import { trackHash } from './track/build.js';
 
 // 暂停界面挂在竞速工具栏内，沿用该模式的顶层可见性与层级。
-export function mountRaceMenu(container, { onPauseChange, isOverlayOpen = () => false, selectHref = '/?race' }) {
+export function mountRaceMenu(container, { onPauseChange, isOverlayOpen = () => false, selectHref = '/?race', roomMode = false, onLeave = () => {} }) {
   let paused = false, restoreFocus;
   const button = document.createElement('button'); button.type = 'button';
   const dialog = document.createElement('section'); dialog.id = 'race-menu'; dialog.hidden = true;
@@ -15,11 +15,11 @@ export function mountRaceMenu(container, { onPauseChange, isOverlayOpen = () => 
   const select = document.createElement('a'); select.href = selectHref;
   const home = document.createElement('a'); home.href = '/';
   const note = document.createElement('p');
-  card.append(title, resume, select, home, note); dialog.append(card); container.append(button, dialog);
+  card.append(title, resume, ...(roomMode ? [] : [select]), home, note); dialog.append(card); container.append(button, dialog);
   function paint() {
     button.textContent = t('ctl.pause'); button.setAttribute('aria-expanded', String(paused)); button.setAttribute('aria-controls', dialog.id);
-    title.textContent = t('menu.paused'); resume.textContent = t('menu.resume');
-    select.textContent = t('race.select'); home.textContent = t('menu.home'); note.textContent = t('menu.exitNote');
+    title.textContent = t(roomMode ? 'room.menuTitle' : 'menu.paused'); resume.textContent = t('menu.resume');
+    select.textContent = t('race.select'); home.textContent = t('menu.home'); note.textContent = t(roomMode ? 'room.pauseNote' : 'menu.exitNote');
   }
   function setPaused(value) {
     if (paused === value) return;
@@ -30,6 +30,7 @@ export function mountRaceMenu(container, { onPauseChange, isOverlayOpen = () => 
     if (value) resume.focus();
     else { document.activeElement?.blur(); restoreFocus?.focus?.({ preventScroll: true }); }
   }
+  home.onclick = () => onLeave();
   button.onclick = () => setPaused(true); resume.onclick = () => setPaused(false);
   function onKey(event) {
     if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey || isOverlayOpen()) return;

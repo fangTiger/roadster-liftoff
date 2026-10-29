@@ -1,4 +1,7 @@
 import './race.css';
+import './room.css';
+import { mountRoomRace } from './room-race.js';
+import { gridSpawn } from './grid.js';
 import { t, onLangChange, mountLangToggle } from '../i18n/i18n.js';
 import { createAchievements } from '../achievements/achievements.js';
 import { achievementsToBits } from '../chain/records.js';
@@ -32,13 +35,13 @@ import { mountRaceMenu, mountGhostOptions } from './menu.js';
 import { createGhost, checkpointCount, checkpointDelta, timeDelta } from './ghost.js';
 import { readBestGhost, saveBestGhost } from './ghost-store.js';
 import { prepareGhostCar } from './ghost-car.js';
-const params = new URLSearchParams(location.search), capture = params.has('capture');
+const params = new URLSearchParams(location.search), roomMode = params.has('room'), capture = !roomMode && params.has('capture');
 // 加载画面：素材加载、着色器预编译完成之前盖住页面
 const loading = document.createElement('div'); loading.id = 'race-loading'; loading.textContent = t('race.loading');
 Object.assign(loading.style, { position: 'fixed', inset: '0', zIndex: '50', display: 'grid', placeItems: 'center', background: '#0b0f14', color: '#cfd8e3', font: '500 15px/1 system-ui,sans-serif', letterSpacing: '.2em', transition: 'opacity .6s' });
 document.body.append(loading);
 // 竞速模式不用第一版的界面：一开始就藏起来（HUD 要等选完地图才创建）
-const hideOld = document.createElement('style'); hideOld.textContent = 'body> :not(canvas):not(#race-hud):not(#race-pick):not(#race-loading):not(#race-tools):not(#ach-toast):not(#ach-panel-wrap):not(#roadster-wallet):not(w3m-modal):not(:has([data-rk])):not(script):not(style){display:none!important}'; document.head.append(hideOld);
+const hideOld = document.createElement('style'); hideOld.textContent = 'body> :not(canvas):not(#race-hud):not(#race-pick):not(#race-loading):not(#race-tools):not(.rm-root):not(#ach-toast):not(#ach-panel-wrap):not(#roadster-wallet):not(w3m-modal):not(:has([data-rk])):not(script):not(style){display:none!important}'; document.head.append(hideOld);
 // 与第一版共用存储和音量总线，竞速不加载音乐文件。
 const audio = createAudio({ music: false }), raceAudio = createRaceAudio(audio), achievements = createAchievements();
 let audioSettings = {};
@@ -70,16 +73,22 @@ const hideLoading = () => { loading.style.opacity = '0'; setTimeout(() => loadin
 
 // 选定地图后才生成赛道、场景、HUD 与会话
 let entry, qualifyMs, track, def, hash, scene, gate, hud, session, recorder, previous, current, raceMenu, seenEvents = 0, lastBits = 0, wheelAngle = 0, celebrated = false;
+let roomRace, raceObjects = [], sceneRestore;
 let ghost, ghostCar, ghostPrevious, ghostCurrent, ghostWheelAngle = 0, ghostDelta = null, ghostDeltaStep = 0;
-async function setup(difficulty, replay = null, ghostName = '') {
+async function setup(difficulty, replay = null, ghostName = '', roomStart = null) {
+  const before = roomMode ? new Set(engine.scene.children) : null;
+  if (roomMode) { const sun = engine.scene.children.find(o => o.isDirectionalLight); sceneRestore = { environment: engine.scene.environmentIntensity, sun, intensity: sun?.intensity, afterRender: engine.scene.onAfterRender, fog: engine.scene.fog?.density }; }
   entry = TRACKS.find(t => t.difficulty === difficulty) || TRACKS[0];
   qualifyMs = qualifyTime(entry);
   // 只读公共赛道配置，无需连接钱包；读取失败使用本地默认。
-  void wallet.readTrack(entry.def.id).then(value => { qualifyMs = qualifyTime(entry, value); if (current) achievements.reportRace(current, { difficulty: entry.difficulty, qualifyMs }); }).catch(() => {});
+  if (!roomMode) void wallet.readTrack(entry.def.id).then(value => { qualifyMs = qualifyTime(entry, value); if (current) achievements.reportRace(current, { difficulty: entry.difficulty, qualifyMs }); }).catch(() => {});
   def = entry.def; track = buildTrack(def); hash = trackHash(def);
-  scene = params.has('greybox') ? createGreybox(engine.scene, track, { tint: sky.tint }) : await createAlpine(engine.scene, track, { tint: sky.tint, renderer: engine.renderer }); gate = createStartGate(engine.scene, track, t('race.track' + def.id)); hud = createHud(track, () => `${t('race.track' + def.id)} · ${t('race.' + entry.difficulty)}`);
-  session = createSession(track, { laps: def.laps }); recorder = createRecorder(); previous = current = session.snapshot;
-  const selectedReplay = replay ?? (capture && params.get('ghost') === 'best' ? readBestGhost(def)?.replay : null);
+  try { scene = params.has('greybox') ? createGreybox(engine.scene, track, { tint: sky.tint }) : await createAlpine(engine.scene, track, { tint: sky.tint, renderer: engine.renderer }); }
+  finally { if (roomMode) raceObjects = engine.scene.children.filter(object => !before.has(object)); }
+  gate = createStartGate(engine.scene, track, t('race.track' + def.id)); hud = createHud(track, () => `${t('race.track' + def.id)} · ${t('race.' + entry.difficulty)}`, { roomMode });
+  session = createSession(track, { laps: roomStart?.laps ?? def.laps, ...(roomStart ? { spawn: gridSpawn(track, roomStart.seat) } : {}) }); recorder = createRecorder(); previous = current = session.snapshot;
+  if (roomMode) { raceObjects = engine.scene.children.filter(object => !before.has(object)); car.root.visible = true; camera.setMode('follow'); }
+  const selectedReplay = roomMode ? null : replay ?? (capture && params.get('ghost') === 'best' ? readBestGhost(def)?.replay : null);
   if (selectedReplay) {
     try { ghost = createGhost(track, selectedReplay); } catch { ghost = null; }
     if (ghost) {
@@ -94,6 +103,7 @@ async function setup(difficulty, replay = null, ghostName = '') {
     for (const key of ['map', 'autopilot', 'capture']) selectionParams.delete(key);
     raceMenu = mountRaceMenu(tools, {
       selectHref: `${location.pathname}?${selectionParams}`,
+      roomMode, onLeave: () => roomRace?.client.leave(),
       onPauseChange: paused => {
         keys.clear();
         // 与太空模式保持一致：先保存真实偏好，避免暂停退出后把临时静音带到下一页。
@@ -105,7 +115,7 @@ async function setup(difficulty, replay = null, ghostName = '') {
   }
 }
 const keys = new Set(), map = { KeyW: B.THROTTLE, ArrowUp: B.THROTTLE, KeyS: B.BRAKE, ArrowDown: B.BRAKE, KeyA: B.LEFT, ArrowLeft: B.LEFT, KeyD: B.RIGHT, ArrowRight: B.RIGHT, Space: B.JET, ShiftLeft: B.DRIFT, ShiftRight: B.DRIFT, Backspace: B.RESET, KeyT: B.RESET };
-addEventListener('keydown', e => { if (e.target.closest?.('input,select,textarea') || document.querySelector('.ach-panel-visible')) return; if (['Enter', 'Space'].includes(e.code) && e.target.closest?.('button,summary,[role=button]')) return; if (map[e.code]) { e.preventDefault(); keys.add(e.code); } if (e.code === 'KeyC' && !e.repeat) camera.setMode(); if (e.code === 'Enter' && current?.race.finished) location.reload(); });
+addEventListener('keydown', e => { if (e.target.closest?.('input,select,textarea') || document.querySelector('.ach-panel-visible')) return; if (['Enter', 'Space'].includes(e.code) && e.target.closest?.('button,summary,[role=button]')) return; if (map[e.code]) { e.preventDefault(); keys.add(e.code); } if (e.code === 'KeyC' && !e.repeat) camera.setMode(); if (!roomMode && e.code === 'Enter' && current?.race.finished) location.reload(); });
 addEventListener('keyup', e => keys.delete(e.code)); addEventListener('blur', () => keys.clear());
 function simulate(bits) {
   previous = current; lastBits = bits;
@@ -118,7 +128,7 @@ function simulate(bits) {
       ghostDelta = checkpointDelta(current, ghost); ghostDeltaStep = current.step;
     }
   }
-  if (current.race.finished && !previous.race.finished) saveBestGhost(def, recorder.encode({ track: hash, trackId: def.id, laps: def.laps }), current.race.bestLap);
+  if (!roomMode && current.race.finished && !previous.race.finished) saveBestGhost(def, recorder.encode({ track: hash, trackId: def.id, laps: def.laps }), current.race.bestLap);
   achievements.reportRace(current, { difficulty: entry.difficulty, qualifyMs }); raceAudio.update(current, bits, DT);
   wheelAngle += Math.hypot(current.car.vx, current.car.vz) * DT / .34;
 }
@@ -142,7 +152,7 @@ function render(alpha = 1, dt = 1 / 60) {
   for (; seenEvents < current.events.length; seenEvents++) { const t = current.events[seenEvents].type; if (t === 'counterBoost' || t === 'boost') { boostFx.trigger(c); camera.kick(); } }
   boostFx.update(dt, current.step * DT, c.boostTime > 0);
   // 冲线：彩带、烟花、镜头环拍
-  if (current.race.finished && !celebrated) {
+  if (current.race.finished && !celebrated && !roomMode) {
     celebrated = true; celebration.start(car.root.position); camera.setMode('celebrate');
     // 成绩面板下方挂上链区块（HUD 的成绩面板每帧重写，所以单独放一个容器）
     const slot = document.createElement('div'); slot.id = 'race-chain-slot';
@@ -160,7 +170,18 @@ function render(alpha = 1, dt = 1 / 60) {
 // 普通游玩也全程录制；控制台可导出本局，便于复盘和服务器核实
 window.__raceReplay = () => recorder.encode({ track: hash, trackId: def.id, laps: def.laps });
 
-if (capture) {
+if (roomMode) {
+  engine.render(); hideLoading(); car.root.visible = false;
+  const clear = () => {
+    raceMenu?.destroy(); raceMenu = null; hud?.destroy(); hud = null; car.root.visible = false;
+    for (const object of raceObjects) { object.removeFromParent(); object.traverse(child => { child.geometry?.dispose(); for (const material of [].concat(child.material || [])) { for (const value of Object.values(material)) if (value?.isTexture) value.dispose(); material.dispose(); } }); }
+    raceObjects = [];
+    if (sceneRestore) { engine.scene.environmentIntensity = sceneRestore.environment; if (sceneRestore.sun) sceneRestore.sun.intensity = sceneRestore.intensity; engine.scene.onAfterRender = sceneRestore.afterRender; if (engine.scene.fog && sceneRestore.fog !== undefined) engine.scene.fog.density = sceneRestore.fog; sceneRestore = null; }
+    seenEvents = 0; wheelAngle = 0; celebrated = false; keys.clear();
+  };
+  roomRace = mountRoomRace({ engine, params, setup: (difficulty, start) => setup(difficulty, null, '', start), clear, simulate, render, getState: () => current, getTrack: () => track, getBits: () => { let bits = 0; for (const code of keys) bits |= map[code] || 0; return bits; }, isPaused: () => !!raceMenu?.paused });
+  addEventListener('pagehide', () => roomRace.client.leave());
+} else if (capture) {
   await setup(params.get('map') || DEFAULT_DIFFICULTY); hideLoading();
   window.__race = { step(bits, n = 1) { for (let i = 0; i < n; i++) simulate(bits); render(1, Math.max(DT, n * DT)); return current; }, auto(n = 1) { for (let i = 0; i < n; i++) simulate(autopilot(current, track)); render(1, Math.max(DT, n * DT)); return current; }, snap: () => session.snapshot, replay: () => recorder.encode({ track: hash, trackId: def.id, laps: def.laps }), cam(mode) { const value = camera.setMode(mode); render(); return value; }, render: () => render() };
   window.__engine = engine; window.__sky = sky;   // 调试：检查天空与太阳方向

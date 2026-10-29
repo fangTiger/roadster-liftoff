@@ -8,13 +8,13 @@
 
 ## 消息协议（JSON，带 type 字段）
 - 客户端发给服务：
-  - `hello{name, roomCode?}`、`ready{on}`、`pickTrack{trackId}`（仅房主）；
-  - `state{seq, step, x,y,z,yaw,pitch,vx,vz,steer,drift,boost,lap,s}`，每秒 15 次；
-  - `finish{elapsed, bestLap, lapTimes}`、`ping{t}`。
+  - `hello{name, roomCode?, resumeToken?}`、`ready{on}`、`pickTrack{trackId}`（仅房主）；
+  - `state{seq, step, x,y,z,yaw,pitch,vx,vz,steer,drifting,boost,lap,s,ghost?}`，每秒 15 次；
+  - `finish{elapsed, bestLap, lapTimes}`、`ping{t}`、`leave`。
 - 服务发给客户端：
-  - `room{code, players[], hostId, trackId, phase}`；
+  - `welcome{id, resumeToken}`、`room{code, players[{id,name,seat,ready,connected,color}], hostId, trackId, phase}`；
   - `start{trackId, laps, startAt, grid[]}`，其中 startAt 是服务器时间；
-  - `peer{id, ...state}`、`left{id}`、`results[]`、`pong{t, serverT}`。
+  - `peer{id, ...state, serverT}`、`left{id}`、`results{results:[{id,name,rank,elapsed,bestLap,dnf}]}`、`pong{t, serverT}`、`error{code}`；所有消息都有 `type`。
 - 服务对 state 消息做限流（超过每秒 30 次就丢弃），每个房间单独转发。
 
 ## 时钟与发车
@@ -53,3 +53,13 @@
 - 观战模式、语音聊天；
 - 房间赛成绩上链；
 - 尾流加速（看试玩效果，作为下一批的候选）。
+
+## 第 1 批实施约定（不含碰撞）
+- 已有 session 的 `spawn` 参数足以支持发车格，不修改 session、race、physics、tuning 的物理与计时。座位 0–5 两列相隔 5 米，沿赛道每排退后 8 米。
+- startAt 为服务当前时间 +1500ms，客户端到时开始推进 session 自带的 3 秒倒计时。按服务器时间算目标步数，单帧最多追 240 步；菜单不暂停联网计时。
+- 每秒发 15 条状态；服务对每个连接用一秒滑动窗口限制最多 30 条，只转发合法字段，补充接收时刻 serverT。服务不执行物理或成绩复算。
+- 每 2 秒 ping，以最近 8 次样本的最小 RTT 校时；远端车显示服务器当前时间减 100ms 的状态，外推上限 250ms，3 秒后淡出。
+- 断线保留席位与恢复令牌 30 秒，但立即向最早加入且在线的玩家移交房主；恢复后继续本机同一局，不重置 session。超时或主动离房的未完赛者在本局参赛名单中保留 DNF。
+- 第一个 finish 开启 60 秒结算期限。统一结算按自报 elapsed 升序，DNF 排后；以 `{type:"results",results:[...]}` 发送，随后回大厅并清空准备。结果页保留到用户点击回到大厅。
+- 房间赛不显示上链面板，不读取或保存最佳影子，不调用 `/api/verify`。链接保留 autopilot 参数，可运行双页机器人验收。
+- 开发服务：`npm run rooms` 与 `npm run dev -- --port 8932`；随后运行 `node scripts/rooms-e2e.mjs`，可用 URL 指定地址、ROOMS_E2E_CHANNEL 指定已安装的浏览器通道。

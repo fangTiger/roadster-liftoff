@@ -1,0 +1,15 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import * as THREE from 'three';
+import { prepareRemoteCar } from './remote-car.js';
+test('独立远端车按座位着色、全不透明、有名牌、轮子跟随状态、掉线淡出与恢复',()=>{
+ const before=globalThis.document,text=[];globalThis.document={createElement:()=>({getContext:()=>({clearRect(){},fillRect(){},fillText:s=>text.push(s)})})};
+ try{
+  const root=new THREE.Group(),chassis=new THREE.Group(),source=new THREE.MeshStandardMaterial({name:'car_main_paint',color:'white'}),mesh=new THREE.Mesh(new THREE.BoxGeometry(),source);root.add(chassis);chassis.add(mesh);
+  let freedGeometry=0,freedTexture=0;mesh.geometry.addEventListener('dispose',()=>freedGeometry++);source.map=new THREE.Texture();source.map.addEventListener('dispose',()=>freedTexture++);
+  const wheels=[{front:true,spin:new THREE.Group(),steer:new THREE.Group()}],car=prepareRemoteCar({root,chassis,wheels,setSteer(){}},{name:'甲',color:'#42b9ff'});
+  assert.notEqual(mesh.material,source);assert.equal(source.color.getHexString(),'ffffff');assert.equal(mesh.material.color.getHexString(),'42b9ff');assert.equal(mesh.material.opacity,1);assert.equal(mesh.material.transparent,false);assert.ok(root.children.some(c=>c.isSprite));assert.deepEqual(text,['甲']);
+  const state={x:1,y:2,z:3,yaw:.5,pitch:.1,steer:.8,vx:10,vz:0,stale:false};car.update(state,.1);assert.equal(root.position.x,1);assert.equal(chassis.rotation.x,.1);assert.ok(wheels[0].spin.rotation.x<0);assert.equal(wheels[0].steer.rotation.y,.8*.35);
+  car.update({...state,stale:true},1);assert.equal(root.visible,false);car.update(state,1);assert.equal(root.visible,true);assert.equal(mesh.material.opacity,1);assert.equal(mesh.material.transparent,false);car.dispose();assert.equal(freedGeometry,1);assert.equal(freedTexture,1);
+ }finally{globalThis.document=before;}
+});
