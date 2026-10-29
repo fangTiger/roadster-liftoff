@@ -3,7 +3,7 @@ const MUSIC_LEVEL = 0.65;
 const SFX_LEVEL = 0.72;
 const FADE_SECONDS = 2.5;
 const NAMES = ['road', 'space', 'oldfriend'];
-const EVENTS = ['launch', 'land', 'whiteout', 'achievement', 'horn', 'roll', 'coin', 'raceWall', 'raceBoost', 'raceBeep', 'raceGo', 'raceLap', 'raceFinish'];
+const EVENTS = ['launch', 'land', 'whiteout', 'achievement', 'horn', 'roll', 'coin', 'raceWall', 'raceContact', 'raceBoost', 'raceBeep', 'raceGo', 'raceLap', 'raceFinish'];
 const STORE = 'liftoff.audio.v1';
 const clamp = (v, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, Number.isFinite(v) ? v : lo));
 const db = value => 10 ** (value / 20);
@@ -331,13 +331,17 @@ export function createAudio({ urls, music = true } = {}) {
     source.start(start); source.stop(start + duration + 0.12);
   }
 
-  // opts.pitch：金币连吃时逐个升调（半音数）
+  // opts.pitch：金币连吃时逐个升调（半音数）；opts.impact：车辆接触的法向冲击（米/秒）。
   function event(name, opts = {}) {
     if (!EVENTS.includes(name)) throw new RangeError(`未知音效事件：${name}`);
     if (!ready) return;
     if (name === 'raceWall') {
       shot({ kind: 'brown', duration: .24, level: .4, cutoff: 900 });
       shot({ frequency: 95, end: 35, duration: .22, level: .22 });
+    } else if (name === 'raceContact') {
+      const level = .08 + .2 * clamp(opts.impact / 20);
+      shot({ kind: 'brown', duration: .12, level, cutoff: 420 });
+      shot({ frequency: 80, end: 38, duration: .1, level: level * .6, cutoff: 300 });
     } else if (name === 'raceBoost') {
       shot({ kind: 'pink', duration: .65, level: .35, type: 'bandpass', cutoff: 350, cutoffEnd: 6500 });
     } else if (name === 'raceBeep' || name === 'raceGo') {

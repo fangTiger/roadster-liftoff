@@ -4,7 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 // 速度感交给视野角，距离几乎不变。C 键切换自由环绕。
 export function createRaceCamera(camera,element){
  const orbit=new OrbitControls(camera,element);orbit.enabled=false;orbit.enableDamping=true;orbit.maxDistance=160;orbit.minDistance=4;
- let mode='follow',initialized=false,camYaw=0,camY=0,kick=0,spin=0;const look=new THREE.Vector3();
+ let mode='follow',initialized=false,camYaw=0,camY=0,kick=0,pendingKick=0,spin=0;const look=new THREE.Vector3();
  function setMode(next){if(mode==='celebrate'&&!next)return mode;mode=next||(mode==='follow'?'orbit':'follow');orbit.enabled=mode==='orbit';if(mode==='celebrate')spin=camYaw+Math.PI;initialized=false;return mode;}
  function update(c,dt=1/60){
   // 冲线庆祝：镜头绕车慢慢环拍，略高于车顶
@@ -19,8 +19,9 @@ export function createRaceCamera(camera,element){
   const back=7.8+k*.9,height=2.05+k*.2+(c.grounded?0:.5),fx=Math.sin(camYaw),fz=Math.cos(camYaw);
   camera.position.set(c.x-fx*back,camY+height,c.z-fz*back);
   look.set(c.x+Math.sin(c.yaw)*6,camY+.75,c.z+Math.cos(c.yaw)*6);camera.lookAt(look);
-  kick=Math.max(0,kick-dt*2.2);const fov=52+k*14+kick*10;if(Math.abs(camera.fov-fov)>.01){camera.fov+=(fov-camera.fov)*Math.min(1,dt*4);camera.updateProjectionMatrix();}
+  // 轻接触至少显示一帧，避免低帧率先把冲击衰减到零；默认加速保留原衰减。
+  kick=Math.max(0,kick-dt*2.2,pendingKick);pendingKick=0;const fov=52+k*14+kick*10;if(Math.abs(camera.fov-fov)>.01){camera.fov+=(fov-camera.fov)*Math.min(1,dt*4);camera.updateProjectionMatrix();}
  }
  // 二次加速等瞬间加速时视野猛地张开再回落
- return {update,setMode,kick(){kick=1;}};
+ return {update,setMode,kick(strength=1){kick=Math.max(kick,strength);if(strength<1)pendingKick=Math.max(pendingKick,strength);}};
 }

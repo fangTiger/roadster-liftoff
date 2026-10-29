@@ -4,7 +4,7 @@ const ALPHABET='23456789ABCDEFGHJKMNPQRSTUVWXYZ',GRACE=30000;
 const numeric=['seq','step','x','y','z','yaw','pitch','vx','vz','steer','lap','s'];
 const finite=n=>typeof n==='number'&&Number.isFinite(n)&&Math.abs(n)<=1e9;
 const integer=n=>Number.isSafeInteger(n)&&n>=0;
-const validState=m=>numeric.every(k=>finite(m[k]))&&integer(m.seq)&&integer(m.step)&&Number.isInteger(m.lap)&&m.lap>=1&&m.lap<=3&&m.s>=0&&typeof m.drifting==='boolean'&&typeof m.boost==='boolean'&&(m.ghost===undefined||typeof m.ghost==='boolean');
+const validState=m=>numeric.every(k=>finite(m[k]))&&integer(m.seq)&&integer(m.step)&&Number.isInteger(m.lap)&&m.lap>=1&&m.lap<=3&&m.s>=0&&typeof m.drifting==='boolean'&&typeof m.boost==='boolean'&&typeof m.ghost==='boolean'&&typeof m.air==='boolean';
 const validFinish=m=>finite(m.elapsed)&&m.elapsed>0&&finite(m.bestLap)&&m.bestLap>0&&Array.isArray(m.lapTimes)&&m.lapTimes.length===3&&m.lapTimes.every(n=>finite(n)&&n>0);
 export function createRooms({now=Date.now,random=Math.random,send,close=()=>{},onRoom=()=>{}}={}) {
  const rooms=new Map(),clients=new Map(),tokens=new Map();let serial=0,codeSerial=0;
@@ -86,7 +86,7 @@ export function createRooms({now=Date.now,random=Math.random,send,close=()=>{},o
    if(r.phase!=='racing')return;
    const time=now();p.rate=p.rate.filter(t=>time-t<1000);if(p.rate.length>=30)return;p.rate.push(time);
    if(m.seq<=p.lastSeq)return;p.lastSeq=m.seq;
-   const state=Object.fromEntries([...numeric,'drifting','boost','ghost'].filter(k=>m[k]!==undefined).map(k=>[k,m[k]]));
+   const state=Object.fromEntries([...numeric,'drifting','boost','ghost','air'].map(k=>[k,m[k]]));
    state.serverT=time;p.state=state;broadcast(r,{type:'peer',id:p.id,...state},p);return;
   }
   if(m.type==='finish'){

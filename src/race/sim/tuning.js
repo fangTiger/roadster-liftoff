@@ -17,6 +17,9 @@ export const tuning=Object.freeze({
  rollKeys:Object.freeze([0,.22,.42,.73,.93,1.15]),rollAngles:Object.freeze([0,.5,.5,1.5,1.5,2]),
  // 碰撞损失随入射法向分量变化；冷却以模拟步计。
  collisionLoss:.65,wallScrape:.8,coneRetention:.85,rockRetention:.6,rockYaw:2.5,rockCooldown:1,
+ // 车间软碰撞：基础掉速比例、追尾额外掉速比例（都按接近速度占车速的比例缩放，每次接触只结算一次）、每步推出总上限（米）、
+ // 同一辆车的接触冷却（秒，持续贴身期间不重复扣速）、发车与重置保护时长（秒）。
+ contactLoss:.1,rearEndLoss:.15,contactPushMax:.25,contactCooldown:.3,contactGraceStart:3,contactGraceReset:2,
  // 地面跟随的竖直速度上限 = 车速 × 最大坡度 + 台阶速度；超出视为高度断层。
  maxGrade:.4,stepSpeed:1.5,
  landingThreshold:5,landingLoss:.008,stuckDuration:2,fallDepth:6,
