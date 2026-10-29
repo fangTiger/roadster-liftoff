@@ -36,3 +36,8 @@ test('大厅房主选择难度增删机器人，机器人中英文命名，权�
  handlers.get('room')({...room,hostId:'other'});assert.equal(get('[data-rm-bots]').hidden,true);assert.equal(get('[data-rm-players]').children[1].children[3],undefined);ui.destroy();
  }finally{setLang('zh');globalThis.document=previous;}
 });
+test('大厅模式按钮只许房主操作，跟随 room 模式及语言',async()=>{
+ const {mountRoomUI}=await import('./room-ui.js'),previous=globalThis.document,elements=new Map(),handlers=new Map(),sent=[];
+ const element=()=>({dataset:{},style:{},append(){},replaceChildren(){},remove(){},setAttribute(k,v){this[k]=v;},querySelector:q=>get(q),querySelectorAll:q=>q==='[data-rm-mode]'?['items','speed'].map(m=>get('[data-rm-mode="'+m+'"]')):[get('[data-rm-track="1"]')]});const get=q=>{if(!elements.has(q))elements.set(q,element());return elements.get(q);};get('[data-rm-track="1"]').dataset.rmTrack='1';for(const m of ['items','speed'])get('[data-rm-mode="'+m+'"]').dataset.rmMode=m;globalThis.document={createElement:element,body:{append(){}}};
+ try{const client={id:'a',on(t,fn){handlers.set(t,fn);return ()=>{};},send:m=>sent.push(m)},ui=mountRoomUI({client}),room={phase:'lobby',hostId:'a',mode:'items',players:[]};handlers.get('connection')({connected:true});handlers.get('room')(room);const speed=get('[data-rm-mode="speed"]');assert.equal(speed.textContent,'竞速赛');assert.equal(speed.disabled,false);speed.onclick();assert.deepEqual(sent.at(-1),{type:'pickMode',mode:'speed'});handlers.get('room')({...room,mode:'speed',hostId:'b'});assert.equal(speed.disabled,true);assert.equal(speed['aria-pressed'],'true');handlers.get('room')({...room,phase:'countdown'});assert.equal(speed.disabled,true);ui.destroy();}finally{globalThis.document=previous;}
+});

@@ -22,6 +22,8 @@ export const tuning=Object.freeze({
  contactLoss:.1,rearEndLoss:.15,contactPushMax:.25,contactCooldown:.3,contactGraceStart:3,contactGraceReset:2,
  // 尾流：前车纵向距离范围、横向宽度（米）、最低车速（米/秒）、充满与加速时长（秒）。
  draftMin:4,draftRange:25,draftWidth:1.6,draftMinSpeed:20,draftCharge:1.2,draftBoost:.8,
+ // 道具效果：打转时长（秒）、瞬间保速比例、水泡禁锢、氮气与护盾时长（秒）。
+ spinTime:1.2,spinKeep:.35,trapTime:1,nitroTime:2,shieldTime:5,
  // 地面跟随的竖直速度上限 = 车速 × 最大坡度 + 台阶速度；超出视为高度断层。
  maxGrade:.4,stepSpeed:1.5,
  landingThreshold:5,landingLoss:.008,stuckDuration:2,fallDepth:6,

@@ -134,3 +134,33 @@ test('所有真人已完赛时房主断线立即结算机器人 DNF，重连不�
  f.rooms.disconnect(f.a);const rows=f.last(f.b,'results').results;assert.equal(rows.filter(p=>p.dnf).length,2);assert.ok(rows.filter(p=>p.dnf).every(p=>p.bot));
  const resumed=f.connect('甲',f.code,token);f.send(resumed,{...finish,type:'botFinish',botId:f.bots[0].id});assert.deepEqual(f.last(resumed,'results').results,rows);assert.ok(f.last(resumed,'room').players.every(p=>!p.bot));
 });
+
+test('比赛模式默认 items，只允许大厅房主切换，room 和 start 均下发 mode',()=>{
+ const f=fixture(),a=f.connect(),code=f.last(a,'room').code,b=f.connect('乙',code);assert.equal(f.last(a,'room').mode,'items');
+ f.send(b,{type:'pickMode',mode:'speed'});assert.equal(f.last(b,'error').code,'NOT_HOST');f.send(a,{type:'pickMode',mode:'bad'});assert.equal(f.last(a,'error').code,'BAD_MESSAGE');
+ f.send(a,{type:'pickMode',mode:'speed'});assert.equal(f.last(b,'room').mode,'speed');for(const c of [a,b])f.send(c,{type:'ready',on:true});f.send(a,{type:'pickTrack',trackId:1});assert.equal(f.last(a,'start').mode,'speed');
+ f.send(a,{type:'pickMode',mode:'items'});assert.equal(f.last(a,'error').code,'BAD_PHASE');f.advance(1500);f.send(a,{type:'item',kind:'mine',itemId:f.last(a,'welcome').id+'-1',x:0,z:1,placedAt:4});assert.equal(f.last(a,'error').code,'BAD_PHASE');assert.equal(f.last(b,'item'),undefined);
+});
+test('水雷严格校验、每车 500ms 限流、itemId 跨时段去重且首次 mineHit 广播一次',()=>{
+ const f=fixture(),{a,b}=f.start(),id=f.last(a,'welcome').id,m={type:'item',kind:'mine',itemId:id+'-1',x:10,z:20,placedAt:3};
+ f.send(a,m);assert.equal(f.last(a,'error').code,'BAD_PHASE');f.advance(1500);
+ for(const bad of [{itemId:'other-1'},{kind:'missile'},{x:'10'},{placedAt:-1},{itemId:'x'.repeat(100)}]){f.send(a,{...m,...bad});assert.equal(f.last(a,'error').code,'BAD_MESSAGE');}assert.equal(f.last(b,'item'),undefined);
+ f.send(a,{...m,from:'伪造',extra:1});assert.deepEqual(f.last(b,'item'),{...m,from:id});assert.deepEqual(f.last(a,'item'),f.last(b,'item'));
+ f.advance(499);f.send(a,{...m,itemId:id+'-2'});assert.equal(f.out.get(b).filter(m=>m.type==='item').length,1);f.advance(1);f.send(a,{...m,itemId:id+'-2'});assert.equal(f.out.get(b).filter(m=>m.type==='item').length,2);
+ f.advance(500);f.send(a,m);assert.equal(f.out.get(b).filter(m=>m.type==='item').length,2);
+ f.send(b,{type:'mineHit',itemId:'unknown'});assert.equal(f.last(a,'mineGone'),undefined);f.send(b,{type:'mineHit',itemId:m.itemId,by:'伪造'});assert.deepEqual(f.last(a,'mineGone'),{type:'mineGone',itemId:m.itemId,by:f.last(b,'welcome').id});f.send(a,{type:'mineHit',itemId:m.itemId});assert.equal(f.out.get(a).filter(m=>m.type==='mineGone').length,1);
+});
+test('shield / trapped 可选布尔校验及转发白名单，机器人道具只接受所属房主',()=>{
+ const f=fixture(),a=f.connect(),code=f.last(a,'room').code,b=f.connect('乙',code);f.send(a,{type:'addBot',difficulty:'normal'});const bot=f.last(a,'room').players.find(p=>p.bot);for(const c of [a,b])f.send(c,{type:'ready',on:true});f.send(a,{type:'pickTrack',trackId:1});f.advance(1500);
+ for(const field of ['shield','trapped'])for(const value of [1,null,'true']){f.send(a,{...state(1),[field]:value});assert.equal(f.last(a,'error').code,'BAD_MESSAGE');}
+ f.send(a,{...state(2),shield:true,trapped:false});assert.equal(f.last(b,'peer').shield,true);assert.equal(f.last(b,'peer').trapped,false);
+ const mine={type:'item',botId:bot.id,kind:'mine',itemId:bot.id+'-1',x:0,z:1,placedAt:3};f.send(b,mine);assert.equal(f.last(b,'error').code,'NOT_HOST');assert.equal(f.last(a,'item'),undefined);f.send(a,mine);assert.equal(f.last(b,'item').from,bot.id);assert.equal(f.last(b,'item').botId,undefined);
+ f.send(b,{type:'mineHit',botId:bot.id,itemId:mine.itemId});assert.equal(f.last(a,'mineGone'),undefined);f.send(a,{type:'mineHit',botId:bot.id,itemId:mine.itemId});assert.equal(f.last(b,'mineGone').by,bot.id);
+});
+test('恢复连接重放存活水雷，已命中或到期不重放，下一局重新去重',()=>{
+ const f=fixture(),{a,b,code}=f.start(),id=f.last(a,'welcome').id,token=f.last(b,'welcome').resumeToken;f.advance(1500);
+ const mine=n=>({type:'item',kind:'mine',itemId:id+'-'+n,x:0,z:10,placedAt:3});f.send(a,mine(1));f.advance(500);f.send(a,mine(2));f.send(a,{type:'mineHit',itemId:id+'-2'});f.rooms.disconnect(b);const resumed=f.connect('乙',code,token);assert.deepEqual(f.out.get(resumed).filter(m=>m.type==='item'),[{...mine(1),from:id}]);f.advance(30000);f.rooms.disconnect(resumed);const again=f.connect('乙',code,token);assert.equal(f.out.get(again).filter(m=>m.type==='item').length,0);
+});
+test('恢复连接也重放断线期间的 mineGone，以清除客户端旧实体',()=>{
+ const f=fixture(),{a,b,code}=f.start(),id=f.last(a,'welcome').id,token=f.last(b,'welcome').resumeToken;f.advance(1500);f.send(a,{type:'item',kind:'mine',itemId:id+'-1',x:0,z:10,placedAt:3});f.rooms.disconnect(b);f.send(a,{type:'mineHit',itemId:id+'-1'});const resumed=f.connect('乙',code,token);assert.deepEqual(f.last(resumed,'mineGone'),{type:'mineGone',itemId:id+'-1',by:id});
+});

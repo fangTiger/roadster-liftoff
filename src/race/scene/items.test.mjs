@@ -1,0 +1,8 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import * as THREE from 'three';
+const module=await import('./items.js').catch(()=>({}));
+test('箱子共享资源、刷新可见性，远端护盾和禁锢壳跟随状态，清理资源',()=>{
+ assert.equal(typeof module.createItemFx,'function');const previous=globalThis.document;globalThis.document={createElement:()=>({getContext:()=>({fillRect(){},strokeRect(){},fillText(){}})})};
+ try{const scene=new THREE.Scene(),items={boxes:[{id:'0-0',x:0,y:0,z:0},{id:'0-1',x:4,y:0,z:0}],mines:new Map(),visible:(id,box,time)=>box!=='0-0'||time>=4},track={heightAt:()=>0},fx=module.createItemFx(scene,items,track);const states=new Map([['a',{x:2,y:1,z:3,yaw:0,shield:true,trapped:false,boost:false}],['b',{x:5,y:0,z:6,yaw:0,shield:false,trapped:true,boost:true}]]);fx.update('a',3,states);const root=scene.getObjectByName('party-items'),boxes=root.getObjectByName('item-boxes');assert.equal(boxes.children[0].geometry,boxes.children[1].geometry);assert.equal(boxes.children[0].visible,false);assert.equal(root.getObjectByName('shield-a').visible,true);assert.equal(root.getObjectByName('trap-b').visible,true);states.get('a').shield=false;states.get('b').trapped=false;fx.update('a',4,states);assert.equal(boxes.children[0].visible,true);assert.equal(root.getObjectByName('shield-a').visible,false);assert.equal(root.getObjectByName('trap-b').visible,false);fx.burst({x:1,z:2},4);fx.update('a',5,states);assert.equal(root.getObjectByName('item-bursts').children.length,0);let disposed=0;boxes.children[0].geometry.addEventListener('dispose',()=>disposed++);fx.dispose();assert.equal(disposed,1);assert.equal(scene.children.length,0);}finally{globalThis.document=previous;}
+});

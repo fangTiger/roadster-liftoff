@@ -4,8 +4,9 @@ const formatDelta = value => `${value < 0 ? '−' : '+'}${Math.abs(value).toFixe
 // 竞速 HUD：左上圈数与计时、右上小地图（整条赛道、车的位置与朝向、下一道检查点）、本圈进度条、右下速度与推进剂、中部事件提示
 const format = t => t === null ? '—' : `${Math.floor(t / 60)}:${(t % 60).toFixed(3).padStart(6, '0')}`;
 const LAPS = 3;
+const ITEM_ICONS={missile:'🚀',mine:'💧',nitro:'⚡',shield:'🛡️'};
 const EVENT_TEXT = { lap: e => e.lap >= LAPS ? '' : e.lap === LAPS - 1 ? t('race.lastLap') : t('race.nextLap', { n: e.lap + 1 }), driftBoost: e => t('race.driftBoost', { tier: 'Ⅰ Ⅱ Ⅲ'.split(' ')[e.tier - 1] }), counterBoost: () => t('race.counterBoost'), draft: () => t('race.draft'), driftSwitch: () => t('race.driftSwitch'), boost: () => t('race.boost'), coin: () => '', wall: () => '', land: () => '' };
-export function createHud(track, title = '', { roomMode = false } = {}) {
+export function createHud(track, title = '', { roomMode = false, itemsMode = false } = {}) {
   const style = document.createElement('style');
   style.textContent = `body{margin:0;overflow:hidden;background:#0b0f14}body> :not(canvas):not(#race-hud):not(#race-pick):not(#race-loading):not(#race-tools):not(.rm-root):not(#ach-toast):not(#ach-panel-wrap):not(#roadster-wallet):not(w3m-modal):not(:has([data-rk])):not(script):not(style){display:none!important}
 #race-hud{position:fixed;inset:0;color:#f4eee1;font:16px 'Helvetica Neue','PingFang SC',sans-serif;pointer-events:none;z-index:10;font-variant-numeric:tabular-nums}
@@ -25,12 +26,13 @@ export function createHud(track, title = '', { roomMode = false } = {}) {
 #race-hud [data-tone=ahead]{color:#8ef0c8}#race-hud [data-tone=behind]{color:#ff7d83}
 #race-hud footer{position:absolute;bottom:18px;left:24px;right:24px;font-size:13px;color:#eee5d0;text-shadow:0 1px 4px #000}
 #race-hud .rh-result{position:absolute;top:5%;left:50%;transform:translateX(-50%);padding:26px 44px;line-height:1.9;font-size:20px;text-align:center;min-width:300px}#race-hud .rh-result h2{margin:0 0 6px;font-size:46px;letter-spacing:.2em;color:#ffd34d;text-shadow:0 0 24px #ffb30088}#race-hud .rh-result .best{font-size:30px;color:#fff;margin:6px 0}#race-hud .rh-result .laps{color:#c9d3d8;font-size:17px}
+#race-hud .rh-item{position:absolute;top:22px;left:50%;transform:translateX(-50%);padding:10px 18px;text-align:center;min-width:112px;border-color:#4bc8e566;box-shadow:0 0 22px #4bc8e522}#race-hud .rh-item-icon{display:block;font-size:38px;height:48px}#race-hud .rh-item-label{font-size:13px;color:#b9c4c9}#race-hud .rh-item kbd{font:11px inherit;display:block;color:#8ef0ff;margin-top:5px}#race-hud .rh-item[data-rolling=true]{border-color:#f8d28d;box-shadow:0 0 24px #f8d28d44}#race-hud .rh-shield-time{display:block;min-height:14px;font-size:12px;color:#8ef0ff;margin-top:4px}
 @media(max-width:700px){#race-hud header{left:10px;top:10px;min-width:150px}#race-hud .rh-map{right:10px;top:10px}#race-hud .rh-speed{right:10px;bottom:70px}#race-hud footer{font-size:11px}}`;
   document.head.append(style);
   const root = document.createElement('div'); root.id = 'race-hud';
   root.innerHTML = `<header class="rh-panel"><small>MARS ROADSTER · ${typeof title === 'function' ? title() : title}</small><div class="rh-lap"><b>1</b>/ 3 ${t('race.laps')}</div><div class="rh-progress"><i></i></div><div class="rh-timing"></div></header>
 <div class="rh-map rh-panel"><canvas></canvas></div><div class="rh-speed rh-panel"><strong>0</strong> km/h<meter min="0" max="1" value="1"></meter><div class="rh-drift"></div><div class="rh-draft" hidden><span></span><meter min="0" max="1" value="0"></meter></div></div>
-<div class="rh-delta" hidden></div><div class="rh-notice"></div><div class="rh-flash"></div><div class="rh-result rh-panel" hidden></div>
+${itemsMode?'<div class="rh-item rh-panel"><span class="rh-item-icon"></span><span class="rh-item-label"></span><kbd></kbd><span class="rh-shield-time"></span></div>':''}<div class="rh-delta" hidden></div><div class="rh-notice"></div><div class="rh-flash"></div><div class="rh-result rh-panel" hidden></div>
 <footer>${t('race.controls')}</footer>`;
   document.body.append(root);
   const $ = q => root.querySelector(q);
@@ -52,12 +54,19 @@ export function createHud(track, title = '', { roomMode = false } = {}) {
   }
   const lapProgress = c => { const n = c.near; if (!n) return 0; if (n.path === 'main') return n.s / track.length; const b = track.branches.find(b => b.id === n.path); return (b.from + (b.to - b.from) * n.s / b.length) / track.length; };
   let flashEvent = null, flashUntil = 0, draftUntil = 0, seen = 0;
-  function update(s, { delta = null, deltaStep = 0, totalDelta = null } = {}) {
+  function update(s, { delta = null, deltaStep = 0, totalDelta = null, itemSlot = null } = {}) {
     const comparison = $('.rh-delta');
     comparison.hidden = delta === null || s.step >= deltaStep + Math.ceil(2 / DT);
     comparison.textContent = delta === null ? '' : formatDelta(delta);
     comparison.dataset.tone = delta < 0 ? 'ahead' : 'behind';
     const r = s.race, c = s.car;
+    if(itemsMode){
+      const rolling=!!itemSlot?.kind&&s.step*DT<itemSlot.readyAt,kind=rolling?Object.keys(ITEM_ICONS)[Math.floor(s.step*DT*12)%4]:itemSlot?.kind;
+      $('.rh-item').dataset.rolling=String(rolling);$('.rh-item-icon').textContent=ITEM_ICONS[kind]||'?';
+      $('.rh-item-label').textContent=t(rolling?'race.item.rolling':kind?'race.item.'+kind:'race.item.empty');
+      $('.rh-item kbd').textContent=kind&&!rolling?t('race.item.use'):'';
+      $('.rh-shield-time').textContent=c.shieldTime>0?`${t('race.item.shield')} ${c.shieldTime.toFixed(1)}s`:'';
+    }
     $('header small').textContent = `MARS ROADSTER · ${typeof title === 'function' ? title() : title}`;
     $('footer').textContent = t('race.controls');
     $('.rh-lap').innerHTML = `<b>${r.lap}</b>/ 3 ${t('race.laps')}`;
