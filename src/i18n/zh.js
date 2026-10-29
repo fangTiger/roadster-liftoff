@@ -414,6 +414,8 @@ export default {
   "room.player": "玩家",
   "room.elapsed": "总用时",
   "room.dnf": "未完成",
+  "room.rematch": "再来一局",
+  "race.draft": "尾流",
   "room.return": "回到大厅",
   "room.driver": "赛车手",
   "room.finished": "已完赛，等待其他玩家…",

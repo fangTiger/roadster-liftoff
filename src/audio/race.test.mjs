@@ -28,3 +28,7 @@ test('新一局重置音效游标与接触节流，倒计时、接触和完赛�
  a.reset();s.race={frozen:true,countdown:3,finished:false};s.events=[];a.update(s,0,.01);s.race={frozen:false,finished:true};s.events=[{type:'contact',impact:5,step:800}];a.update(s,0,.01);
  assert.deepEqual(sounds,['raceBeep','raceGo','raceContact','raceFinish','raceBeep','raceGo','raceContact','raceFinish']);
 });
+test('尾流事件单独播放上扬音效，重复快照不重播，新局可重播',()=>{
+ const sounds=[],audio=createRaceAudio({event:name=>sounds.push(name),update(){}}),s={car:{vx:0,vz:30,yaw:0,grounded:true,fuel:1},race:{frozen:false},events:[{type:'draft',step:900}]};
+ audio.update(s,0,.01);audio.update(s,0,.01);assert.deepEqual(sounds,['raceDraft']);audio.reset();audio.update(s,0,.01);assert.deepEqual(sounds,['raceDraft','raceDraft']);
+});

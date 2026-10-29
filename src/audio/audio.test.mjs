@@ -8,7 +8,7 @@ const storage = new Map();
 class Param {
   value = 0;
   calls = [];
-  setTargetAtTime(value, time, tau) { assert.ok(Number.isFinite(value)); assert.ok(tau > 0); this.calls.push({ value, time, tau }); this.value = value; }
+  setTargetAtTime(value, time, tau) { assert.ok(Number.isFinite(value)); assert.ok(tau > 0); this.calls.push({ from: this.value, value, time, tau }); this.value = value; }
   setValueAtTime(value) { this.value = value; }
   cancelScheduledValues() {}
   cancelAndHoldAtTime() {}
@@ -198,4 +198,8 @@ test('车辆接触合成短促低频闷响，冲击越大音量越大',async()=>
  const shot=impact=>{const start=nodes.length;a.event('raceContact',{impact});return nodes.slice(start);};
  const soft=shot(2),hard=shot(20),level=graph=>Math.max(...graph.flatMap(n=>n.gain.calls.map(c=>c.value)));
  assert.ok(level(hard)>level(soft));assert.ok(hard.some(n=>n.type==='bufferSource'));assert.ok(hard.some(n=>n.type==='sine'));assert.ok(hard.filter(n=>n.started).every(n=>n.stopped&&n.disconnected));
+});
+test('尾流使用短促上扬的合成音并释放节点',async()=>{
+ const a=module.createAudio({music:false});await a.unlock();const first=nodes.length;a.event('raceDraft');const graph=nodes.slice(first),osc=graph.find(n=>n.started&&n.frequency.calls.length);
+ assert.ok(osc);assert.ok(osc.frequency.calls[0].value>osc.frequency.calls[0].from);assert.ok(osc.frequency.calls[0].tau<.1);assert.ok(graph.filter(n=>n.started).every(n=>n.stopped&&n.disconnected));
 });

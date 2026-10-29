@@ -1,6 +1,7 @@
 import { createCarState,stepCar,coinPositions,effectiveHalfWidth,DT } from './physics.js';
 import { createRace } from './race.js';
 import { resolveContacts } from './contact.js';
+import { updateDraft } from './draft.js';
 import { createHazards } from './hazards.js';
 import { atan2 } from './fmath.js';
 import { THROTTLE,BRAKE,RESET } from './input-bits.js';
@@ -32,14 +33,15 @@ export function createSession(track,{laps=3,spawn,contacts,contactId}={}) {
   stuck=car.vx*car.vx+car.vz*car.vz<1&&(bits&THROTTLE)&&car.surface===ROCK?stuck+DT:0;
   if(current.some(e=>e.type==='fell')||stuck>=T.stuckDuration){reset(stuck>=T.stuckDuration?'stuck':'fell');race.step(car,car,car);return;}
   if(contacts&&car.grounded&&race.state.steps*DT>T.contactGraceStart&&!ghost()){
-   const x=car.x,z=car.z;
-   for(const event of resolveContacts(car,contacts(stepCount),{id:contactId,step:stepCount}))events.push({...event,step:stepCount});
+   const x=car.x,z=car.z,others=contacts(stepCount);
+   for(const event of resolveContacts(car,others,{id:contactId,step:stepCount}))events.push({...event,step:stepCount});
    if(car.x!==x||car.z!==z){
     // 接触推出不计入下一步坡面速度，投影和地面高度随修正后的位置更新。
     const n=track.nearest(car.x,car.z,car.near);car.near=n;car.surface=track.surfaceAt(car.x,car.z);
     const ground=Math.abs(n.lateral)<=n.w/2+.8&&car.surface!==GAP?n.y+n.lateral*n.bank:track.heightAt(car.x,car.z);
     car.y=ground;car.groundY=ground;
    }
+   for(const event of updateDraft(car,others,DT))events.push({...event,step:stepCount});
   }
   race.step(prev,car,car);
   if(race.state.lapTimes.length>lapBefore){completedStats.push(copy(stats));events.push({type:'lap',lap:lapBefore+1,time:race.state.lapTimes[lapBefore],step:stepCount});stats=lapStats();traversal={};}

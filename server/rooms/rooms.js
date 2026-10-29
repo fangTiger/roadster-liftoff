@@ -74,13 +74,18 @@ export function createRooms({now=Date.now,random=Math.random,send,close=()=>{},o
   if(m.type==='hello')return hello(c,m);
   if(m.type==='ping'){if(typeof m.t!=='number'||!Number.isFinite(m.t)||Math.abs(m.t)>Number.MAX_SAFE_INTEGER)return error(c,'BAD_MESSAGE');send(c,{type:'pong',t:m.t,serverT:now()});return;}
   // 先校验字段，再检查阶段，避免错误类型因房间状态而改变。
-  if((m.type==='state'&&!validState(m))||(m.type==='finish'&&!validFinish(m))||(m.type==='ready'&&typeof m.on!=='boolean')||(m.type==='pickTrack'&&![1,2,3].includes(m.trackId)))return error(c,'BAD_MESSAGE');
+  if((m.type==='state'&&!validState(m))||(m.type==='finish'&&!validFinish(m))||(m.type==='ready'&&typeof m.on!=='boolean')||(m.type==='pickTrack'&&![1,2,3].includes(m.trackId))||(m.type==='emote'&&(!Number.isInteger(m.id)||m.id<1||m.id>6)))return error(c,'BAD_MESSAGE');
   const p=clients.get(c),r=p&&rooms.get(p.code);if(!r)return error(c,'NO_ROOM');
   if(m.type==='leave'){remove(r,p);return;}
   if(m.type==='ready'||m.type==='pickTrack'){
    if(m.type==='pickTrack'&&p.id!==r.hostId)return error(c,'NOT_HOST');
    if(r.phase!=='lobby')return error(c,'BAD_PHASE');
    if(m.type==='ready')p.ready=m.on;else r.trackId=m.trackId;publish(r);start(r);return;
+  }
+  if(m.type==='emote'){
+   if(r.phase!=='racing')return error(c,'BAD_PHASE');
+   const time=now();if(p.lastEmote!==undefined&&time-p.lastEmote<1500)return;
+   p.lastEmote=time;broadcast(r,{type:'emote',from:p.id,id:m.id});return;
   }
   if(m.type==='state'){
    if(r.phase!=='racing')return;

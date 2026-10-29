@@ -11,7 +11,7 @@ export function mountRoomUI({client,roomCode='',onReturn=()=>{}}) {
 <div data-rm-inside hidden><div class="rm-invite"><strong data-rm-room-code></strong><button data-rm-copy></button></div><ol class="rm-players" data-rm-players></ol><fieldset class="rm-tracks"><legend data-rm-track-label></legend>${TRACKS.map(({def})=>`<button type="button" data-rm-track="${def.id}"></button>`).join('')}</fieldset><p class="rm-note" data-rm-hint></p><button class="rm-primary" data-rm-ready></button></div>
 <p class="rm-status" role="status" aria-live="polite" data-rm-status></p><div class="rm-actions"><button data-rm-leave hidden></button><a href="/" data-rm-home></a></div></div></section>
 <aside class="rm-standings" data-rm-standings hidden aria-label="${t('room.standings')}"><h2 data-rm-standings-title></h2><ol data-rm-ranks></ol></aside>
-<section class="rm-overlay" data-rm-results hidden role="dialog" aria-modal="true" aria-labelledby="rm-results-title"><div class="rm-card rm-result-card"><p class="rm-eyebrow">MARS ROADSTER · LIVE</p><h2 id="rm-results-title"></h2><div class="rm-table-wrap"><table class="rm-table"><thead><tr><th data-rm-rank-label></th><th data-rm-player-label></th><th data-rm-elapsed-label></th><th data-rm-best-label></th></tr></thead><tbody data-rm-result-rows></tbody></table></div><button class="rm-primary" data-rm-return></button></div></section>`;
+<section class="rm-overlay" data-rm-results hidden role="dialog" aria-modal="true" aria-labelledby="rm-results-title"><div class="rm-card rm-result-card"><p class="rm-eyebrow">MARS ROADSTER · LIVE</p><h2 id="rm-results-title"></h2><div class="rm-table-wrap"><table class="rm-table"><thead><tr><th data-rm-rank-label></th><th data-rm-player-label></th><th data-rm-elapsed-label></th><th data-rm-best-label></th></tr></thead><tbody data-rm-result-rows></tbody></table></div><div class="rm-actions"><button class="rm-primary" data-rm-rematch></button><button data-rm-return></button></div></div></section>`;
  document.body.append(root);const $=q=>root.querySelector(q),name=$('[data-rm-name]'),code=$('[data-rm-code]');code.value=roomCode;
  try{name.value=localStorage.getItem('race.room.name')||'';}catch{/* 隐私模式使用内存昵称。 */}
  let room=null,view='lobby',busy=false,connection=false,error='',copied=false,results=null,lastRanks=[];
@@ -27,7 +27,7 @@ export function mountRoomUI({client,roomCode='',onReturn=()=>{}}) {
   for(const p of results||[]){const row=node('tr',undefined,p.id===client.id?'rm-self':'rm-peer');row.dataset.rmResultId=p.id;row.dataset.rank=p.rank;row.append(node('td',p.rank),node('td',p.name),node('td',p.dnf?t('room.dnf'):format(p.elapsed)),node('td',format(p.bestLap)));$('[data-rm-result-rows]').append(row);}
  }
  function paint(){
-  const labels={'#rm-title':'room.title','[data-rm-intro]':'room.intro','[data-rm-name-label]':'room.name','[data-rm-code-label]':'room.code','[data-rm-create]':'room.create','[data-rm-join]':'room.join','[data-rm-track-label]':'room.track','[data-rm-home]':'race.home','[data-rm-leave]':'room.leave','[data-rm-standings-title]':'room.standings','#rm-results-title':'room.results','[data-rm-rank-label]':'room.rank','[data-rm-player-label]':'room.player','[data-rm-elapsed-label]':'room.elapsed','[data-rm-best-label]':'race.bestLap','[data-rm-return]':'room.return'};
+  const labels={'#rm-title':'room.title','[data-rm-intro]':'room.intro','[data-rm-name-label]':'room.name','[data-rm-code-label]':'room.code','[data-rm-create]':'room.create','[data-rm-join]':'room.join','[data-rm-track-label]':'room.track','[data-rm-home]':'race.home','[data-rm-leave]':'room.leave','[data-rm-standings-title]':'room.standings','#rm-results-title':'room.results','[data-rm-rank-label]':'room.rank','[data-rm-player-label]':'room.player','[data-rm-elapsed-label]':'room.elapsed','[data-rm-best-label]':'race.bestLap','[data-rm-return]':'room.return','[data-rm-rematch]':'room.rematch'};
   for(const [selector,key] of Object.entries(labels))$(selector).textContent=t(key);
   $('[data-rm-copy]').textContent=t(copied?'room.copied':'room.copy');
   $('[data-rm-lobby]').hidden=view!=='lobby';$('[data-rm-results]').hidden=view!=='results';$('[data-rm-standings]').hidden=view!=='racing';
@@ -50,7 +50,9 @@ export function mountRoomUI({client,roomCode='',onReturn=()=>{}}) {
  $('[data-rm-copy]').onclick=async()=>{try{await navigator.clipboard.writeText(invitationURL(room.code));copied=true;paint();}catch{error='COPY_FAILED';paint();}};
  function leave(){client.leave();room=null;results=null;busy=false;error='';view='lobby';onReturn();paint();}
  $('[data-rm-leave]').onclick=leave;$('[data-rm-home]').onclick=()=>client.leave();
- $('[data-rm-return]').onclick=()=>{results=null;view='lobby';onReturn();paint();};
+ function returnToLobby(){results=null;view='lobby';onReturn();paint();}
+ $('[data-rm-return]').onclick=returnToLobby;
+ $('[data-rm-rematch]').onclick=()=>{returnToLobby();client.send({type:'ready',on:true});};
  const unsubs=[client.on('welcome',()=>{busy=false;error='';}),client.on('room',m=>{room=m;busy=false;paint();}),client.on('connection',m=>{connection=m.connected;paint();}),client.on('error',m=>{error=m.code;busy=false;if(m.code==='NO_ROOM'){room=null;view='lobby';onReturn();}paint();}),client.on('results',m=>{results=m.results;view='results';paint();}),onLangChange(paint)];
  paint();if(roomCode)join(roomCode);
  return {

@@ -2,20 +2,27 @@ import { createRoomClient } from '../net/room-client.js';
 import { pushState,sampleState } from '../net/interp.js';
 import { mountRoomUI } from './room-ui.js';
 import { createRemoteCar } from './remote-car.js';
+import { createEmote } from './emote.js';
 import { gridSpawn,targetSteps } from './grid.js';
 import { TRACKS } from './track/data/index.js';
 import { autopilot } from './sim/autopilot.js';
 import { DT } from './sim/physics.js';
 // 房间循环只推进自己的 session；远端状态只用于渲染和自己的软碰撞。
-export function mountRoomRace({engine,params,setup,clear,simulate,render,getState,getTrack,getBits,getGhost=()=>false,isPaused=()=>false,client=createRoomClient(),ui,createRemote=createRemoteCar,requestFrame=globalThis.requestAnimationFrame}) {
- const buffers=new Map(),remotes=new Map(),departed=new Set();let round=null,active=false,loading=false,dead=false,version=0,sequence=0,lastSend=-Infinity,lastFinish=-Infinity,lastRanks=-Infinity,lastFrame,queue=Promise.resolve(),players=[];
- function removeRemotes(){for(const remote of remotes.values())remote.dispose();remotes.clear();buffers.clear();}
+export function mountRoomRace({engine,params,setup,clear,simulate,render,getState,getTrack,getBits,getGhost=()=>false,isPaused=()=>false,client=createRoomClient(),ui,createRemote=createRemoteCar,requestFrame=globalThis.requestAnimationFrame,selfRoot,inputTarget=globalThis}) {
+ const buffers=new Map(),remotes=new Map(),emotes=new Map(),departed=new Set();let round=null,active=false,loading=false,dead=false,version=0,sequence=0,lastSend=-Infinity,lastFinish=-Infinity,lastRanks=-Infinity,lastFrame,queue=Promise.resolve(),players=[];
+ function clearEmotes(){for(const emote of emotes.values())emote.dispose();emotes.clear();}
+ function removeRemotes(){clearEmotes();for(const remote of remotes.values())remote.dispose();remotes.clear();buffers.clear();}
  function reset(){active=false;round=null;++version;removeRemotes();if(!loading)clear();}
  ui??=mountRoomUI({client,roomCode:params.get('room')||'',onReturn:reset});
  const unsubs=[
   client.on('peer',message=>{if(round&&round.grid.some(p=>p.id===message.id))buffers.set(message.id,pushState(buffers.get(message.id)||[],{...message,simT:round.startAt+message.step*DT*1000}));}),
-  client.on('left',({id})=>{departed.add(id);remotes.get(id)?.dispose();remotes.delete(id);buffers.delete(id);}),
-  client.on('results',()=>{active=false;++version;}),
+  client.on('left',({id})=>{emotes.get(id)?.dispose();emotes.delete(id);departed.add(id);remotes.get(id)?.dispose();remotes.delete(id);buffers.delete(id);}),
+  client.on('results',()=>{active=false;++version;clearEmotes();}),
+  client.on('emote',({from,id})=>{
+   if(!active||ui.view==='results'||!round.grid.some(p=>p.id===from)||!Number.isInteger(id)||id<1||id>6)return;
+   const root=from===client.id?selfRoot:remotes.get(from)?.root;if(!root)return;
+   if(!emotes.has(from))emotes.set(from,createEmote(root));emotes.get(from).show(id);
+  }),
   client.on('start',message=>{
    if(round?.startAt===message.startAt)return queue;
    const generation=++version;active=false;round=message;sequence=0;lastSend=lastFinish=lastRanks=-Infinity;removeRemotes();departed.clear();
@@ -50,9 +57,17 @@ export function mountRoomRace({engine,params,setup,clear,simulate,render,getStat
    });return queue;
   }),
  ];
+ function keydown(event){
+  const target=event.target;
+  if(!active||loading||ui.view!=='racing'||isPaused()||getState().race.frozen||event.repeat||target?.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(target?.tagName)||target?.closest?.('input,textarea,select,[contenteditable]:not([contenteditable="false"])'))return;
+  if(/^Digit[1-6]$/.test(event.code)){event.preventDefault();client.send({type:'emote',id:Number(event.code.slice(-1))});}
+ }
+ inputTarget.addEventListener?.('keydown',keydown);
  function frame(time){
   if(dead)return;
-  const dt=lastFrame===undefined?0:Math.min(.1,Math.max(0,(time-lastFrame)/1000));lastFrame=time;
+  const elapsed=lastFrame===undefined?0:Math.max(0,(time-lastFrame)/1000),dt=Math.min(.1,elapsed);lastFrame=time;
+  // 表情按实际显示时间过期，低帧率或后台恢复时也不会延长到两秒以上。
+  for(const emote of emotes.values())emote.update(elapsed);
   if(active&&!loading&&ui.view!=='results'){
    const now=client.serverNow(),target=targetSteps(now,round.startAt,getState().step),track=getTrack();
    while(getState().step<target){const snap=getState(),bits=isPaused()?0:params.has('autopilot')&&!snap.race.finished?autopilot(snap,track):getBits();simulate(bits);}
@@ -70,5 +85,5 @@ export function mountRoomRace({engine,params,setup,clear,simulate,render,getStat
   requestFrame(frame);
  }
  requestFrame(frame);
- return {client,ui,frame,destroy(){dead=true;reset();unsubs.forEach(fn=>fn());client.leave();ui.destroy();}};
+ return {client,ui,frame,destroy(){dead=true;inputTarget.removeEventListener?.('keydown',keydown);reset();unsubs.forEach(fn=>fn());client.leave();ui.destroy();}};
 }

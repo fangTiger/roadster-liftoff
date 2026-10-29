@@ -35,3 +35,24 @@ test('按远端 step 建立 simT，为当前步提供接触位置，过滤保护
  handlers.get('peer')({...peer,seq:10});now=6591;assert.deepEqual(startOptions.contacts(132),[]);
  handlers.get('left')({id:'b'});assert.deepEqual(startOptions.contacts(132),[]);loop.destroy();
 });
+test('比赛数字键只发合法表情，忽略输入焦点；广播显示自己的与远端车顶，结算和销毁清理',async()=>{
+ const THREE=await import('three'),previous=globalThis.document,text=[];
+ globalThis.document={createElement:()=>({getContext:()=>({clearRect(){},fillText:s=>text.push(s)})})};
+ const handlers=new Map(),sent=[],listeners=new Map(),selfRoot=new THREE.Group(),peerRoot=new THREE.Group(),scene=new THREE.Scene();scene.add(selfRoot);
+ let now=2500,paused=false,snapshot={step:0,car:{x:0,y:0,z:0,yaw:0,pitch:0,vx:0,vz:0,steer:0,grounded:true,near:{s:0}},race:{lap:1,frozen:true,finished:false}};
+ const inputTarget={addEventListener:(type,fn)=>listeners.set(type,fn),removeEventListener:(type,fn)=>{if(listeners.get(type)===fn)listeners.delete(type);}},client={id:'a',serverNow:()=>now,on(type,fn){handlers.set(type,fn);return ()=>handlers.delete(type);},send:m=>sent.push(m),leave(){}},ui={room:{players:[]},view:'lobby',racing(){this.view='racing';},update(){},destroy(){},fail(){assert.fail('不应加载失败');}};
+ const loop=mountRoomRace({engine:{scene,render(){}},selfRoot,inputTarget,params:new URLSearchParams(),client,ui,requestFrame:()=>{},setup:async()=>{},clear(){},createRemote:async()=>({root:peerRoot,update(){},dispose(){peerRoot.removeFromParent();}}),getTrack:()=>({length:1000,at:s=>({x:0,y:0,z:s,tx:0,tz:1})}),getState:()=>snapshot,getBits:()=>0,simulate(){snapshot.step++;},render(){},isPaused:()=>paused});
+ const press=(code,target={},repeat=false)=>listeners.get('keydown')?.({code,target,repeat,preventDefault(){}});
+ try{
+  press('Digit1');assert.equal(sent.length,0);
+  await handlers.get('start')({startAt:2500,trackId:1,laps:3,grid:[{id:'a',seat:0},{id:'b',seat:1}]});press('Digit1');assert.equal(sent.length,0);
+  snapshot.race.frozen=false;ui.room.phase='racing';
+  for(const tagName of ['INPUT','TEXTAREA','SELECT'])press('Digit1',{tagName});press('Digit1',{isContentEditable:true});press('Digit1',{},true);press('Numpad1');press('Digit7');paused=true;press('Digit1');paused=false;assert.equal(sent.length,0);
+  for(let id=1;id<=6;id++)press('Digit'+id);assert.deepEqual(sent,Array.from({length:6},(_,i)=>({type:'emote',id:i+1})));assert.equal(selfRoot.children.length,0);
+  handlers.get('emote')({from:'a',id:1});handlers.get('emote')({from:'b',id:6});handlers.get('emote')({from:'stranger',id:1});assert.deepEqual(text,['👍','🙏']);assert.ok(selfRoot.children.some(c=>c.isSprite));assert.ok(peerRoot.children.some(c=>c.isSprite));
+  loop.frame(0);loop.frame(2000);assert.equal(selfRoot.children[0].visible,false);assert.equal(peerRoot.children[0].visible,false);
+  handlers.get('emote')({from:'a',id:2});handlers.get('emote')({from:'b',id:3});
+  handlers.get('results')({results:[]});assert.equal(selfRoot.children.length,0);assert.equal(peerRoot.children.length,0);const before=sent.length;press('Digit1');assert.equal(sent.length,before);
+  loop.destroy();assert.equal(listeners.size,0);assert.equal(handlers.size,0);
+ }finally{globalThis.document=previous;}
+});

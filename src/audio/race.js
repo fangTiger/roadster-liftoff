@@ -14,6 +14,7 @@ export function createRaceAudio(audio) {
         if (e.type === 'wall' && e.step - wallStep >= 24) { audio.event('raceWall'); wallStep = e.step; }
         if (e.type === 'contact' && e.step - contactStep >= 24) { audio.event('raceContact', { impact: e.impact }); contactStep = e.step; }
         if (['boost', 'counterBoost', 'driftBoost'].includes(e.type)) audio.event('raceBoost');
+        if (e.type === 'draft') audio.event('raceDraft');
         if (e.type === 'lap') audio.event('raceLap');
         if (e.type === 'coin') audio.event('coin');
       }

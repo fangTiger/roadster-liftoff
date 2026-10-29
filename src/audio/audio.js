@@ -3,7 +3,7 @@ const MUSIC_LEVEL = 0.65;
 const SFX_LEVEL = 0.72;
 const FADE_SECONDS = 2.5;
 const NAMES = ['road', 'space', 'oldfriend'];
-const EVENTS = ['launch', 'land', 'whiteout', 'achievement', 'horn', 'roll', 'coin', 'raceWall', 'raceContact', 'raceBoost', 'raceBeep', 'raceGo', 'raceLap', 'raceFinish'];
+const EVENTS = ['launch', 'land', 'whiteout', 'achievement', 'horn', 'roll', 'coin', 'raceWall', 'raceContact', 'raceDraft', 'raceBoost', 'raceBeep', 'raceGo', 'raceLap', 'raceFinish'];
 const STORE = 'liftoff.audio.v1';
 const clamp = (v, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, Number.isFinite(v) ? v : lo));
 const db = value => 10 ** (value / 20);
@@ -342,6 +342,9 @@ export function createAudio({ urls, music = true } = {}) {
       const level = .08 + .2 * clamp(opts.impact / 20);
       shot({ kind: 'brown', duration: .12, level, cutoff: 420 });
       shot({ frequency: 80, end: 38, duration: .1, level: level * .6, cutoff: 300 });
+    } else if (name === 'raceDraft') {
+      // 尾流充满：短促上扬音，沿用合成音效总线与主音量。
+      shot({ kind: 'triangle', frequency: 520, end: 1400, duration: .24, level: .18 });
     } else if (name === 'raceBoost') {
       shot({ kind: 'pink', duration: .65, level: .35, type: 'bandpass', cutoff: 350, cutoffEnd: 6500 });
     } else if (name === 'raceBeep' || name === 'raceGo') {

@@ -25,12 +25,25 @@ test('离地的物理步与完赛后的物理步都不调用 contacts，完赛�
  s.car.grounded=true;s.car.y=0;s.car.vy=0;s.car.x=0;s.car.z=999.99;s.car.vz=10;s.step(0);assert.equal(s.race.finished,true);assert.equal(s.ghost,true);
  const done=calls.length;advance(s,300);assert.equal(calls.length,done);assert.equal(s.ghost,true);
 });
-test('未传 contacts 与返回空数组的会话逐步一致（快照不增加字段）',()=>{
+test('未传 contacts 与空列表房间逐步一致，仅房间新增 draft 字段',()=>{
  const a=createSession(track),b=createSession(track,{contacts:()=>[]});
- for(let i=0;i<1000;i++){const bits=i===800?RESET:0;a.step(bits);b.step(bits);assert.deepEqual(a.snapshot,b.snapshot);}
+ for(let i=0;i<1000;i++){const bits=i===800?RESET:0;a.step(bits);b.step(bits);const snap=b.snapshot;delete snap.car.draft;assert.deepEqual(a.snapshot,snap);}
  assert.equal(DT,1/120);
 });
 test('会话的接触身份在重置后保留，重合静止车仍反向推出且不改变快照形状',()=>{
  const s=createSession(track,{contactId:'a',contacts:()=>[{id:'b',x:s.car.x,z:s.car.z,yaw:s.car.yaw,vx:s.car.vx,vz:s.car.vz}]});
  advance(s,722);assert.equal(s.car.x,-.25);assert.equal(s.car.id,undefined);s.step(RESET);advance(s,241);assert.equal(s.car.x,-.25);
+});
+test('尾流与软碰撞共享每步唯一一次 contacts 结果，接触后判定充能',()=>{
+ const calls=[];let s;s=createSession(track,{contacts:step=>{calls.push(step);return [{id:'b',x:s.car.x,z:s.car.z+10,yaw:s.car.yaw,vx:0,vz:30}];}});
+ advance(s,721);assert.equal(Object.hasOwn(s.car,'draft'),false);
+ for(let i=0;i<144;i++){s.car.vz=30;s.step(0);}
+ assert.equal(calls.length,144);assert.equal(new Set(calls).size,144);assert.equal(s.snapshot.events.filter(e=>e.type==='draft').length,1);assert.equal(s.car.boostTime,.8);
+ const solo=createSession(track);advance(solo,1000);assert.equal(Object.hasOwn(solo.car,'draft'),false);
+});
+
+test('同一步先软碰撞减速，再按修正后的车速判定尾流',()=>{
+ let s;s=createSession(track,{contacts:()=>[{id:'b',x:s.car.x,z:s.car.z+3.5,yaw:0,vx:0,vz:0},{id:'c',x:s.car.x,z:s.car.z+10,yaw:0,vx:0,vz:30}]});
+ advance(s,721);s.car.vz=21;s.step(0);
+ assert.ok(Math.hypot(s.car.vx,s.car.vz)<20);assert.equal(s.car.draft,0);assert.equal(s.snapshot.events.at(-1).type,'contact');
 });

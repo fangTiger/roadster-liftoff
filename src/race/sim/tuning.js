@@ -20,6 +20,8 @@ export const tuning=Object.freeze({
  // 车间软碰撞：基础掉速比例、追尾额外掉速比例（都按接近速度占车速的比例缩放，每次接触只结算一次）、每步推出总上限（米）、
  // 同一辆车的接触冷却（秒，持续贴身期间不重复扣速）、发车与重置保护时长（秒）。
  contactLoss:.1,rearEndLoss:.15,contactPushMax:.25,contactCooldown:.3,contactGraceStart:3,contactGraceReset:2,
+ // 尾流：前车纵向距离范围、横向宽度（米）、最低车速（米/秒）、充满与加速时长（秒）。
+ draftMin:4,draftRange:25,draftWidth:1.6,draftMinSpeed:20,draftCharge:1.2,draftBoost:.8,
  // 地面跟随的竖直速度上限 = 车速 × 最大坡度 + 台阶速度；超出视为高度断层。
  maxGrade:.4,stepSpeed:1.5,
  landingThreshold:5,landingLoss:.008,stuckDuration:2,fallDepth:6,
