@@ -415,6 +415,8 @@ export default {
   "room.player": "Driver",
   "room.elapsed": "Total time",
   "room.dnf": "DNF",
+  "room.rematch": "Race again",
+  "race.draft": "Slipstream",
   "room.return": "Back to lobby",
   "room.driver": "Driver",
   "room.finished": "Finished. Waiting for the other drivers…",

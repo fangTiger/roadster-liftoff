@@ -75,3 +75,17 @@ test('air 与 ghost 必须是布尔值，白名单转发与恢复保留真实值
  const token=f.last(b,'welcome').resumeToken;f.rooms.disconnect(b);const resumed=f.connect('乙',code,token);assert.deepEqual(f.last(resumed,'peer'),peer);
  f.send(a,state(3));assert.equal(f.last(resumed,'peer').air,false);assert.equal(f.last(resumed,'peer').ghost,false);
 });
+test('表情只在 racing 接受，向同房全员回显并按玩家限流 1500ms，超限静默丢弃',()=>{
+ const f=fixture(),{a,b}=f.start(),outside=f.connect(),id=f.last(a,'welcome').id;
+ f.send(a,{type:'emote',id:1});assert.equal(f.last(a,'error')?.code,'BAD_PHASE');assert.equal(f.last(b,'emote'),undefined);
+ f.advance(1500);const errors=f.out.get(a).filter(m=>m.type==='error').length;
+ f.send(a,{type:'emote',id:1,from:'伪造'});assert.deepEqual(f.last(a,'emote'),{type:'emote',from:id,id:1});assert.deepEqual(f.last(b,'emote'),f.last(a,'emote'));assert.equal(f.last(outside,'emote'),undefined);
+ f.advance(1499);f.send(a,{type:'emote',id:2});assert.equal(f.out.get(b).filter(m=>m.type==='emote').length,1);assert.equal(f.out.get(a).filter(m=>m.type==='error').length,errors);
+ f.send(b,{type:'emote',id:6});assert.equal(f.last(a,'emote').id,6);
+ f.advance(1);f.send(a,{type:'emote',id:2});assert.equal(f.last(b,'emote').id,2);
+ f.send(a,{type:'finish',elapsed:120,bestLap:40,lapTimes:[40,40,40]});f.send(b,{type:'finish',elapsed:120,bestLap:40,lapTimes:[40,40,40]});
+ f.send(a,{type:'emote',id:3});assert.equal(f.last(a,'error').code,'BAD_PHASE');
+});
+test('表情非法 id 先于阶段检查返回 BAD_MESSAGE',()=>{
+ for(const id of [undefined,null,0,7,1.5,'1',true]){const f=fixture(),a=f.connect();f.send(a,{type:'emote',id});assert.equal(f.last(a,'error').code,'BAD_MESSAGE');}
+});

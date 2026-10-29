@@ -4,7 +4,7 @@ const formatDelta = value => `${value < 0 ? '−' : '+'}${Math.abs(value).toFixe
 // 竞速 HUD：左上圈数与计时、右上小地图（整条赛道、车的位置与朝向、下一道检查点）、本圈进度条、右下速度与推进剂、中部事件提示
 const format = t => t === null ? '—' : `${Math.floor(t / 60)}:${(t % 60).toFixed(3).padStart(6, '0')}`;
 const LAPS = 3;
-const EVENT_TEXT = { lap: e => e.lap >= LAPS ? '' : e.lap === LAPS - 1 ? t('race.lastLap') : t('race.nextLap', { n: e.lap + 1 }), driftBoost: e => t('race.driftBoost', { tier: 'Ⅰ Ⅱ Ⅲ'.split(' ')[e.tier - 1] }), counterBoost: () => t('race.counterBoost'), driftSwitch: () => t('race.driftSwitch'), boost: () => t('race.boost'), coin: () => '', wall: () => '', land: () => '' };
+const EVENT_TEXT = { lap: e => e.lap >= LAPS ? '' : e.lap === LAPS - 1 ? t('race.lastLap') : t('race.nextLap', { n: e.lap + 1 }), driftBoost: e => t('race.driftBoost', { tier: 'Ⅰ Ⅱ Ⅲ'.split(' ')[e.tier - 1] }), counterBoost: () => t('race.counterBoost'), draft: () => t('race.draft'), driftSwitch: () => t('race.driftSwitch'), boost: () => t('race.boost'), coin: () => '', wall: () => '', land: () => '' };
 export function createHud(track, title = '', { roomMode = false } = {}) {
   const style = document.createElement('style');
   style.textContent = `body{margin:0;overflow:hidden;background:#0b0f14}body> :not(canvas):not(#race-hud):not(#race-pick):not(#race-loading):not(#race-tools):not(.rm-root):not(#ach-toast):not(#ach-panel-wrap):not(#roadster-wallet):not(w3m-modal):not(:has([data-rk])):not(script):not(style){display:none!important}
@@ -18,6 +18,7 @@ export function createHud(track, title = '', { roomMode = false } = {}) {
 #race-hud .rh-map{position:absolute;top:22px;right:24px;padding:10px}#race-hud canvas{display:block}
 #race-hud .rh-speed{position:absolute;right:24px;bottom:60px;padding:16px 22px}#race-hud .rh-speed strong{font-size:50px;font-weight:500}
 #race-hud meter{display:block;width:180px;height:10px;accent-color:#4bc8e5;margin-top:10px}#race-hud .rh-drift{margin-top:8px;font-size:13px;color:#ffd38a;min-height:18px}
+#race-hud .rh-draft{margin-top:8px;font-size:13px;color:#8ef0ff}#race-hud .rh-draft meter{accent-color:#8ef0ff;margin-top:4px}#race-hud .rh-draft[data-flash=true]{filter:brightness(1.8);text-shadow:0 0 10px #8ef0ff}
 #race-hud .rh-notice{position:absolute;top:22%;width:100%;text-align:center;font-size:36px;font-weight:600;text-shadow:0 2px 10px #000}
 #race-hud .rh-flash{position:absolute;top:32%;width:100%;text-align:center;font-size:26px;color:#8ef0ff;text-shadow:0 2px 10px #000;transition:opacity .25s}
 #race-hud .rh-delta{position:absolute;top:39%;width:100%;text-align:center;font-size:30px;font-weight:600;text-shadow:0 2px 10px #000}
@@ -28,7 +29,7 @@ export function createHud(track, title = '', { roomMode = false } = {}) {
   document.head.append(style);
   const root = document.createElement('div'); root.id = 'race-hud';
   root.innerHTML = `<header class="rh-panel"><small>MARS ROADSTER · ${typeof title === 'function' ? title() : title}</small><div class="rh-lap"><b>1</b>/ 3 ${t('race.laps')}</div><div class="rh-progress"><i></i></div><div class="rh-timing"></div></header>
-<div class="rh-map rh-panel"><canvas></canvas></div><div class="rh-speed rh-panel"><strong>0</strong> km/h<meter min="0" max="1" value="1"></meter><div class="rh-drift"></div></div>
+<div class="rh-map rh-panel"><canvas></canvas></div><div class="rh-speed rh-panel"><strong>0</strong> km/h<meter min="0" max="1" value="1"></meter><div class="rh-drift"></div><div class="rh-draft" hidden><span></span><meter min="0" max="1" value="0"></meter></div></div>
 <div class="rh-delta" hidden></div><div class="rh-notice"></div><div class="rh-flash"></div><div class="rh-result rh-panel" hidden></div>
 <footer>${t('race.controls')}</footer>`;
   document.body.append(root);
@@ -50,7 +51,7 @@ export function createHud(track, title = '', { roomMode = false } = {}) {
     const s = track.checkpointGates.at(-1); g.fillStyle = '#fff'; const [fx, fz] = P(s.x, s.z); g.fillRect(fx - 4 * dpr, fz - 1.5 * dpr, 8 * dpr, 3 * dpr);
   }
   const lapProgress = c => { const n = c.near; if (!n) return 0; if (n.path === 'main') return n.s / track.length; const b = track.branches.find(b => b.id === n.path); return (b.from + (b.to - b.from) * n.s / b.length) / track.length; };
-  let flashEvent = null, flashUntil = 0, seen = 0;
+  let flashEvent = null, flashUntil = 0, draftUntil = 0, seen = 0;
   function update(s, { delta = null, deltaStep = 0, totalDelta = null } = {}) {
     const comparison = $('.rh-delta');
     comparison.hidden = delta === null || s.step >= deltaStep + Math.ceil(2 / DT);
@@ -71,7 +72,10 @@ export function createHud(track, title = '', { roomMode = false } = {}) {
     ctx.save(); ctx.translate(cx, cz); ctx.rotate(a); ctx.fillStyle = '#4bd2ff'; ctx.strokeStyle = '#002'; ctx.lineWidth = 1.5 * dpr;
     ctx.beginPath(); ctx.moveTo(0, -8 * dpr); ctx.lineTo(5 * dpr, 6 * dpr); ctx.lineTo(-5 * dpr, 6 * dpr); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
     // 事件提示
-    for (; seen < s.events.length; seen++) { const e = s.events[seen], t = EVENT_TEXT[e.type]?.(e); if (t) { flashEvent = e; flashUntil = s.step + 100; } }
+    for (; seen < s.events.length; seen++) { const e = s.events[seen], t = EVENT_TEXT[e.type]?.(e); if (e.type === 'draft') draftUntil = e.step + Math.ceil(.3 / DT); if (t) { flashEvent = e; flashUntil = s.step + 100; } }
+    const draft = $('.rh-draft'), draftFlash = s.step < draftUntil;
+    draft.hidden = !roomMode; draft.dataset.flash = String(draftFlash);
+    if (roomMode) { $('.rh-draft span').textContent = t('race.draft'); $('.rh-draft meter').value = draftFlash ? 1 : Math.max(0, Math.min(1, c.draft ?? 0)); }
     $('.rh-flash').textContent = flashEvent ? EVENT_TEXT[flashEvent.type]?.(flashEvent) : ''; $('.rh-flash').style.opacity = s.step < flashUntil ? 1 : 0;
     const recent = s.events.slice(-8).findLast(e => e.type === 'reset' && s.step - e.step < 240);
     $('.rh-notice').textContent = r.frozen ? Math.ceil(r.countdown) : r.wrongWay ? t('race.wrongWay') : r.missed !== null ? t('race.missed', { n: r.missed }) : recent ? t('race.reset') : '';

@@ -154,7 +154,7 @@ function render(alpha = 1, dt = 1 / 60) {
   // 压上加速带、二次加速：冲击波环 + 视野猛张；处在加速状态时喷金色火焰
   for (; seenEvents < current.events.length; seenEvents++) {
     const event = current.events[seenEvents], t = event.type;
-    if (t === 'counterBoost' || t === 'boost') { boostFx.trigger(c); camera.kick(); }
+    if (t === 'counterBoost' || t === 'boost' || t === 'draft') { boostFx.trigger(c); camera.kick(); }
     if (t === 'contact') camera.kick(Math.min(.2, .06 + event.impact * .005));
   }
   boostFx.update(dt, current.step * DT, c.boostTime > 0);
@@ -186,7 +186,7 @@ if (roomMode) {
     if (sceneRestore) { engine.scene.environmentIntensity = sceneRestore.environment; if (sceneRestore.sun) sceneRestore.sun.intensity = sceneRestore.intensity; engine.scene.onAfterRender = sceneRestore.afterRender; if (engine.scene.fog && sceneRestore.fog !== undefined) engine.scene.fog.density = sceneRestore.fog; sceneRestore = null; }
     seenEvents = 0; wheelAngle = 0; celebrated = false; keys.clear();
   };
-  roomRace = mountRoomRace({ engine, params, setup: (difficulty, start) => setup(difficulty, null, '', start), clear, simulate, render, getState: () => current, getGhost: () => session.ghost, getTrack: () => track, getBits: () => { let bits = 0; for (const code of keys) bits |= map[code] || 0; return bits; }, isPaused: () => !!raceMenu?.paused });
+  roomRace = mountRoomRace({ engine, params, selfRoot: car.root, setup: (difficulty, start) => setup(difficulty, null, '', start), clear, simulate, render, getState: () => current, getGhost: () => session.ghost, getTrack: () => track, getBits: () => { let bits = 0; for (const code of keys) bits |= map[code] || 0; return bits; }, isPaused: () => !!raceMenu?.paused });
   addEventListener('pagehide', () => roomRace.client.leave());
 } else if (capture) {
   await setup(params.get('map') || DEFAULT_DIFFICULTY); hideLoading();
