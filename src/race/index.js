@@ -71,7 +71,7 @@ const hideLoading = () => { loading.style.opacity = '0'; setTimeout(() => loadin
 // 选定地图后才生成赛道、场景、HUD 与会话
 let entry, qualifyMs, track, def, hash, scene, gate, hud, session, recorder, previous, current, raceMenu, seenEvents = 0, lastBits = 0, wheelAngle = 0, celebrated = false;
 let ghost, ghostCar, ghostPrevious, ghostCurrent, ghostWheelAngle = 0, ghostDelta = null, ghostDeltaStep = 0;
-async function setup(difficulty, replay = null) {
+async function setup(difficulty, replay = null, ghostName = '') {
   entry = TRACKS.find(t => t.difficulty === difficulty) || TRACKS[0];
   qualifyMs = qualifyTime(entry);
   // 只读公共赛道配置，无需连接钱包；读取失败使用本地默认。
@@ -83,9 +83,9 @@ async function setup(difficulty, replay = null) {
   if (selectedReplay) {
     try { ghost = createGhost(track, selectedReplay); } catch { ghost = null; }
     if (ghost) {
-      ghostCar = prepareGhostCar(await createCar(), t('race.ghost.best')); engine.scene.add(ghostCar.root);
+      ghostCar = prepareGhostCar(await createCar(), ghostName || t('race.ghost.best')); engine.scene.add(ghostCar.root);
       ghostPrevious = ghostCurrent = ghost.snapshot;
-      onLangChange(() => ghostCar.setLabel(t('race.ghost.best')));
+      onLangChange(() => ghostCar.setLabel(ghostName || t('race.ghost.best')));
     }
   }
   render(); await engine.renderer.compileAsync(engine.scene, engine.camera); render();
@@ -148,7 +148,7 @@ function render(alpha = 1, dt = 1 / 60) {
     const slot = document.createElement('div'); slot.id = 'race-chain-slot';
     Object.assign(slot.style, { position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', pointerEvents: 'auto', width: 'min(420px, 92vw)' });
     document.getElementById('race-hud')?.append(slot);
-    mountRaceChain(slot, { trackId: def.id, trackName: t('race.track' + def.id), bestLap: current.race.bestLap, bits: achievementsToBits(achievements.list()) });
+    mountRaceChain(slot, { trackId: def.id, trackName: t('race.track' + def.id), bestLap: current.race.bestLap, bits: achievementsToBits(achievements.list()), replay: recorder.encode({ track: hash, trackId: def.id, laps: def.laps }) });
   }
   celebration.update(dt); gate.update(current);
   camera.update(c, dt); sky.update(engine.camera, car.root.position); skid.update(c); scene.update(current); hud.update(current, { delta: ghostDelta, deltaStep: ghostDeltaStep, totalDelta: current.race.finished && ghost ? timeDelta(current.race.elapsed, ghost.totalTime) : null });
@@ -178,7 +178,8 @@ if (capture) {
   const choose = async k => {
     if (chosen) return; unlockAudio(); chosen = true; removeEventListener('keydown', onPick);
     pick.querySelector('h2').textContent = t('race.generating'); await new Promise(r => setTimeout(r, 30));
-    await setup(k, ghostOptions.get(k)?.replay); ghostOptions.forEach(options => options.destroy()); pick.remove(); requestAnimationFrame(frame);
+    const options = ghostOptions.get(k); await options?.ready;
+    await setup(k, options?.replay, options?.name); ghostOptions.forEach(options => options.destroy()); pick.remove(); requestAnimationFrame(frame);
   };
   const onPick = e => { const k = TRACKS[Number(e.key) - 1]?.difficulty; if (k) choose(k); else if (e.key === 'Enter' && !e.target.closest?.('button,a,input,select')) choose(DEFAULT_DIFFICULTY); };
   addEventListener('keydown', onPick); pick.querySelectorAll('button[data-k]').forEach(b => b.addEventListener('click', () => choose(b.dataset.k)));

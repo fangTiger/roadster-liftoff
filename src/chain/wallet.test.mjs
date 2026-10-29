@@ -132,3 +132,16 @@ test('第三方会话替换清理旧监听，断开后禁止提交', async () =>
   assert.equal(wallet.state.account, null); assert.equal(wallet.state.chainId, null);
   await assert.rejects(wallet.submit(1, 50000, 0), { code: 'no_wallet' });
 });
+
+test('核实签名参数原样进入合约，readVerifier 使用共享ABI', async () => {
+  const { wallet, publicClient } = setup(); await wallet.connect();
+  publicClient.readContract = async args => { assert.equal(args.functionName, 'verifier'); assert.ok(args.abi.some(item => item.name === 'verifier')); return bob; };
+  assert.equal(await wallet.readVerifier(), bob);
+  publicClient.simulateContract = async ({ args }) => { assert.deepEqual(args, [1, 47123, 0x100001, 1800000000n, '0xsig']); return { request: {} }; };
+  await wallet.submit(1, 47123, 0x100001, 1800000000, '0xsig');
+});
+test('已核实榜单在截取50名之前过滤，避免自报成绩挤占', async () => {
+  const { wallet, publicClient } = setup();
+  publicClient.readContract = async ({ functionName }) => functionName === 'playerCount' ? 60n : [Array.from({length:60}, (_, i) => `player${i}`), [], Array.from({length:60}, (_, i) => ({ bestMs: i + 1000, verified: i >= 55 }))];
+  const rows = await wallet.readLeaderboard(1, { verifiedOnly: true }); assert.equal(rows.length, 5); assert.equal(rows[0].address, 'player55');
+});

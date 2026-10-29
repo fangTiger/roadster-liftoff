@@ -1,5 +1,8 @@
 import { t, onLangChange } from '../i18n/i18n.js';
 import { readBestGhost } from './ghost-store.js';
+import { shortAddr } from '../chain/records.js';
+import { decode } from './sim/replay.js';
+import { trackHash } from './track/build.js';
 
 // 暂停界面挂在竞速工具栏内，沿用该模式的顶层可见性与层级。
 export function mountRaceMenu(container, { onPauseChange, isOverlayOpen = () => false, selectHref = '/?race' }) {
@@ -51,23 +54,59 @@ export function mountRaceMenu(container, { onPauseChange, isOverlayOpen = () => 
   };
 }
 
-// 每张选图卡片独立选择影子；排行榜选项留给第二批启用。
-export function mountGhostOptions(container, def, { record = readBestGhost(def) } = {}) {
+// 每张选图卡片独立选择影子，排行榜按需读取，下载期间仍可取消。
+export function mountGhostOptions(container, def, { record = readBestGhost(def), fetcher = globalThis.fetch } = {}) {
   const group = document.createElement('fieldset'); group.className = 'race-ghost-options';
-  const legend = document.createElement('legend');
+  const legend = document.createElement('legend'), list = document.createElement('div'), status = document.createElement('p');
+  list.className = 'race-ghost-ranked'; list.hidden = true; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
   const none = document.createElement('button'), best = document.createElement('button'), ranked = document.createElement('button');
   for (const button of [none, best, ranked]) button.type = 'button';
-  best.disabled = !record; ranked.disabled = true;
-  group.append(legend, none, best, ranked); container.append(group);
-  let selected = false;
+  best.disabled = !record;
+  group.append(legend, none, best, ranked, list, status); container.append(group);
+  let selected = 'none', selectedReplay = null, name = '', entries = [], loading = false, error = '', dead = false, version = 0, pending = Promise.resolve();
   function paint() {
+    if (dead) return;
     legend.textContent = t('race.ghost.title'); none.textContent = t('race.ghost.none');
     best.textContent = t('race.ghost.best') + (record ? ` · ${record.bestLap.toFixed(3)} s` : '');
-    ranked.textContent = t('race.ghost.ranked', { n: 'N' }); ranked.title = t('race.ghost.comingSoon');
-    none.setAttribute('aria-pressed', String(!selected)); best.setAttribute('aria-pressed', String(selected));
+    ranked.textContent = t('race.ghost.ranked', { n: 'N' }); ranked.disabled = loading;
+    none.setAttribute('aria-pressed', String(selected === 'none')); best.setAttribute('aria-pressed', String(selected === 'best'));
+    ranked.setAttribute('aria-expanded', String(!list.hidden));
+    status.textContent = error || (loading ? t('race.chain.loading') : !list.hidden && !entries.length ? t('race.ghost.empty') : '');
+    list.replaceChildren();
+    entries.forEach((entry, index) => {
+      const button = document.createElement('button'); button.type = 'button';
+      button.textContent = `${t('race.ghost.ranked', { n: index + 1 })} · ${shortAddr(entry.address)} · ${(entry.bestMs / 1000).toFixed(3)} s`;
+      button.setAttribute('aria-pressed', String(selected === entry.address));
+      button.onclick = () => {
+        const id = ++version; loading = true; error = ''; paint();
+        pending = (async () => {
+          try {
+            const response = await fetcher(`/api/ghost?trackId=${def.id}&address=${encodeURIComponent(entry.address)}`), replay = await response.json();
+            if (!response.ok) throw new Error(replay.error || t('race.ghost.failed'));
+            if (replay.trackId !== def.id || replay.track !== trackHash(def) || replay.laps !== def.laps) throw new Error(t('race.ghost.failed'));
+            decode(replay);
+            if (!dead && id === version) { selected = entry.address; selectedReplay = replay; name = shortAddr(entry.address); }
+          } catch (err) { if (!dead && id === version) error = err.message || t('race.ghost.failed'); }
+          finally { if (id === version) { loading = false; paint(); } }
+        })();
+        return pending;
+      };
+      list.append(button);
+    });
   }
-  none.onclick = () => { selected = false; paint(); };
-  best.onclick = () => { if (record) { selected = true; paint(); } };
+  function selectLocal(value) { ++version; pending = Promise.resolve(); loading = false; error = ''; selected = value; selectedReplay = value === 'best' ? record.replay : null; name = ''; paint(); }
+  none.onclick = () => selectLocal('none'); best.onclick = () => { if (record) selectLocal('best'); };
+  ranked.onclick = async () => {
+    list.hidden = !list.hidden;
+    if (list.hidden || entries.length) { paint(); return; }
+    const id = ++version; loading = true; error = ''; paint();
+    try {
+      const response = await fetcher(`/api/ghost?trackId=${def.id}`), result = await response.json();
+      if (!response.ok || !Array.isArray(result)) throw new Error(result.error || t('race.ghost.failed'));
+      if (!dead && id === version) entries = result;
+    } catch (err) { if (!dead && id === version) error = err.message || t('race.ghost.failed'); }
+    finally { if (id === version) { loading = false; paint(); } }
+  };
   const unlang = onLangChange(paint); paint();
-  return { get replay() { return selected ? record.replay : null; }, destroy() { unlang(); group.remove(); } };
+  return { get replay() { return selectedReplay; }, get name() { return name; }, get ready() { return pending; }, destroy() { dead = true; ++version; unlang(); group.remove(); } };
 }

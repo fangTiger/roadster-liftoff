@@ -66,7 +66,7 @@ export function createRecordsWallet({ publicClient = createPublicClient({ chain,
     if (state.chainId !== chain.id) throw fail('wrong_network');
     if (state.account?.toLowerCase() !== account.toLowerCase()) throw fail('account_changed');
   }
-  async function submit(trackId, ms, bits) {
+  async function submit(trackId, ms, bits, deadline = 0n, signature = '0x') {
     requireContract();
     attach(await getProvider());
     if (state.phase) throw fail('busy');
@@ -75,7 +75,7 @@ export function createRecordsWallet({ publicClient = createPublicClient({ chain,
     try {
       state.phase = 'simulating'; emit();
       await assertSession(account);
-      const { request } = await publicClient.simulateContract({ address, abi: recordsAbi, functionName: 'submit', args: [trackId, ms, bits, 0n, '0x'], account });
+      const { request } = await publicClient.simulateContract({ address, abi: recordsAbi, functionName: 'submit', args: [trackId, ms, bits, BigInt(deadline), signature], account });
       await assertSession(account);
       state.phase = 'signing'; emit();
       const hash = await walletClient.writeContract(request);
@@ -85,7 +85,7 @@ export function createRecordsWallet({ publicClient = createPublicClient({ chain,
       return receipt.transactionHash || hash;
     } finally { state.phase = ''; emit(); }
   }
-  async function readLeaderboard(trackId) {
+  async function readLeaderboard(trackId, { verifiedOnly = false } = {}) {
     const count = BigInt(await read('playerCount')), addrs = [], bests = [];
     for (let start = 0n; start < count; start += 100n) {
       const size = count - start < 100n ? count - start : 100n;
@@ -93,12 +93,14 @@ export function createRecordsWallet({ publicClient = createPublicClient({ chain,
       addrs.push(...pageAddrs); bests.push(...pageBests);
       if (!pageAddrs.length) break;
     }
-    return sortLeaderboard(addrs, bests);
+    const rows = sortLeaderboard(addrs, bests, Infinity);
+    return rows.filter(row => !verifiedOnly || row.verified === true).slice(0, 50);
   }
   return {
     get state() { return { ...state }; },
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     connect, submit, readLeaderboard,
+    readVerifier: () => read('verifier'),
     readRecord: addr => read('recordOf', [addr]),
     readBest: (addr, trackId) => read('bestOf', [addr, trackId]),
     readTrack: trackId => read('trackOf', [trackId]),

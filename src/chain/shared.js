@@ -17,6 +17,9 @@ export const TESTNET_RACING_ADDRESS = '0xfdce518af1ebaaaec98c5ce4aa05ac5e00f1d1d
 
 // 静态 V2 ABI；逐项一致性由 shared.test.mjs 对照部署产物验证。
 export const recordsAbi = [
+  {"type": "function", "name": "verifier", "inputs": [], "outputs": [{"name": "", "type": "address"}], "stateMutability": "view"},
+  {"type": "function", "name": "setVerifier", "inputs": [{"name": "newVerifier", "type": "address"}], "outputs": [], "stateMutability": "nonpayable"},
+  {"type": "function", "name": "LAP_TYPEHASH", "inputs": [], "outputs": [{"name": "", "type": "bytes32"}], "stateMutability": "view"},
   {"type": "function","name": "bestOf","inputs": [{"name": "player","type": "address"},{"name": "trackId","type": "uint8"}],"outputs": [{"name": "","type": "tuple","components": [{"name": "bestMs","type": "uint32"},{"name": "updatedAt","type": "uint40"},{"name": "verified","type": "bool"}]}],"stateMutability": "view"},
   {"type": "function","name": "locked","inputs": [{"name": "tokenId","type": "uint256"}],"outputs": [{"name": "","type": "bool"}],"stateMutability": "view"},
   {"type": "function","name": "owner","inputs": [],"outputs": [{"name": "","type": "address"}],"stateMutability": "view"},

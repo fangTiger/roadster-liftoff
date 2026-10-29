@@ -23,6 +23,7 @@ function setup() {
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     async connect() { state = { ...state, account: '0xabc', chainId: 5042002 }; for (const fn of listeners) fn(state); },
     async readRecord() { return record; }, async readTrack() { return { qualifyMs: 60000, minLapMs: 10000 }; },
+    async readVerifier() { return '0x0000000000000000000000000000000000000000'; },
     async readBest() { return { bestMs: 40000, updatedAt: 1n }; },
     async submit(...args) { sent.push(args); record = { tokenId: 1, firstTrack: 1, firstLapMs: 50000, achievements: 7 }; return '0xhash'; },
     async readLeaderboard(trackId) { return [{ address: '0x1234567890', bestMs: trackId * 1000, verified: true, updatedAt: 1n }]; },
@@ -52,7 +53,7 @@ test('榜单三图切换、已核实和首圈详情/各赛道最佳成绩', asyn
   const env = setup(), root = new Node();
   env.wallet.readRecord = async () => ({ tokenId: 1, firstTrack: 1, firstLapMs: 50000, achievements: 0xfffffff });
   const board = mountRaceBoard(root, env); await flush();
-  assert.match(root.text, /玩家自报成绩/); assert.match(root.text, /已核实/);
+  assert.match(root.text, /默认仅显示已核实成绩/); assert.match(root.text, /已核实/);
   await find(root, 'button').find(n => n.textContent === '连接钱包').onclick(); await flush();
   assert.match(root.text, /28\/28/); assert.match(root.text, /草甸环线/); assert.match(root.text, /首圈/);
   await find(root, 'button').find(n => n.textContent === '湖畔环线').onclick(); await flush();
@@ -88,4 +89,39 @@ test('上链面板错误与地图名随语言切换，翻译不会触发提交',
   await flush(); assert.match(root.text, /网络错误/);
   try { setLang('en'); assert.match(root.text, /Network error/); assert.match(root.text, /Meadow Loop/); assert.doesNotMatch(root.text, /网络错误/); assert.equal(env.sent.length, 0); }
   finally { panel.destroy(); setLang('zh'); document.querySelectorAll = oldQuery; }
+});
+
+test('提交先读取核实者、POST录像取签名，再用服务器参数提交', async () => {
+  const env = setup(), root = new Node(), calls = []; await env.wallet.connect();
+  env.wallet.readVerifier = async () => '0x0000000000000000000000000000000000000001';
+  env.fetcher = async (url, options) => { calls.push('verify'); assert.equal(url, '/api/verify'); assert.deepEqual(JSON.parse(options.body), { address: '0xabc', trackId: 1, replay: { data: 'tape' }, bits0to19: 7 }); return Response.json({ lapMs: 49999, achievements: 0x100007, deadline: 1900, signature: '0xsig' }); };
+  const submit = env.wallet.submit; env.wallet.submit = async (...args) => { calls.push('submit'); return submit(...args); };
+  const panel = mountRaceChain(root, { trackId: 1, bestLap: 50, bits: 0xff00007, replay: { data: 'tape' } }, env); await flush();
+  await find(root, 'button')[0].onclick();
+  assert.deepEqual(calls, ['verify', 'submit']); assert.deepEqual(env.sent, [[1, 49999, 0x100007, 1900, '0xsig']]); panel.destroy();
+});
+test('核实失败显示接口原因，保留按钮允许重试且失败时不提交', async () => {
+  const env = setup(), root = new Node(); await env.wallet.connect(); let failed = true;
+  env.wallet.readVerifier = async () => '0x0000000000000000000000000000000000000001';
+  env.fetcher = async () => failed ? Response.json({ error: '核实请求过于频繁' }, { status: 429 }) : Response.json({ lapMs: 50000, achievements: 7, deadline: 1900, signature: '0xsig' });
+  const panel = mountRaceChain(root, { trackId: 1, bestLap: 50, bits: 7, replay: {} }, env); await flush();
+  await find(root, 'button')[0].onclick(); assert.equal(env.sent.length, 0); assert.match(root.text, /核实请求过于频繁/); assert.equal(find(root, 'button')[0].disabled, false);
+  failed = false; await find(root, 'button')[0].onclick(); assert.equal(env.sent.length, 1); panel.destroy();
+});
+test('零核实者走自报，不请求接口；核实过程中切换账户禁止提交', async () => {
+  const env = setup(), root = new Node(); await env.wallet.connect();
+  env.wallet.readVerifier = async () => '0x0000000000000000000000000000000000000000';
+  env.fetcher = async () => assert.fail('零地址不需核实');
+  let panel = mountRaceChain(root, { trackId: 1, bestLap: 50, bits: 7 }, env); await flush();
+  await find(root, 'button')[0].onclick(); assert.deepEqual(env.sent, [[1, 50000, 7]]); panel.destroy();
+  const next = setup(); await next.wallet.connect(); next.wallet.readVerifier = async () => '0x0000000000000000000000000000000000000001';
+  next.fetcher = async () => { next.changeState({ account: '0xdef' }); return Response.json({ lapMs: 50000, achievements: 7, deadline: 1900, signature: '0xsig' }); };
+  panel = mountRaceChain(root, { trackId: 1, bestLap: 50, bits: 7, replay: {} }, next); await flush();
+  await find(root, 'button')[0].onclick(); assert.equal(next.sent.length, 0); panel.destroy();
+});
+test('排行榜默认只看核实，切换全部可见自报成绩', async () => {
+  const env = setup(), root = new Node();
+  env.wallet.readLeaderboard = async () => [{ address: '0x111111111111', bestMs: 1000, verified: false }, { address: '0x222222222222', bestMs: 2000, verified: true }];
+  const board = mountRaceBoard(root, env); await flush(); assert.doesNotMatch(root.text, /1\.00 s/); assert.match(root.text, /2\.00 s/);
+  await find(root, 'button').find(node => node.textContent === '全部').onclick(); await flush(); assert.match(root.text, /1\.00 s/); board.destroy();
 });
