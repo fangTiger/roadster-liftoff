@@ -31,7 +31,8 @@ export function createSession(track,{laps=3,spawn}={}) {
   race.step(prev,car,car);
   if(race.state.lapTimes.length>lapBefore){completedStats.push(copy(stats));events.push({type:'lap',lap:lapBefore+1,time:race.state.lapTimes[lapBefore],step:stepCount});stats=lapStats();traversal={};}
  }
- return {step,get snapshot(){return {step:stepCount,car:copy(car),race:copy(race.state),events:copy(events),stats:copy(stats),completedStats:copy(completedStats),hazards:hazards.positions(race.state.steps)};}};
+ // race / car：直接返回内部状态（只读约定，不复制），供影子预演等每步读取；snapshot 会深拷贝整局事件，逐步调用很慢
+ return {step,get race(){return race.state;},get car(){return car;},get snapshot(){return {step:stepCount,car:copy(car),race:copy(race.state),events:copy(events),stats:copy(stats),completedStats:copy(completedStats),hazards:hazards.positions(race.state.steps)};}};
 }
 
 // 用有方向的入口/出口穿越记成就，排除触碰缺口后落回原岸或只在槽边翻滚。

@@ -16,3 +16,13 @@
 #race-menu button{border-color:#7fe3ff88;color:#7fe3ff}
 #race-menu a:hover{border-color:#7fe3ff88}
 #race-menu p{color:#aab7bd;line-height:1.7;font-size:12px;margin:18px 0 0}
+
+/* 影子选项与地图启动按钮分开，避免嵌套按钮和选择后误发车。 */
+#race-pick .track-card{width:272px}
+#race-pick .race-ghost-options{margin:12px 0 0;padding:8px 10px 10px;border:1px solid #ffffff26;border-radius:10px;display:flex;gap:6px;flex-wrap:wrap}
+#race-pick .race-ghost-options legend{font-size:12px;color:#aab7bd;padding:0 5px}
+#race-pick .cards .race-ghost-options button{box-sizing:border-box;width:auto;max-width:100%;padding:5px 9px;border-radius:6px;font-size:12px;line-height:1.5;text-wrap:pretty}
+#race-pick .cards .race-ghost-options button[aria-pressed=true]{border-color:#4bc8e5;color:#a5dcfa}
+#race-pick .cards .race-ghost-options button:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;border-color:#ffffff26}
+#race-pick .cards button:focus-visible{outline:2px solid #4bc8e5;outline-offset:3px}
+#race-pick{overflow-y:auto;padding:24px 0;box-sizing:border-box;align-items:safe center}

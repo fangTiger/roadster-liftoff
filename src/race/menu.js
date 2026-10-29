@@ -1,4 +1,5 @@
 import { t, onLangChange } from '../i18n/i18n.js';
+import { readBestGhost } from './ghost-store.js';
 
 // 暂停界面挂在竞速工具栏内，沿用该模式的顶层可见性与层级。
 export function mountRaceMenu(container, { onPauseChange, isOverlayOpen = () => false, selectHref = '/?race' }) {
@@ -48,4 +49,25 @@ export function mountRaceMenu(container, { onPauseChange, isOverlayOpen = () => 
     get paused() { return paused; },
     destroy() { if (paused) setPaused(false); window.removeEventListener('keydown', onKey, true); unlang(); button.remove(); dialog.remove(); },
   };
+}
+
+// 每张选图卡片独立选择影子；排行榜选项留给第二批启用。
+export function mountGhostOptions(container, def, { record = readBestGhost(def) } = {}) {
+  const group = document.createElement('fieldset'); group.className = 'race-ghost-options';
+  const legend = document.createElement('legend');
+  const none = document.createElement('button'), best = document.createElement('button'), ranked = document.createElement('button');
+  for (const button of [none, best, ranked]) button.type = 'button';
+  best.disabled = !record; ranked.disabled = true;
+  group.append(legend, none, best, ranked); container.append(group);
+  let selected = false;
+  function paint() {
+    legend.textContent = t('race.ghost.title'); none.textContent = t('race.ghost.none');
+    best.textContent = t('race.ghost.best') + (record ? ` · ${record.bestLap.toFixed(3)} s` : '');
+    ranked.textContent = t('race.ghost.ranked', { n: 'N' }); ranked.title = t('race.ghost.comingSoon');
+    none.setAttribute('aria-pressed', String(!selected)); best.setAttribute('aria-pressed', String(selected));
+  }
+  none.onclick = () => { selected = false; paint(); };
+  best.onclick = () => { if (record) { selected = true; paint(); } };
+  const unlang = onLangChange(paint); paint();
+  return { get replay() { return selected ? record.replay : null; }, destroy() { unlang(); group.remove(); } };
 }
