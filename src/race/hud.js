@@ -1,4 +1,6 @@
 import { t } from '../i18n/i18n.js';
+import { DT } from './sim/physics.js';
+const formatDelta = value => `${value < 0 ? '−' : '+'}${Math.abs(value).toFixed(2)}`;
 // 竞速 HUD：左上圈数与计时、右上小地图（整条赛道、车的位置与朝向、下一道检查点）、本圈进度条、右下速度与推进剂、中部事件提示
 const format = t => t === null ? '—' : `${Math.floor(t / 60)}:${(t % 60).toFixed(3).padStart(6, '0')}`;
 const LAPS = 3;
@@ -18,6 +20,8 @@ export function createHud(track, title = '') {
 #race-hud meter{display:block;width:180px;height:10px;accent-color:#4bc8e5;margin-top:10px}#race-hud .rh-drift{margin-top:8px;font-size:13px;color:#ffd38a;min-height:18px}
 #race-hud .rh-notice{position:absolute;top:22%;width:100%;text-align:center;font-size:36px;font-weight:600;text-shadow:0 2px 10px #000}
 #race-hud .rh-flash{position:absolute;top:32%;width:100%;text-align:center;font-size:26px;color:#8ef0ff;text-shadow:0 2px 10px #000;transition:opacity .25s}
+#race-hud .rh-delta{position:absolute;top:39%;width:100%;text-align:center;font-size:30px;font-weight:600;text-shadow:0 2px 10px #000}
+#race-hud [data-tone=ahead]{color:#8ef0c8}#race-hud [data-tone=behind]{color:#ff7d83}
 #race-hud footer{position:absolute;bottom:18px;left:24px;right:24px;font-size:13px;color:#eee5d0;text-shadow:0 1px 4px #000}
 #race-hud .rh-result{position:absolute;top:5%;left:50%;transform:translateX(-50%);padding:26px 44px;line-height:1.9;font-size:20px;text-align:center;min-width:300px}#race-hud .rh-result h2{margin:0 0 6px;font-size:46px;letter-spacing:.2em;color:#ffd34d;text-shadow:0 0 24px #ffb30088}#race-hud .rh-result .best{font-size:30px;color:#fff;margin:6px 0}#race-hud .rh-result .laps{color:#c9d3d8;font-size:17px}
 @media(max-width:700px){#race-hud header{left:10px;top:10px;min-width:150px}#race-hud .rh-map{right:10px;top:10px}#race-hud .rh-speed{right:10px;bottom:70px}#race-hud footer{font-size:11px}}`;
@@ -25,7 +29,7 @@ export function createHud(track, title = '') {
   const root = document.createElement('div'); root.id = 'race-hud';
   root.innerHTML = `<header class="rh-panel"><small>MARS ROADSTER · ${typeof title === 'function' ? title() : title}</small><div class="rh-lap"><b>1</b>/ 3 ${t('race.laps')}</div><div class="rh-progress"><i></i></div><div class="rh-timing"></div></header>
 <div class="rh-map rh-panel"><canvas></canvas></div><div class="rh-speed rh-panel"><strong>0</strong> km/h<meter min="0" max="1" value="1"></meter><div class="rh-drift"></div></div>
-<div class="rh-notice"></div><div class="rh-flash"></div><div class="rh-result rh-panel" hidden></div>
+<div class="rh-delta" hidden></div><div class="rh-notice"></div><div class="rh-flash"></div><div class="rh-result rh-panel" hidden></div>
 <footer>${t('race.controls')}</footer>`;
   document.body.append(root);
   const $ = q => root.querySelector(q);
@@ -47,7 +51,11 @@ export function createHud(track, title = '') {
   }
   const lapProgress = c => { const n = c.near; if (!n) return 0; if (n.path === 'main') return n.s / track.length; const b = track.branches.find(b => b.id === n.path); return (b.from + (b.to - b.from) * n.s / b.length) / track.length; };
   let flashEvent = null, flashUntil = 0, seen = 0;
-  function update(s) {
+  function update(s, { delta = null, deltaStep = 0, totalDelta = null } = {}) {
+    const comparison = $('.rh-delta');
+    comparison.hidden = delta === null || s.step >= deltaStep + Math.ceil(2 / DT);
+    comparison.textContent = delta === null ? '' : formatDelta(delta);
+    comparison.dataset.tone = delta < 0 ? 'ahead' : 'behind';
     const r = s.race, c = s.car;
     $('header small').textContent = `MARS ROADSTER · ${typeof title === 'function' ? title() : title}`;
     $('footer').textContent = t('race.controls');
@@ -68,7 +76,7 @@ export function createHud(track, title = '') {
     const recent = s.events.slice(-8).findLast(e => e.type === 'reset' && s.step - e.step < 240);
     $('.rh-notice').textContent = r.frozen ? Math.ceil(r.countdown) : r.wrongWay ? t('race.wrongWay') : r.missed !== null ? t('race.missed', { n: r.missed }) : recent ? t('race.reset') : '';
     const result = $('.rh-result'); result.hidden = !r.finished;
-    if (r.finished) result.innerHTML = `<h2>${t('race.finish')}</h2><div class="best">${t('race.bestLap')} ${format(r.bestLap)}</div><div class="laps">${r.lapTimes.map((time, i) => `${t('race.nextLap', { n: i + 1 })}　${format(time)}${time === r.bestLap ? '　★' : ''}`).join('<br>')}</div><small style="font-size:14px;color:#aab7bd">${t('race.retry')}</small>`;
+    if (r.finished) result.innerHTML = `<h2>${t('race.finish')}</h2><div class="best">${t('race.bestLap')} ${format(r.bestLap)}</div><div class="laps">${r.lapTimes.map((time, i) => `${t('race.nextLap', { n: i + 1 })}　${format(time)}${time === r.bestLap ? '　★' : ''}`).join('<br>')}</div>${totalDelta === null ? '' : `<div data-tone="${totalDelta < 0 ? 'ahead' : 'behind'}">${t('race.ghost.totalDelta')} ${formatDelta(totalDelta)}</div>`}<small style="font-size:14px;color:#aab7bd">${t('race.retry')}</small>`;
   }
   return { update };
 }
