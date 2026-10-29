@@ -1,4 +1,5 @@
 import { t,onLangChange } from '../i18n/i18n.js';
+import { playerName } from './room-player.js';
 import { TRACKS } from './track/data/index.js';
 const format=value=>value===null||value===undefined?'—':`${Math.floor(value/60)}:${(value%60).toFixed(3).padStart(6,'0')}`;
 export function invitationURL(code,href=location.href){const url=new URL(href);url.searchParams.set('race','');url.searchParams.set('room',code);for(const key of ['capture','map'])url.searchParams.delete(key);return url.href;}
@@ -8,27 +9,33 @@ export function mountRoomUI({client,roomCode='',onReturn=()=>{}}) {
  const root=node('div',undefined,'rm-root');root.id='rm-room';
  root.innerHTML=`<section class="rm-overlay" data-rm-lobby role="dialog" aria-modal="true" aria-labelledby="rm-title"><div class="rm-card"><p class="rm-eyebrow">MARS ROADSTER · LIVE</p><h1 id="rm-title"></h1><p class="rm-note" data-rm-intro></p>
 <form class="rm-form"><label><span data-rm-name-label></span><input data-rm-name maxlength="32" autocomplete="nickname"></label><label><span data-rm-code-label></span><input data-rm-code maxlength="6" autocomplete="off" spellcheck="false" class="rm-code-input"></label><div class="rm-actions"><button type="button" data-rm-create></button><button type="submit" data-rm-join></button></div></form>
-<div data-rm-inside hidden><div class="rm-invite"><strong data-rm-room-code></strong><button data-rm-copy></button></div><ol class="rm-players" data-rm-players></ol><fieldset class="rm-tracks"><legend data-rm-track-label></legend>${TRACKS.map(({def})=>`<button type="button" data-rm-track="${def.id}"></button>`).join('')}</fieldset><p class="rm-note" data-rm-hint></p><button class="rm-primary" data-rm-ready></button></div>
+<div data-rm-inside hidden><div class="rm-invite"><strong data-rm-room-code></strong><button data-rm-copy></button></div><ol class="rm-players" data-rm-players></ol><div class="rm-actions rm-bots" data-rm-bots hidden><label><span data-rm-difficulty-label></span> <select data-rm-difficulty><option value="easy" data-rm-difficulty-option="easy"></option><option value="normal" data-rm-difficulty-option="normal"></option><option value="hard" data-rm-difficulty-option="hard"></option></select></label><button data-rm-add-bot></button></div><fieldset class="rm-tracks"><legend data-rm-track-label></legend>${TRACKS.map(({def})=>`<button type="button" data-rm-track="${def.id}"></button>`).join('')}</fieldset><p class="rm-note" data-rm-hint></p><button class="rm-primary" data-rm-ready></button></div>
 <p class="rm-status" role="status" aria-live="polite" data-rm-status></p><div class="rm-actions"><button data-rm-leave hidden></button><a href="/" data-rm-home></a></div></div></section>
 <aside class="rm-standings" data-rm-standings hidden aria-label="${t('room.standings')}"><h2 data-rm-standings-title></h2><ol data-rm-ranks></ol></aside>
 <section class="rm-overlay" data-rm-results hidden role="dialog" aria-modal="true" aria-labelledby="rm-results-title"><div class="rm-card rm-result-card"><p class="rm-eyebrow">MARS ROADSTER · LIVE</p><h2 id="rm-results-title"></h2><div class="rm-table-wrap"><table class="rm-table"><thead><tr><th data-rm-rank-label></th><th data-rm-player-label></th><th data-rm-elapsed-label></th><th data-rm-best-label></th></tr></thead><tbody data-rm-result-rows></tbody></table></div><div class="rm-actions"><button class="rm-primary" data-rm-rematch></button><button data-rm-return></button></div></div></section>`;
- document.body.append(root);const $=q=>root.querySelector(q),name=$('[data-rm-name]'),code=$('[data-rm-code]');code.value=roomCode;
+ document.body.append(root);const $=q=>root.querySelector(q),name=$('[data-rm-name]'),code=$('[data-rm-code]');code.value=roomCode;$('[data-rm-difficulty]').value='normal';
  try{name.value=localStorage.getItem('race.room.name')||'';}catch{/* 隐私模式使用内存昵称。 */}
  let room=null,view='lobby',busy=false,connection=false,error='',copied=false,results=null,lastRanks=[];
  function paintPlayers(){
   $('[data-rm-players]').replaceChildren();
-  for(const p of room?.players||[]){const row=node('li'),swatch=node('i',undefined,'rm-swatch');swatch.style.background=p.color;const info=node('span',p.name,'rm-player-name'),badges=node('span',`${p.id===room.hostId?t('room.host')+' · ':''}${p.connected?(p.ready?t('room.ready'):t('room.waiting')):t('room.disconnected')}`,'rm-badges');row.append(swatch,info,badges);$('[data-rm-players]').append(row);}
+  for(const p of room?.players||[]){const row=node('li'),swatch=node('i',undefined,'rm-swatch');swatch.style.background=p.color;const info=node('span',playerName(p),'rm-player-name'),badges=node('span',`${p.bot?t('room.bot')+' · ':''}${p.id===room.hostId?t('room.host')+' · ':''}${p.connected?(p.ready?t('room.ready'):t('room.waiting')):t('room.disconnected')}`,'rm-badges');row.append(swatch,info,badges);
+   if(p.bot&&room.hostId===client.id&&room.phase==='lobby'){const remove=node('button','×');remove.dataset.rmRemoveBot=p.id;remove.setAttribute('aria-label',t('room.removeBot',{name:playerName(p)}));remove.disabled=!connection;remove.onclick=()=>client.send({type:'removeBot',botId:p.id});row.append(remove);}
+   $('[data-rm-players]').append(row);}
  }
  function paintRanks(){
-  $('[data-rm-ranks]').replaceChildren();lastRanks.forEach((p,i)=>{const row=node('li',undefined,p.id===client.id?'rm-self':'rm-peer'),swatch=node('i',undefined,'rm-swatch');swatch.style.background=p.color;row.append(node('b',i+1),swatch,node('span',p.name),node('small',p.connected?'':t('room.disconnected')));$('[data-rm-ranks]').append(row);});
+  $('[data-rm-ranks]').replaceChildren();lastRanks.forEach((p,i)=>{const row=node('li',undefined,p.id===client.id?'rm-self':'rm-peer'),swatch=node('i',undefined,'rm-swatch');swatch.style.background=p.color;row.append(node('b',i+1),swatch,node('span',playerName(p)),node('small',p.connected?'':t('room.disconnected')));$('[data-rm-ranks]').append(row);});
  }
  function paintResults(){
   $('[data-rm-result-rows]').replaceChildren();
-  for(const p of results||[]){const row=node('tr',undefined,p.id===client.id?'rm-self':'rm-peer');row.dataset.rmResultId=p.id;row.dataset.rank=p.rank;row.append(node('td',p.rank),node('td',p.name),node('td',p.dnf?t('room.dnf'):format(p.elapsed)),node('td',format(p.bestLap)));$('[data-rm-result-rows]').append(row);}
+  for(const p of results||[]){const row=node('tr',undefined,p.id===client.id?'rm-self':'rm-peer');row.dataset.rmResultId=p.id;row.dataset.rank=p.rank;row.append(node('td',p.rank),node('td',playerName(p)),node('td',p.dnf?t('room.dnf'):format(p.elapsed)),node('td',format(p.bestLap)));$('[data-rm-result-rows]').append(row);}
  }
  function paint(){
-  const labels={'#rm-title':'room.title','[data-rm-intro]':'room.intro','[data-rm-name-label]':'room.name','[data-rm-code-label]':'room.code','[data-rm-create]':'room.create','[data-rm-join]':'room.join','[data-rm-track-label]':'room.track','[data-rm-home]':'race.home','[data-rm-leave]':'room.leave','[data-rm-standings-title]':'room.standings','#rm-results-title':'room.results','[data-rm-rank-label]':'room.rank','[data-rm-player-label]':'room.player','[data-rm-elapsed-label]':'room.elapsed','[data-rm-best-label]':'race.bestLap','[data-rm-return]':'room.return','[data-rm-rematch]':'room.rematch'};
+  const labels={'#rm-title':'room.title','[data-rm-intro]':'room.intro','[data-rm-name-label]':'room.name','[data-rm-code-label]':'room.code','[data-rm-create]':'room.create','[data-rm-join]':'room.join','[data-rm-track-label]':'room.track','[data-rm-home]':'race.home','[data-rm-leave]':'room.leave','[data-rm-standings-title]':'room.standings','#rm-results-title':'room.results','[data-rm-rank-label]':'room.rank','[data-rm-player-label]':'room.player','[data-rm-elapsed-label]':'room.elapsed','[data-rm-best-label]':'race.bestLap','[data-rm-return]':'room.return','[data-rm-rematch]':'room.rematch','[data-rm-add-bot]':'room.addBot','[data-rm-difficulty-label]':'room.botDifficulty'};
   for(const [selector,key] of Object.entries(labels))$(selector).textContent=t(key);
+  for(const difficulty of ['easy','normal','hard'])$(`[data-rm-difficulty-option="${difficulty}"]`).textContent=t('race.'+difficulty);
+  $('[data-rm-bots]').hidden=room?.hostId!==client.id;
+  $('[data-rm-add-bot]').disabled=!connection||room?.phase!=='lobby'||room?.players.length>=6;
+  $('[data-rm-difficulty]').disabled=!connection||room?.phase!=='lobby';
   $('[data-rm-copy]').textContent=t(copied?'room.copied':'room.copy');
   $('[data-rm-lobby]').hidden=view!=='lobby';$('[data-rm-results]').hidden=view!=='results';$('[data-rm-standings]').hidden=view!=='racing';
   $('.rm-form').hidden=!!room;$('[data-rm-inside]').hidden=!room;$('[data-rm-leave]').hidden=!room;
@@ -45,6 +52,7 @@ export function mountRoomUI({client,roomCode='',onReturn=()=>{}}) {
   client.connect({name:nickname,...(joinCode?{roomCode:joinCode.toUpperCase()}:{} )});paint();
  }
  $('[data-rm-create]').onclick=()=>join('');$('.rm-form').onsubmit=event=>{event.preventDefault();if(code.value.trim())join(code.value.trim());};
+ $('[data-rm-add-bot]').onclick=()=>client.send({type:'addBot',difficulty:$('[data-rm-difficulty]').value});
  $('[data-rm-ready]').onclick=()=>client.send({type:'ready',on:!room?.players.find(p=>p.id===client.id)?.ready});
  for(const button of root.querySelectorAll('[data-rm-track]'))button.onclick=()=>client.send({type:'pickTrack',trackId:Number(button.dataset.rmTrack)});
  $('[data-rm-copy]').onclick=async()=>{try{await navigator.clipboard.writeText(invitationURL(room.code));copied=true;paint();}catch{error='COPY_FAILED';paint();}};

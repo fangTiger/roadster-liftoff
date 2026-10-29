@@ -21,3 +21,18 @@ test('结算页再来一局回大厅并发送 ready on，普通返回不准备�
   handlers.get('results')({results:[]});const before=sent.length;get('[data-rm-return]').onclick();assert.equal(sent.length,before);assert.equal(returned,2);ui.destroy();
  }finally{globalThis.document=previous;}
 });
+
+test('大厅房主选择难度增删机器人，机器人中英文命名，权限、满员与阶段控制',async()=>{
+ const {mountRoomUI}=await import('./room-ui.js'),{setLang}=await import('../i18n/i18n.js'),previous=globalThis.document,elements=new Map(),handlers=new Map(),sent=[];
+ const element=()=>({children:[],dataset:{},style:{},append(...items){this.children.push(...items);},replaceChildren(...items){this.children=items;},remove(){},setAttribute(k,v){this[k]=v;},querySelector:q=>get(q),querySelectorAll:()=>[get('[data-rm-track="1"]')]});
+ const get=q=>{if(!elements.has(q))elements.set(q,element());return elements.get(q);};get('[data-rm-track="1"]').dataset.rmTrack='1';globalThis.document={createElement:element,body:{append(){}}};
+ const client={id:'a',on(type,fn){handlers.set(type,fn);return ()=>{};},send:m=>sent.push(m)},room={code:'ABC234',phase:'lobby',hostId:'a',trackId:1,players:[{id:'a',name:'甲',connected:true},{id:'b1',bot:true,difficulty:'normal',ownerId:'a',ready:true,connected:true}]};
+ try{const ui=mountRoomUI({client});handlers.get('connection')({connected:true});handlers.get('room')(room);assert.equal(get('[data-rm-bots]').hidden,false);assert.equal(get('[data-rm-add-bot]').textContent,'加机器人');get('[data-rm-difficulty]').value='hard';get('[data-rm-add-bot]').onclick();assert.deepEqual(sent.at(-1),{type:'addBot',difficulty:'hard'});
+ const row=get('[data-rm-players]').children[1];assert.equal(row.children[1].textContent,'机器人·普通');assert.ok(row.children[2].textContent.includes('机器人'));assert.equal(row.children[3].textContent,'×');row.children[3].onclick();assert.deepEqual(sent.at(-1),{type:'removeBot',botId:'b1'});
+ setLang('en');assert.equal(get('[data-rm-add-bot]').textContent,'Add bot');assert.equal(get('[data-rm-players]').children[1].children[1].textContent,'Bot · Normal');
+ handlers.get('results')({results:[{id:'b1',bot:true,difficulty:'normal',rank:1,elapsed:120,bestLap:40}]});assert.equal(get('[data-rm-result-rows]').children[0].children[1].textContent,'Bot · Normal');
+ handlers.get('room')({...room,players:Array(6).fill(room.players[1])});assert.equal(get('[data-rm-add-bot]').disabled,true);
+ handlers.get('room')({...room,phase:'countdown'});assert.equal(get('[data-rm-add-bot]').disabled,true);assert.equal(get('[data-rm-players]').children[1].children[3],undefined);
+ handlers.get('room')({...room,hostId:'other'});assert.equal(get('[data-rm-bots]').hidden,true);assert.equal(get('[data-rm-players]').children[1].children[3],undefined);ui.destroy();
+ }finally{setLang('zh');globalThis.document=previous;}
+});

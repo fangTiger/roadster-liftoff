@@ -56,3 +56,41 @@ test('比赛数字键只发合法表情，忽略输入焦点；广播显示自�
   loop.destroy();assert.equal(listeners.size,0);assert.equal(handlers.size,0);
  }finally{globalThis.document=previous;}
 });
+
+test('房主机器人同目标步数推进，直接参与接触，15Hz 代发并重试完赛直到结算',async()=>{
+ const {buildTrack}=await import('./track/build.js'),{default:def}=await import('./track/data/meadow.js'),{createSession}=await import('./sim/session.js'),{gridSpawn}=await import('./grid.js');
+ const track=buildTrack(def),handlers=new Map(),sent=[],shown=new Map(),players=[{id:'a',seat:0},{id:'b1',seat:1,bot:true,ownerId:'a',difficulty:'normal',connected:true},{id:'b2',seat:2,bot:true,ownerId:'a',difficulty:'hard',connected:true},{id:'remote',seat:3}];
+ let now=2500,session,step=0,options;
+ const client={id:'a',serverNow:()=>now,on(type,fn){handlers.set(type,fn);return ()=>{};},send:m=>sent.push(m),leave(){}},ui={room:{hostId:'a',players},view:'lobby',racing(){this.view='racing';},update(){},destroy(){},fail(){assert.fail('加载失败');}};
+ const loop=mountRoomRace({engine:{scene:{add(){}},render(){}},params:new URLSearchParams('autopilot'),client,ui,requestFrame:()=>{},setup:async(_,opts)=>{options=opts;session=createSession(track,{...opts,spawn:gridSpawn(track,opts.seat)});},clear(){},getTrack:()=>track,getState:()=>({step,car:session.car,race:session.race}),getGhost:()=>session.ghost,getBits:()=>0,simulate(bits){session.step(bits);step++;},render(){},createRemote:async player=>({root:{},update:s=>shown.set(player.id,s),dispose(){}})});
+ await handlers.get('start')({startAt:2500,trackId:1,laps:3,grid:players.map(({id,seat})=>({id,seat}))});
+ loop.frame(0);assert.equal(sent.filter(m=>m.type==='botState').length,2);assert.deepEqual(options.contacts(0).filter(p=>p.id.startsWith('b')).map(p=>p.id),['b1','b2']);assert.equal(options.contacts(0).find(p=>p.id==='b1').x,gridSpawn(track,1).x);
+ now+=20;loop.frame(20);assert.equal(sent.filter(m=>m.type==='botState').length,2);
+ now+=80;loop.frame(100);assert.equal(sent.filter(m=>m.type==='botState').length,4);assert.ok(sent.filter(m=>m.type==='botState').slice(-2).every(m=>m.step===step));
+ const remote={id:'remote',seq:1,step,serverT:now,x:10,y:0,z:0,yaw:0,pitch:0,vx:20,vz:0,steer:0,lap:1,s:10,ghost:false,air:false};handlers.get('peer')(remote);assert.equal(options.contacts(step+12).find(p=>p.id==='remote').x,12);
+ for(let i=0;i<120;i++){now+=2000;loop.frame(now);const states=sent.filter(m=>m.type==='botState').slice(-2);assert.ok(states.every(m=>m.step===step));}
+ assert.ok(sent.some(m=>m.type==='botFinish'&&m.botId==='b1'));assert.ok(sent.some(m=>m.type==='botFinish'&&m.botId==='b2'));assert.ok(shown.get('b1'));assert.ok(shown.get('b2'));
+ const before=sent.filter(m=>m.type==='botFinish').length;now+=1000;loop.frame(now);assert.equal(sent.filter(m=>m.type==='botFinish').length,before+2);
+ handlers.get('results')({results:[]});const total=sent.length;now+=1000;loop.frame(now);assert.equal(sent.length,total);loop.destroy();
+});
+test('房主身份移交后停止旧机器人代发',async()=>{
+ const {buildTrack}=await import('./track/build.js'),{default:def}=await import('./track/data/meadow.js');const track=buildTrack(def),handlers=new Map(),sent=[];
+ let now=2500,snapshot={step:0,car:{x:0,y:0,z:0,yaw:0,pitch:0,vx:0,vz:0,steer:0,grounded:true,near:{s:0}},race:{lap:1,finished:false}};
+ const players=[{id:'a',seat:0},{id:'b1',seat:1,bot:true,ownerId:'a',difficulty:'normal',connected:true}],client={id:'a',serverNow:()=>now,on(t,fn){handlers.set(t,fn);return ()=>{};},send:m=>sent.push(m),leave(){}},ui={room:{hostId:'a',players},racing(){},update(){},destroy(){},fail(){assert.fail('加载失败');}};
+ const loop=mountRoomRace({engine:{scene:{add(){}},render(){}},params:new URLSearchParams(),client,ui,requestFrame:()=>{},setup:async()=>{},clear(){},getTrack:()=>track,getState:()=>snapshot,getBits:()=>0,simulate(){snapshot.step++;},render(){},createRemote:async()=>({root:{},update(){},dispose(){}})});
+ await handlers.get('start')({startAt:2500,trackId:1,laps:3,grid:players});loop.frame(0);assert.equal(sent.filter(m=>m.type==='botState').length,1);
+ handlers.get('room')({hostId:'other',players:players.map(p=>p.bot?{...p,connected:false}:p),phase:'racing'});now+=1000;loop.frame(1000);assert.equal(sent.filter(m=>m.type==='botState').length,1);loop.destroy();
+});
+
+test('非房主开局只按 peer 渲染机器人，不代发状态或完赛',async()=>{
+ const handlers=new Map(),sent=[],shown=new Map(),players=[{id:'a',seat:0},{id:'b',seat:1},{id:'b1',seat:2,bot:true,ownerId:'a',difficulty:'normal',connected:true}];let now=2500,step=0;
+ const snapshot={car:{x:0,y:0,z:0,yaw:0,pitch:0,vx:0,vz:0,steer:0,grounded:true,near:{s:0}},race:{lap:1,finished:false}},client={id:'b',serverNow:()=>now,on(t,fn){handlers.set(t,fn);return ()=>{};},send:m=>sent.push(m),leave(){}},ui={room:{hostId:'a',players},racing(){},update(){},destroy(){},fail(){assert.fail('加载失败');}};
+ const loop=mountRoomRace({engine:{scene:{add(){}},render(){}},params:new URLSearchParams(),client,ui,requestFrame:()=>{},setup:async()=>{},clear(){},getTrack:()=>({length:1000,at:s=>({x:0,y:0,z:s,tx:0,tz:1})}),getState:()=>({...snapshot,step}),getBits:()=>0,simulate(){step++;},render(){},createRemote:async p=>({root:{},update:s=>shown.set(p.id,s),dispose(){}})});
+ await handlers.get('start')({startAt:2500,trackId:1,laps:3,grid:players});handlers.get('peer')({id:'b1',seq:1,step:0,serverT:2500,x:123,y:0,z:0,vx:0,vz:0});now+=1000;loop.frame(0);assert.equal(shown.get('b1').x,123);assert.ok(sent.length>0);assert.ok(sent.every(m=>!['botState','botFinish'].includes(m.type)));loop.destroy();
+});
+test('异步加载期间原房主断线并恢复，不复活已经 DNF 的机器人',async()=>{
+ const {buildTrack}=await import('./track/build.js'),{default:def}=await import('./track/data/meadow.js'),track=buildTrack(def),handlers=new Map(),sent=[],players=[{id:'a',seat:0},{id:'b1',seat:1,bot:true,ownerId:'a',difficulty:'normal',connected:true}];let finishSetup;
+ const snapshot={step:0,car:{x:0,y:0,z:0,yaw:0,pitch:0,vx:0,vz:0,steer:0,grounded:true,near:{s:0}},race:{lap:1,finished:false}},client={id:'a',serverNow:()=>2500,on(t,fn){handlers.set(t,fn);return ()=>{};},send:m=>sent.push(m),leave(){}},ui={room:{hostId:'a',players},racing(){},update(){},destroy(){},fail(){assert.fail('加载失败');}};
+ const loop=mountRoomRace({engine:{scene:{add(){}},render(){}},params:new URLSearchParams(),client,ui,requestFrame:()=>{},setup:()=>new Promise(resolve=>{finishSetup=resolve;}),clear(){},getTrack:()=>track,getState:()=>snapshot,getBits:()=>0,simulate(){snapshot.step++;},render(){},createRemote:async()=>({root:{},update(){},dispose(){}})});
+ const pending=handlers.get('start')({startAt:2500,trackId:1,laps:3,grid:players});await Promise.resolve();ui.room={hostId:'a',phase:'racing',players:players.map(p=>p.bot?{...p,connected:false}:p)};handlers.get('room')(ui.room);finishSetup();await pending;loop.frame(0);assert.equal(sent.filter(m=>m.type==='botState').length,0);loop.destroy();
+});

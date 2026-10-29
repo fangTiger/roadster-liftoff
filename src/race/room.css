@@ -9,3 +9,5 @@
 .rm-result-card{width:min(760px,100%)}.rm-result-card h2{color:#ffd34d}.rm-table-wrap{overflow-x:auto;margin:18px 0 24px}.rm-table{width:100%;border-collapse:collapse;text-align:left;white-space:nowrap}.rm-table th{color:#aab7bd;font-size:12px;font-weight:400}.rm-table th,.rm-table td{padding:12px 10px;border-bottom:1px solid #ffffff1f}.rm-table td:nth-child(2){white-space:normal;overflow-wrap:anywhere;min-width:90px}
 @media(max-width:700px){.rm-overlay{padding:14px}.rm-card{padding:22px 20px}.rm-form{grid-template-columns:1fr}.rm-invite{flex-wrap:wrap}.rm-standings{right:10px;top:170px;min-width:145px;font-size:12px;padding:8px 10px}.rm-badges{max-width:120px;text-align:right}}
 @media(prefers-reduced-motion:reduce){.rm-root button{transition:none}}
+
+.rm-bots{margin:0 0 18px}.rm-bots label{color:#aab7bd}.rm-bots select{background:#0b0f14;color:#f4eee1;border:1px solid #ffffff33;border-radius:6px;padding:10px;font:inherit;min-height:44px}.rm-players button[data-rm-remove-bot]{padding:4px 12px;min-width:40px;min-height:40px}
