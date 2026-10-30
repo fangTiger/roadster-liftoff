@@ -57,7 +57,7 @@ ${itemsMode?'<div class="rh-missile-warning" role="status" hidden></div><div cla
   }
   const lapProgress = c => { const n = c.near; if (!n) return 0; if (n.path === 'main') return n.s / track.length; const b = track.branches.find(b => b.id === n.path); return (b.from + (b.to - b.from) * n.s / b.length) / track.length; };
   let flashEvent = null, flashUntil = 0, draftUntil = 0, seen = 0;
-  function update(s, { delta = null, deltaStep = 0, totalDelta = null, itemSlot = null, missileLocked = false } = {}) {
+  function update(s, { delta = null, deltaStep = 0, totalDelta = null, itemSlot = null, missileLocked = false, rivals = [] } = {}) {
     const comparison = $('.rh-delta');
     comparison.hidden = delta === null || s.step >= deltaStep + Math.ceil(2 / DT);
     comparison.textContent = delta === null ? '' : formatDelta(delta);
@@ -81,6 +81,7 @@ ${itemsMode?'<div class="rh-missile-warning" role="status" hidden></div><div cla
     // 小地图
     ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.drawImage(base, 0, 0);
     const gate = track.checkpointGates[r.nextCheckpoint]; if (gate && !r.finished) { const [gx, gz] = P(gate.x, gate.z); ctx.fillStyle = '#ffd34d'; ctx.beginPath(); ctx.arc(gx, gz, 4.5 * dpr, 0, Math.PI * 2); ctx.fill(); }
+    for(const rival of rivals){const [x,z]=P(rival.x,rival.z);ctx.fillStyle=rival.color;ctx.strokeStyle='#002';ctx.lineWidth=1.5*dpr;ctx.beginPath();ctx.arc(x,z,3.5*dpr,0,Math.PI*2);ctx.fill();ctx.stroke();}
     const [cx, cz] = P(c.x, c.z), a = -c.yaw;   // 地图 x 取反、z 朝上，车头 (sin yaw, cos yaw) 在画布上对应旋转 -yaw
     ctx.save(); ctx.translate(cx, cz); ctx.rotate(a); ctx.fillStyle = '#4bd2ff'; ctx.strokeStyle = '#002'; ctx.lineWidth = 1.5 * dpr;
     ctx.beginPath(); ctx.moveTo(0, -8 * dpr); ctx.lineTo(5 * dpr, 6 * dpr); ctx.lineTo(-5 * dpr, 6 * dpr); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();

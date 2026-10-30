@@ -18,7 +18,7 @@ export function botShouldUseItem(kind,actor,cars,track,held,locked) {
  const self={id:actor.id,lap:actor.race.lap,s:actor.car.near.s};
  if(kind==='missile')return !!pickMissileTarget(self,cars,track.length);
  if(kind==='shield')return locked||held>8;
- if(kind==='mine')return held>6||cars.some(car=>{const behind=raceProgress(self,track.length)-raceProgress(car,track.length);return car.id!==self.id&&itemTargetValid(car)&&behind>0&&behind<=30;});
+ if(kind==='mine')return !!pickMissileTarget(self,cars,track.length)||held>6||cars.some(car=>{const behind=raceProgress(self,track.length)-raceProgress(car,track.length);return car.id!==self.id&&itemTargetValid(car)&&behind>0&&behind<=30;});
  if(kind==='nitro'){
   if(actor.rank>actor.count/2)return true;
   let s=self.s;

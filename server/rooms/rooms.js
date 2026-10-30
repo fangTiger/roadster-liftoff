@@ -84,6 +84,7 @@ export function createRooms({now=Date.now,random=Math.random,send,close=()=>{},o
   if(m.type==='hello')return hello(c,m);
   if(m.type==='ping'){if(typeof m.t!=='number'||!Number.isFinite(m.t)||Math.abs(m.t)>Number.MAX_SAFE_INTEGER)return error(c,'BAD_MESSAGE');send(c,{type:'pong',t:m.t,serverT:now()});return;}
   // 先校验字段，再检查阶段，避免错误类型因房间状态而改变。
+  if(m.type==='item'&&m.kind==='mine'&&['ox','oz'].some(k=>m[k]!==undefined&&!finite(m[k])))return error(c,'BAD_MESSAGE');
   if((['state','botState'].includes(m.type)&&!validState(m))||(['finish','botFinish'].includes(m.type)&&!validFinish(m))||(['botState','botFinish','removeBot'].includes(m.type)&&typeof m.botId!=='string')||(m.type==='addBot'&&!['easy','normal','hard'].includes(m.difficulty))||(m.type==='ready'&&typeof m.on!=='boolean')||(m.type==='pickTrack'&&![1,2,3].includes(m.trackId))||(m.type==='emote'&&(!Number.isInteger(m.id)||m.id<1||m.id>6)))return error(c,'BAD_MESSAGE');
   if((m.type==='pickMode'&&!['items','speed'].includes(m.mode))||(['item','mineHit','hit'].includes(m.type)&&(!itemId(m.itemId)||(m.botId!==undefined&&typeof m.botId!=='string')))||(m.type==='hit'&&m.shielded!==undefined&&typeof m.shielded!=='boolean')||(m.type==='item'&&(!['mine','missile'].includes(m.kind)||!finite(m.x)||!finite(m.z)||(m.kind==='mine'?(!finite(m.placedAt)||m.placedAt<0):(!finite(m.yaw)||!finite(m.firedAt)||m.firedAt<0||(m.target!==null&&typeof m.target!=='string'))))))return error(c,'BAD_MESSAGE');
   const p=clients.get(c),r=p&&rooms.get(p.code);if(!r)return error(c,'NO_ROOM');
@@ -124,7 +125,7 @@ export function createRooms({now=Date.now,random=Math.random,send,close=()=>{},o
      if(!target?.connected||!entrant||entrant.finish||entrant.dnf)return error(c,'BAD_MESSAGE');
     }
     const time=now();if(r.items.has(m.itemId)||time-(actor.lastItem??-Infinity)<500)return;
-    actor.lastItem=time;const item={type:'item',kind:m.kind,itemId:m.itemId,x:m.x,z:m.z,...(m.kind==='mine'?{placedAt:m.placedAt}:{target:m.target,yaw:m.yaw,firedAt:m.firedAt}),from:actor.id};
+    actor.lastItem=time;const item={type:'item',kind:m.kind,itemId:m.itemId,x:m.x,z:m.z,...(m.kind==='mine'?{placedAt:m.placedAt,...(m.ox===undefined?{}:{ox:m.ox}),...(m.oz===undefined?{}:{oz:m.oz})}:{target:m.target,yaw:m.yaw,firedAt:m.firedAt}),from:actor.id};
     r.items.set(m.itemId,{item,gone:false,expires:m.kind==='mine'?time+30000:Math.max(time+1500,r.start.startAt+(m.firedAt+1.5)*1000)});broadcast(r,item);
    }else{
     const stored=r.items.get(m.itemId);if(!stored||stored.gone||(m.type==='mineHit'&&now()>=stored.expires))return;

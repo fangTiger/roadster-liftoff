@@ -193,3 +193,14 @@ test('目标飞行中断线后恢复也不能补命中，已完赛目标不能�
   f.advance(1500);f.send(connection,{type:'hit',itemId:id+'-1',shielded:false});assert.equal(f.last(a,'hitAt'),undefined);
  }
 });
+
+test('水雷出手点为可选有限坐标，白名单转发及重连保留，旧消息仍接受',()=>{
+ const f=fixture(),{a,b,code}=f.start(),id=f.last(a,'welcome').id,token=f.last(b,'welcome').resumeToken;f.advance(1500);const m={type:'item',kind:'mine',itemId:id+'-1',x:10,z:20,placedAt:3,ox:1,oz:2};
+ f.send(a,{...m,extra:7});assert.deepEqual(f.last(b,'item'),{...m,from:id});f.rooms.disconnect(b);const resumed=f.connect('乙',code,token);assert.deepEqual(f.last(resumed,'item'),{...m,from:id});
+ f.advance(500);const {ox,oz,...old}=m;f.send(a,{...old,itemId:id+'-2'});assert.deepEqual(f.last(resumed,'item'),{...old,itemId:id+'-2',from:id});
+});
+test('水雷拒绝非法出手坐标（含非有限 JSON 数值）',()=>{
+ for(const field of ['ox','oz'])for(const raw of ['null','"1"','true','1e999','-1e999']){
+  const f=fixture(),{a,b}=f.start(),id=f.last(a,'welcome').id;f.advance(1500);const m={type:'item',kind:'mine',itemId:id+'-1',x:10,z:20,placedAt:3};f.rooms.receive(a,JSON.stringify(m).slice(0,-1)+`,"${field}":${raw}}`);assert.equal(f.last(a,'error')?.code,'BAD_MESSAGE');assert.equal(f.last(b,'item'),undefined);
+ }
+});

@@ -136,7 +136,7 @@ function simulate(bits) {
   wheelAngle += Math.hypot(current.car.vx, current.car.vz) * DT / .34;
 }
 function render(alpha = 1, dt = 1 / 60) {
-  if (roomMode) setCarOpacity(session.ghost ? .35 : 1);
+  if (roomMode) setCarOpacity(1);
   const a = previous.car, b = current.car, blend = (x, y) => x + (y - x) * alpha;
   const c = { ...b, x: blend(a.x, b.x), y: blend(a.y, b.y), z: blend(a.z, b.z) };
   let delta = b.yaw - a.yaw; delta -= Math.PI * 2 * Math.floor((delta + Math.PI) / (Math.PI * 2)); const yaw = a.yaw + delta * alpha;
@@ -169,7 +169,7 @@ function render(alpha = 1, dt = 1 / 60) {
     mountRaceChain(slot, { trackId: def.id, trackName: t('race.track' + def.id), bestLap: current.race.bestLap, bits: achievementsToBits(achievements.list()), replay: recorder.encode({ track: hash, trackId: def.id, laps: def.laps }) });
   }
   celebration.update(dt); gate.update(current);
-  camera.update(c, dt); sky.update(engine.camera, car.root.position); skid.update(c); scene.update(current); hud.update(current, { itemSlot: roomRace?.itemSlot, missileLocked: roomRace?.missileLocked, delta: ghostDelta, deltaStep: ghostDeltaStep, totalDelta: current.race.finished && ghost ? timeDelta(current.race.elapsed, ghost.totalTime) : null });
+  camera.update(c, dt); sky.update(engine.camera, car.root.position); skid.update(c); scene.update(current); hud.update(current, { rivals: roomRace?.rivals, itemSlot: roomRace?.itemSlot, missileLocked: roomRace?.missileLocked, delta: ghostDelta, deltaStep: ghostDeltaStep, totalDelta: current.race.finished && ghost ? timeDelta(current.race.elapsed, ghost.totalTime) : null });
   // 成绩文字高度随语言变化，上链区块始终排在完整成绩之后。
   const chainSlot = document.getElementById('race-chain-slot');
   if (chainSlot) chainSlot.style.top = `${document.querySelector('#race-hud .rh-result').getBoundingClientRect().bottom + 12}px`;
