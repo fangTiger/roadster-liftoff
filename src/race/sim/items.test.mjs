@@ -46,3 +46,18 @@ test('导弹轨迹从发射点沿朝向出发，以 smoothstep 追逐当前显�
  assert.deepEqual(items.missilePosition(m,target,11.5),{x:21,y:4.8,z:42});
  const p=items.missilePosition(m,target,10.75);assert.equal(p.x,11);assert.ok(Math.abs(p.z-52)<1e-8);assert.ok(Math.abs(items.missilePosition(m,null,11.5).z-122)<1e-8);
 });
+
+test('水雷按目标速度预判、跟随横向并限宽，确定且不改入参',()=>{
+ assert.equal(typeof items.mineThrowTarget,'function');const track={length:1000,at:s=>({x:0,z:s,tx:0,tz:1,w:10}),surfaceAt:(x)=>Math.abs(x)<=4?ROAD:2},self={s:10,x:0,z:10},target={s:100,x:-2,z:100,vx:0,vz:30},before=structuredClone(target);
+ assert.deepEqual(items.mineThrowTarget(self,target,track),{x:-2,z:130});assert.deepEqual(items.mineThrowTarget(self,target,track),items.mineThrowTarget(self,target,track));assert.deepEqual(target,before);
+ assert.deepEqual(items.mineThrowTarget(self,{...target,x:-20,vz:100},track),{x:-4,z:145});assert.deepEqual(items.mineThrowTarget(self,{...target,x:20,vz:0},track),{x:4,z:112});
+ const p=items.mineThrowTarget(self,target,track);assert.equal(track.surfaceAt(p.x,p.z),ROAD);
+});
+test('水雷无目标沿自己横向前投 40 米，绕回起点，非路面横向收缩',()=>{
+ assert.equal(typeof items.mineThrowTarget,'function');const track={length:100,at:s=>({x:s,z:0,tx:1,tz:0,w:10}),surfaceAt:(x,z)=>Math.abs(z)<=1?ROAD:2},self={s:90,x:90,z:3};
+ const p=items.mineThrowTarget(self,null,track);assert.equal(p.x,30);assert.ok(p.z>0&&p.z<=1);assert.equal(track.surfaceAt(p.x,p.z),ROAD);
+});
+test('水雷在实际赛道上前投，落点均在路面，中心线断口继续前移',()=>{
+ assert.equal(typeof items.mineThrowTarget,'function');
+ for(const {def} of TRACKS){const track=buildTrack(def);for(let s=0;s<track.length;s+=37){const p=track.at(s),self={...p,s},target={...p,s,vx:p.tx*30,vz:p.tz*30},landing=items.mineThrowTarget(self,target,track);assert.equal(track.surfaceAt(landing.x,landing.z),ROAD);}}
+});

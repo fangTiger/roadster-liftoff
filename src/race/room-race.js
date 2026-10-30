@@ -3,20 +3,21 @@ import { pushState,sampleState } from '../net/interp.js';
 import { createRoomItems } from './room-items.js';
 import { createItemFx } from './scene/items.js';
 import { mountRoomUI,standings } from './room-ui.js';
-import { createRemoteCar } from './remote-car.js';
+import { createRemoteCar,ROOM_COLORS } from './remote-car.js';
 import { createEmote } from './emote.js';
 import { gridSpawn,targetSteps } from './grid.js';
 import { TRACKS } from './track/data/index.js';
 import { autopilot } from './sim/autopilot.js';
 import { createRoomBots,carState } from './room-bots.js';
 import { DT } from './sim/physics.js';
+import { BRAKE } from './sim/input-bits.js';
 // 房主与所属机器人同步推进；网络远端只用于渲染和本地软碰撞。
 export function mountRoomRace({engine,params,setup,clear,simulate,render,getState,getTrack,getBits,getGhost=()=>false,isPaused=()=>false,client=createRoomClient(),ui,createRemote=createRemoteCar,requestFrame=globalThis.requestAnimationFrame,selfRoot,inputTarget=globalThis,applyEffect=()=>{},random=Math.random,playSound=()=>{},createItemsFx=createItemFx}) {
- const buffers=new Map(),remotes=new Map(),emotes=new Map(),departed=new Set();let bots=new Map(),round=null,active=false,loading=false,dead=false,version=0,sequence=0,lastSend=-Infinity,lastFinish=-Infinity,lastRanks=-Infinity,lastFrame,queue=Promise.resolve(),players=[],items=null,itemFx=null,pendingItems=[],lastTick=-1,lastWarning=-Infinity;
+ const buffers=new Map(),remotes=new Map(),emotes=new Map(),departed=new Set();let bots=new Map(),round=null,active=false,loading=false,dead=false,version=0,sequence=0,lastSend=-Infinity,lastFinish=-Infinity,lastRanks=-Infinity,lastFrame,queue=Promise.resolve(),players=[],items=null,itemFx=null,pendingItems=[],lastTick=-1,lastWarning=-Infinity,rivals=[];
  function invalidateTarget(id){items?.invalidate(id);for(const m of pendingItems)if(m.kind==='missile'&&m.target===id)m.invalid=true;}
  function clearItems(){items?.dispose();items=null;itemFx?.dispose();itemFx=null;pendingItems=[];lastWarning=-Infinity;}
  function clearEmotes(){for(const emote of emotes.values())emote.dispose();emotes.clear();}
- function removeRemotes(){clearItems();bots.clear();clearEmotes();for(const remote of remotes.values())remote.dispose();remotes.clear();buffers.clear();}
+ function removeRemotes(){clearItems();bots.clear();clearEmotes();for(const remote of remotes.values())remote.dispose();remotes.clear();buffers.clear();rivals=[];}
  function reset(){active=false;round=null;++version;removeRemotes();if(!loading)clear();}
  ui??=mountRoomUI({client,roomCode:params.get('room')||'',onReturn:reset});
  const unsubs=[
@@ -100,7 +101,7 @@ export function mountRoomRace({engine,params,setup,clear,simulate,render,getStat
  inputTarget.addEventListener?.('keydown',keydown);
  function localActor(id){
   const bot=bots.get(id),snap=bot?{car:bot.session.car,race:bot.session.race,step:bot.step}:getState();
-  return {id,...snap,time:snap.step*DT,bot:!!bot,difficulty:players.find(p=>p.id===id)?.difficulty,ghost:bot?bot.session.ghost:getGhost(),cars:[...raceStates().values()],rankFraction:0,applyEffect:bot?kind=>bot.session.applyEffect(kind):applyEffect};
+  return {id,...snap,time:snap.step*DT,bot:!!bot,back:!bot&&!!(getBits()&BRAKE),difficulty:players.find(p=>p.id===id)?.difficulty,ghost:bot?bot.session.ghost:getGhost(),cars:[...raceStates().values()],rankFraction:0,applyEffect:bot?kind=>bot.session.applyEffect(kind):applyEffect};
  }
  function raceStates(display=false){
   const states=new Map(),now=client.serverNow();
@@ -142,13 +143,14 @@ export function mountRoomRace({engine,params,setup,clear,simulate,render,getStat
    }
    const states=new Map([[client.id,carState(c,r,getGhost())]]);
    for(const [id,remote] of remotes){const bot=bots.get(id),state=bot?carState(bot.session.car,bot.session.race,bot.session.ghost):sampleState(buffers.get(id)||[],now);remote.update(state,dt);if(state)states.set(id,state);}
+   rivals=players.filter(p=>p.id!==client.id&&!departed.has(p.id)&&states.has(p.id)).map(p=>{const c=states.get(p.id);return {x:c.x,z:c.z,color:p.color??ROOM_COLORS[p.seat]};});
    if(now-lastRanks>=100){lastRanks=now;const connected=new Map((ui.room?.players||[]).map(p=>[p.id,p.connected]));ui.update(players.map(p=>({...p,connected:connected.get(p.id)??false})),states,track.length);}
    if(items?.locked(client.id)&&snap.step*DT-lastWarning>=.45){playSound('raceMissileWarning');lastWarning=snap.step*DT;}
-   itemFx?.update(client.id,snap.step*DT,states);
+   itemFx?.update(client.id,snap.step*DT,states,{self:{id:client.id,lap:r.lap,s:c.near.s},back:!!(getBits()&BRAKE),cars:[...raceStates().values()]});
    render(1,dt);
   }else engine.render();
   requestFrame(frame);
  }
  requestFrame(frame);
- return {client,ui,frame,get missileLocked(){return items?.locked(client.id)??false;},get itemSlot(){return items?.slot(client.id)??null;},destroy(){dead=true;inputTarget.removeEventListener?.('keydown',keydown);reset();unsubs.forEach(fn=>fn());client.leave();ui.destroy();}};
+ return {client,ui,frame,get rivals(){return rivals;},get missileLocked(){return items?.locked(client.id)??false;},get itemSlot(){return items?.slot(client.id)??null;},destroy(){dead=true;inputTarget.removeEventListener?.('keydown',keydown);reset();unsubs.forEach(fn=>fn());client.leave();ui.destroy();}};
 }

@@ -1,4 +1,4 @@
-import { sin,cos } from './fmath.js';
+import { sin,cos,clamp } from './fmath.js';
 import { ROAD } from '../track/build.js';
 // 所有几何与抽取只依赖入参；随机源由房间注入，模拟和测试无需全局随机数。
 export function itemBoxes(track) {
@@ -32,6 +32,19 @@ export const mineAlive=(mine,time)=>time<mine.placedAt+30;
 export function mineHits(mine,car,id,time) {
  const dx=car.x-mine.x,dz=car.z-mine.z;
  return mineAlive(mine,time)&&time>=mine.placedAt+.6&&(id!==mine.from||time>=mine.placedAt+1.5)&&dx*dx+dz*dz<=1.6*1.6;
+}
+// 横向跟随目标，落在断口时向前寻找路面；不依赖随机源或模拟状态。
+export function mineThrowTarget(self,target,track) {
+ const car=target??self,origin=track.at(car.s),lateral=(car.x-origin.x)*-origin.tz+(car.z-origin.z)*origin.tx;
+ const vx=target?.vx??0,vz=target?.vz??0,ahead=target?clamp(Math.sqrt(vx*vx+vz*vz),12,45):40;
+ for(let offset=0;offset<track.length;offset++){
+  const raw=car.s+ahead+offset,s=raw-Math.floor(raw/track.length)*track.length,p=track.at(s),side=clamp(lateral,-p.w*.4,p.w*.4);
+  for(let i=0;i<=8;i++){
+   const d=side*(1-i/8),x=p.x-p.tz*d,z=p.z+p.tx*d;
+   if(track.surfaceAt(x,z)===ROAD)return {x,z};
+  }
+ }
+ throw new RangeError('赛道没有可投掷水雷的路面');
 }
 
 export const raceProgress=(car,trackLength)=>(car.lap-1)*trackLength+car.s;

@@ -1,4 +1,4 @@
-import { itemBoxes,rollItem,mineHits,mineAlive,pickMissileTarget,itemTargetValid } from './sim/items.js';
+import { itemBoxes,rollItem,mineHits,mineAlive,mineThrowTarget,pickMissileTarget,itemTargetValid } from './sim/items.js';
 import { botShouldUseItem,botItemDelay } from './bot-driver.js';
 // 每台本地模拟的车独立持有一个槽和箱子刷新时间；远端只同步道具实体。
 export function createRoomItems({track,send,random=Math.random,onEvent=()=>{}}) {
@@ -26,7 +26,10 @@ export function createRoomItems({track,send,random=Math.random,onEvent=()=>{}}) 
   const s=slot(actor.id);if(!allowed(actor)||!s.kind||actor.time+1e-12<s.readyAt)return false;
   const kind=s.kind;s.kind=null;s.useAt=null;
   if(kind==='mine'){
-   const mine={type:'item',kind,itemId:`${actor.id}-${++s.sequence}`,x:actor.car.x-Math.sin(actor.car.yaw)*3,z:actor.car.z-Math.cos(actor.car.yaw)*3,placedAt:actor.time};
+   const self={...actor.car,id:actor.id,lap:actor.race.lap,s:actor.car.near?.s??0},target=pickMissileTarget(self,actor.cars??[],track.length);
+   const back=actor.bot?!target&&actor.time-s.pickedAt<=6:actor.back;
+   const position=back?{x:actor.car.x-Math.sin(actor.car.yaw)*3,z:actor.car.z-Math.cos(actor.car.yaw)*3}:{...mineThrowTarget(self,target,track),ox:actor.car.x,oz:actor.car.z};
+   const mine={type:'item',kind,itemId:`${actor.id}-${++s.sequence}`,...position,placedAt:actor.time};
    // 等服务端接受后再由 item 回显创建实体，限流丢弃不会留本地幽灵雷。
    send({...mine,...(actor.bot?{botId:actor.id}:{})});onEvent({type:'minePlaced',id:actor.id,mine});
   }else if(kind==='missile'){

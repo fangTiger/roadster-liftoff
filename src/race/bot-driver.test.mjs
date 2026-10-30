@@ -42,3 +42,9 @@ test('机器人导弹有目标才发，水雷后方 30 米或超过 6 秒，护�
 test('机器人道具反应为 0.3–1.2 秒，同一随机数下难度越高越短',async()=>{
  const m=await import('./bot-driver.js');assert.equal(typeof m.botItemDelay,'function');for(const random of [()=>0,()=>.5,()=>1]){const values=['hard','normal','easy'].map(d=>m.botItemDelay(d,random));assert.ok(values[0]>=.3&&values[2]<=1.2);assert.ok(values[0]<values[1]&&values[1]<values[2]);}
 });
+
+test('机器人水雷前方 200 米内有效目标立即使用，排除无效目标',async()=>{
+ const {botShouldUseItem}=await import('./bot-driver.js'),track={length:1000},actor={id:'a',car:{near:{s:100}},race:{lap:1}},front={id:'b',lap:1,s:300};
+ assert.equal(botShouldUseItem('mine',actor,[front],track,0,false),true);
+ for(const patch of [{s:301},{ghost:true},{stale:true},{connected:false},{finished:true}])assert.equal(botShouldUseItem('mine',actor,[{...front,...patch}],track,0,false),false);
+});

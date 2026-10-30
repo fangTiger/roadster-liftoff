@@ -54,3 +54,16 @@ test('机器人锁定后延迟开盾，失去条件取消计时，有目标才�
 test('同一步多发导弹只消耗一次护盾，后续命中仍打转',()=>{
  const f=fixture();f.actor.car.x=1000;f.actor.car.shieldTime=5;for(const itemId of ['b-1','b-2'])f.items.receive({kind:'missile',itemId,target:'a',firedAt:3});f.actor.time=4.5;f.items.step(f.actor);assert.deepEqual(f.sent.map(m=>m.shielded),[true,false]);assert.deepEqual(f.effects,['spin','spin']);
 });
+
+test('真人水雷默认向前追踪目标，后退输入保留车后三米，消息携带出手点',()=>{
+ for(const back of [false,true]){const f=fixture();f.items.slot('a').kind='mine';Object.assign(f.actor,{back,cars:[{id:'b',lap:1,s:40,x:-2,z:40,vx:0,vz:20}]});f.actor.car={x:0,z:20,yaw:0,near:{s:20}};f.items.use(f.actor);
+  assert.deepEqual(f.sent[0],{type:'item',kind:'mine',itemId:'a-1',x:back?0:-2,z:back?17:60,...(back?{}:{ox:0,oz:20}),placedAt:3});
+ }
+ const f=fixture();f.items.slot('a').kind='mine';f.actor.car={x:-1,z:20,yaw:0,near:{s:20}};f.items.use(f.actor);assert.equal(f.sent[0].z,60);assert.equal(f.sent[0].x,-1);
+});
+test('机器人水雷前车优先向前，后车触发向后，持有超时向前',()=>{
+ const front={id:'b',lap:1,s:40,x:0,z:40,vx:0,vz:20},back={id:'c',lap:1,s:10,x:0,z:10};
+ for(const [cars,held,expected] of [[[front,back],0,60],[[back],0,17],[[back],7,60],[[],7,60]]){
+  const f=fixture();Object.assign(f.actor,{bot:true,cars,time:10});f.actor.car={x:0,z:20,yaw:0,near:{s:20}};Object.assign(f.items.slot('a'),{kind:'mine',pickedAt:10-held});f.items.use(f.actor);assert.equal(f.sent[0].z,expected);assert.equal(f.sent[0].botId,'a');
+ }
+});

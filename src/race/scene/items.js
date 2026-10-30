@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { missilePosition } from '../sim/items.js';
+import { missilePosition,pickMissileTarget } from '../sim/items.js';
 // 箱子、球壳与水球共用几何和材质，离开本局时统一释放。
 export function createItemFx(scene,items,track) {
  const root=new THREE.Group();root.name='party-items';scene.add(root);
@@ -7,6 +7,12 @@ export function createItemFx(scene,items,track) {
  const canvas=document.createElement('canvas');canvas.width=canvas.height=128;
  const ctx=canvas.getContext('2d');ctx.fillStyle='#12323f';ctx.fillRect(0,0,128,128);ctx.strokeStyle='#8ef0ff';ctx.lineWidth=8;ctx.strokeRect(4,4,120,120);ctx.fillStyle='#ffffff';ctx.font='bold 92px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('?',64,68);
  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
+ const aimCanvas=document.createElement('canvas');aimCanvas.width=aimCanvas.height=128;
+ const aimContext=aimCanvas.getContext('2d');aimContext.strokeStyle='#ff354c';aimContext.lineWidth=7;aimContext.beginPath();aimContext.arc(64,64,37,0,Math.PI*2);
+ for(const [x,z,dx,dz] of [[8,64,32,64],[96,64,120,64],[64,8,64,32],[64,96,64,120]]){aimContext.moveTo(x,z);aimContext.lineTo(dx,dz);}aimContext.stroke();
+ const aimTexture=new THREE.CanvasTexture(aimCanvas);aimTexture.colorSpace=THREE.SRGBColorSpace;
+ const aimMaterial=new THREE.SpriteMaterial({map:aimTexture,transparent:true,depthTest:false,depthWrite:false,sizeAttenuation:false,fog:false,toneMapped:false}),aim=new THREE.Sprite(aimMaterial);aim.name='item-aim';aim.renderOrder=1000;aim.visible=false;root.add(aim);
+ aim.onBeforeRender=(_renderer,_scene,camera)=>{aim.scale.setScalar(38*2*Math.tan(camera.fov*Math.PI/360)/(globalThis.innerHeight||900));aim.updateMatrixWorld();};
  const cube=new THREE.BoxGeometry(1.3,1.3,1.3),sphere=new THREE.SphereGeometry(1,20,12),hex=new THREE.IcosahedronGeometry(1,1),flame=new THREE.ConeGeometry(.22,2.8,10);
  const boxMaterial=new THREE.MeshStandardMaterial({map:texture,emissiveMap:texture,emissive:0x8ef0ff,emissiveIntensity:1.2,roughness:.25});
  const water=new THREE.MeshBasicMaterial({color:0x42b9ff,transparent:true,opacity:.42,depthWrite:false,toneMapped:false});
@@ -21,12 +27,20 @@ export function createItemFx(scene,items,track) {
  function explode(state,time,shielded){
   const mesh=new THREE.Mesh(hex,burstMaterial.clone());mesh.material.color.set(shielded?0x8ef0ff:0xff7036);mesh.material.wireframe=!!shielded;mesh.position.set(state.x,state.y+.8,state.z);mesh.userData.born=time;bursts.add(mesh);
  }
- function update(selfId,time,states){
+ function update(selfId,time,states,aimState){
+  const slot=items.slot?.(selfId),canAim=aimState&&slot&&time>=slot.readyAt&&(slot.kind==='missile'||slot.kind==='mine'&&!aimState.back),target=canAim?pickMissileTarget(aimState.self,aimState.cars,track.length):null,state=target&&states.get(target.id);
+  aim.visible=!!state;
+  if(state){aim.position.set(state.x,state.y+3.2,state.z);aimMaterial.rotation=time*1.8;}
   boxes.children.forEach((mesh,i)=>{const b=items.boxes[i];mesh.visible=items.visible(selfId,b.id,time);mesh.rotation.set(.25,time*1.4+i*.3,.2);mesh.position.y=b.y+1.25+Math.sin(time*3+i)*.15;});
   for(const [id,mesh] of mineMeshes)if(!items.mines.has(id)){mesh.removeFromParent();mineMeshes.delete(id);}
   for(const [id,mine] of items.mines){
-   if(!mineMeshes.has(id)){const mesh=new THREE.Mesh(sphere,water);root.add(mesh);mineMeshes.set(id,mesh);}
-   const mesh=mineMeshes.get(id),age=time-mine.placedAt;mesh.position.set(mine.x,ground(mine)+Math.sin(time*5)*.10,mine.z);mesh.scale.set(.7+Math.sin(time*7)*.05,.7,.7);mesh.rotation.z=Math.sin(time*5)*.18;mesh.visible=age>=0;
+   if(!mineMeshes.has(id)){const mesh=new THREE.Mesh(sphere,water);mesh.name='mine-'+id;root.add(mesh);mineMeshes.set(id,mesh);}
+   const mesh=mineMeshes.get(id),age=time-mine.placedAt;
+   if(age<.6&&mine.ox!==undefined&&mine.oz!==undefined){
+    const p=Math.max(0,age/.6),y=ground(mine),oy=ground({x:mine.ox,z:mine.oz});
+    mesh.position.set(mine.ox+(mine.x-mine.ox)*p,oy+(y-oy)*p+16*p*(1-p),mine.oz+(mine.z-mine.oz)*p);
+   }else mesh.position.set(mine.x,ground(mine)+Math.sin(time*5)*.10,mine.z);
+   mesh.scale.set(.7+Math.sin(time*7)*.05,.7,.7);mesh.rotation.z=Math.sin(time*5)*.18;mesh.visible=age>=0;
   }
   for(const [id,g] of missileMeshes)if(!items.missiles?.has(id)){g.removeFromParent();missileMeshes.delete(id);}
   for(const [id,m] of items.missiles??[]){
@@ -51,5 +65,5 @@ export function createItemFx(scene,items,track) {
   }
   for(const mesh of [...bursts.children]){const age=time-mesh.userData.born;if(age>=.4){mesh.removeFromParent();mesh.material.dispose();}else{mesh.scale.setScalar(.6+age*7);mesh.material.opacity=.5*(1-age/.4);}}
  }
- return {update,burst,explode,dispose(){root.removeFromParent();for(const mesh of bursts.children)mesh.material.dispose();for(const geometry of [cube,sphere,hex,flame,rocket,spark])geometry.dispose();for(const material of [boxMaterial,water,shield,wire,fire,burstMaterial,rocketMaterial])material.dispose();texture.dispose();}};
+ return {update,burst,explode,dispose(){root.removeFromParent();for(const mesh of bursts.children)mesh.material.dispose();for(const geometry of [cube,sphere,hex,flame,rocket,spark])geometry.dispose();for(const material of [boxMaterial,water,shield,wire,fire,burstMaterial,rocketMaterial,aimMaterial])material.dispose();texture.dispose();aimTexture.dispose();}};
 }
