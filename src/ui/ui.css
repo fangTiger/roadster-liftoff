@@ -22,7 +22,9 @@
 #liftoff-ui .ui-progress{height:3px;background:rgba(255,255,255,.12);overflow:hidden;border-radius:4px}
 #liftoff-ui .ui-progress i{display:block;height:100%;width:100%;transform:scaleX(0);transform-origin:left;background:linear-gradient(90deg,#ff8a5c,#ff4d3a);transition:transform .3s ease}
 #liftoff-ui .ui-start{border:0;background:transparent;color:#fff;letter-spacing:3px;font-weight:600;animation:ui-pulse 2s ease-in-out infinite}
-#liftoff-ui .ui-start:hover{background:rgba(255,255,255,.06)}
+/* 悬停只点亮当前按钮，不点亮整排容器。 */
+#liftoff-ui .ui-start button{transition:background .15s,border-color .15s}
+#liftoff-ui .ui-start button:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.4)}
 #liftoff-ui .ui-control-panel{text-align:left;padding:22px 28px}
 #liftoff-ui .ui-control-panel h2{font-size:13px;font-weight:600;margin:0 0 18px;display:flex;justify-content:space-between}
 #liftoff-ui .ui-control-panel h2 span{color:var(--dim);font-size:11px;font-weight:400}
@@ -91,5 +93,7 @@
 /* 模式入口沿用第一版玻璃质感和暖色电门提示。 */
 #liftoff-ui .ui-start{display:flex;gap:12px;animation:none;letter-spacing:1px}
 #liftoff-ui .ui-start button[data-mode="race"]{border-color:#ff8a5c88;background:#ff6b3a22}
+#liftoff-ui .ui-start button[data-mode="race"]:hover{border-color:#ff8a5c;background:#ff6b3a40}
+#liftoff-ui .ui-start .ui-season:hover{background:#ffffff0a}
 #liftoff-ui .ui-start .ui-season{color:var(--dim);background:#ffffff03}
 #liftoff-ui .ui-start-lang{display:flex;justify-content:center;margin-bottom:20px}
