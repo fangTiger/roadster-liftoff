@@ -8,7 +8,7 @@
 
 .rb-root {
   --rb-ink: #f1eee7;
-  --rb-dim: #8e9ca8;
+  --rb-dim: #b2bec7;
   --rb-gold: #dbc394;
   --rb-line: rgba(209, 222, 234, 0.14);
   --rb-glass: linear-gradient(140deg, rgba(28, 41, 53, 0.93), rgba(14, 24, 34, 0.96));
@@ -219,6 +219,12 @@
   background: rgba(255, 255, 255, 0.04);
 }
 
+.rb-row:hover,
+.rb-row:focus-within {
+  background: linear-gradient(100deg, rgba(219, 195, 148, .13), rgba(127, 227, 255, .04));
+  box-shadow: inset 2px 0 var(--rb-gold);
+}
+
 .rb-row--dim {
   opacity: 0.52;
 }
@@ -316,6 +322,15 @@
   box-shadow: 0 0 4px var(--rb-ready);
 }
 
+.rb-row--waiting .rb-seat-dot--filled {
+  animation: rb-seat-breathe 3.4s ease-in-out infinite;
+}
+
+@keyframes rb-seat-breathe {
+  0%, 100% { opacity: .52; }
+  50% { opacity: 1; }
+}
+
 /* ── 状态芯片 ───────────────────────────────────────────────────────────────── */
 
 .rb-chip {
@@ -349,17 +364,45 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
-  padding: 52px 24px;
+  gap: 22px;
+  padding: 36px 24px 42px;
   text-align: center;
+  background: radial-gradient(ellipse at 50% 28%, rgba(127, 227, 255, .08), transparent 60%);
 }
+
+.rb-empty-state__car { width: min(280px, 75%); height: 100px; overflow: visible; }
+.rb-empty-state__body { fill: #162731; stroke: #b6c7cb; stroke-width: 1.2; fill-rule: evenodd; }
+.rb-empty-state__wheels { fill: #080f17; stroke: #76919d; stroke-width: 3; }
+.rb-empty-state__road { fill: none; stroke: #dbc394; stroke-width: 1; opacity: .3; }
+.rb-empty-state__lights { fill: none; stroke: #f2dcaf; stroke-width: 3; filter: drop-shadow(0 0 5px #dbc394); }
+.rb-empty-state .rb-btn--lg { min-width: 180px; min-height: 52px; letter-spacing: .12em; }
 
 .rb-empty-state__msg {
   font-size: 13px;
   color: var(--rb-dim);
   margin: 0;
   line-height: 1.7;
+  white-space: pre-line;
 }
+
+/* 实景层只动画透明度；不创建第二个展厅或逐帧绘制的画布。 */
+.rm-browser-page { isolation: isolate; }
+.rm-browser-shell { position: relative; z-index: 1; }
+.rb-backdrop { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; background: #08111b; }
+.rb-backdrop__map { position: absolute; inset: 0; background: center 55% / cover no-repeat; opacity: 0; animation: rb-map-dissolve 36s linear infinite; will-change: opacity; }
+.rb-backdrop__map--easy { background-image: url('/assets/race/previews/easy.webp'); opacity: 1; }
+.rb-backdrop__map--normal { background-image: url('/assets/race/previews/normal.webp'); animation-delay: -24s; }
+.rb-backdrop__map--hard { background-image: url('/assets/race/previews/hard.webp'); animation-delay: -12s; }
+.rb-backdrop__veil { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 34%, #06101b10 8%, #040c1899 100%), linear-gradient(180deg, #08111b99, #0a172844 42%, #040c18dc); }
+.rb-backdrop__beam { position: absolute; inset: -50%; background: linear-gradient(115deg, transparent 47%, #d3eaff0b 49.8%, #e5c88d19 50%, transparent 52.5%); transform: translate3d(-18%, 0, 0); animation: rb-light-sweep 20s ease-in-out infinite alternate; }
+.rb-backdrop__particles { position: absolute; inset: 0; background: radial-gradient(circle at 9% 24%, #e5c88dc0 0 1px, transparent 2px), radial-gradient(circle at 24% 65%, #b0dceb90 0 1px, transparent 2px), radial-gradient(circle at 84% 22%, #e5c88dc0 0 1px, transparent 2px), radial-gradient(circle at 92% 69%, #b0dceb90 0 1.5px, transparent 2.5px), radial-gradient(circle at 74% 86%, #e5c88d90 0 1px, transparent 2px), radial-gradient(circle at 41% 89%, #b0dceb80 0 1px, transparent 2px); animation: rb-particles-drift 12s ease-in-out infinite alternate; }
+.rm-browser-page .rb-root { --rb-glass: linear-gradient(140deg, #1c2935c9, #0e1822de); border-color: #d1deea40; box-shadow: 0 28px 90px #0007, inset 0 1px #ead8b317; }
+.rm-browser-page .rm-browser-masthead { text-shadow: 0 2px 10px #000; }
+.rm-browser-page .rm-form label { color: #d4dce0; text-shadow: 0 1px 5px #000; }
+.rm-browser-page .rm-form input { background: #0b1621d9; }
+@keyframes rb-map-dissolve { 0%, 25% { opacity: 1; } 33.333%, 91.666% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes rb-light-sweep { to { transform: translate3d(18%, 3%, 0); } }
+@keyframes rb-particles-drift { from { opacity: .4; transform: translate3d(0, 10px, 0); } to { opacity: .9; transform: translate3d(8px, -12px, 0); } }
 
 /* ══════════════════════════════════════════════════════════════════════════════
    模态对话框
@@ -606,10 +649,14 @@
 /* ── 无动效模式 ─────────────────────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
+  .rb-backdrop *,
   .rb-root *,
   .rb-modal,
   .rb-row--new {
     animation: none !important;
     transition: none !important;
   }
+  .rb-backdrop__map { opacity: 0; will-change: auto; }
+  .rb-backdrop__map--easy { opacity: 1; }
+  .rb-backdrop__beam, .rb-backdrop__particles { display: none; }
 }
