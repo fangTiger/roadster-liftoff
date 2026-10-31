@@ -1,11 +1,16 @@
 import { pickMissileTarget,raceProgress,itemTargetValid } from './sim/items.js';
+import { racingInput } from './bot-racing-line.js';
+import { smartBotShouldUseItem } from './bot-item-strategy.js';
 import { autopilot } from './sim/autopilot.js';
 import { LEFT,RIGHT } from './sim/input-bits.js';
 import { clamp,smoothstep } from './sim/fmath.js';
 import { DT } from './sim/physics.js';
 import T from './sim/tuning.js';
-// 只改变驾驶策略，仍使用原车推力、极速和抓地；制动预测不超过原车 28 m/s²。
-const LEVELS={easy:{cruise:1.3,cornerGrip:1.32,braking:20,reaction:7},normal:{cruise:1.6,cornerGrip:1.72,braking:24,reaction:3},hard:{cruise:1.8,cornerGrip:2.15,braking:24,reaction:2}};
+// 简单、普通继承原普通、困难；高档使用独立赛车线，车辆倍率显式传入。
+const LEVELS={easy:{cruise:1.6,cornerGrip:1.72,braking:24,reaction:3},normal:{cruise:1.8,cornerGrip:2.15,braking:24,reaction:2},hard:{cruise:1.8,cornerGrip:1.7,braking:27,reaction:2},extreme:{cruise:1.8,cornerGrip:2.3,braking:27,reaction:1}};
+// 赛道紧弯和障碍密度不同，分别校准驾驶预算；倍率由房主明确传入会话。
+const CALIBRATION={hard:{1:{cornerGrip:1.7},2:{cornerGrip:2.15},3:{cornerGrip:2.3,engine:1.2,topSpeed:1.08,grip:1.2}},extreme:{1:{cornerGrip:2.3,cornerCap:2.3},2:{cornerGrip:2.75,engine:1.25,topSpeed:1.12,grip:1.3},3:{cornerGrip:2.9,engine:1.5,topSpeed:1.15,grip:1.6}}};
+export function botPerformance(difficulty,track){const level=CALIBRATION[difficulty]?.[track?.id];return Object.freeze({engine:level?.engine??1,topSpeed:level?.topSpeed??1,grip:level?.grip??1});}
 export function createBotPersonality(difficulty,random=Math.random) {
  const level=LEVELS[difficulty];if(!level)throw new RangeError('机器人难度无效');
  const cruise=level.cruise*(.97+.06*random()),cornerGrip=level.cornerGrip*(.97+.06*random()),brakeBias=(random()-.5)*4;
@@ -15,7 +20,7 @@ export function createBotPersonality(difficulty,random=Math.random) {
  // 每圈使用无状态散列选失误，不消耗逐帧随机数；简单一次，普通约八圈一次。
  const plans=new WeakMap();
  function mistake(lap,track){
-  if(difficulty==='hard')return null;
+  if(difficulty==='hard'||difficulty==='extreme')return null;
   let value=Math.imul((seed^lap)>>>0,0x45d9f3b);value=Math.imul(value^(value>>>16),0x45d9f3b);value=(value^(value>>>16))>>>0;
   if(difficulty==='normal'&&value/0x100000000>.12)return null;
   let corners=plans.get(track);
@@ -25,7 +30,7 @@ export function createBotPersonality(difficulty,random=Math.random) {
  return Object.freeze({cruise,cornerGrip,braking:level.braking,brakeBias,reaction,phase,bias,amplitude,waves,seed,laneOffset,mistake});
 }
 // 反应延迟以 120Hz 物理步计，只延迟转向；每车独立持有个性、超车偏移和输入队列。
-export function createBotDriver(difficulty,{random=Math.random,cars=()=>[],id}={}) {
+export function createBotDriver(difficulty,{random=Math.random,cars=()=>[],id,performance=botPerformance(difficulty)}={}) {
  const personality=createBotPersonality(difficulty,random),queue=Array(personality.reaction).fill(0),mask=LEFT|RIGHT;
  let cursor=0,passing=0,passSide=0;
  const laneOffset=(s,track)=>clamp(personality.laneOffset(s,track)+passing,-track.at(s).w*.3,track.at(s).w*.3);
@@ -40,6 +45,8 @@ export function createBotDriver(difficulty,{random=Math.random,cars=()=>[],id}={
    if(!passSide||space(passSide)<1.8)passSide=left===right?(personality.bias<0?-1:1):left>right?-1:1;
    if(space(passSide)>1.8)target=passSide*3.2;
   }else passSide=0;
+  // 横移要约两秒才能收回：在锥桶/水泥墩前提前结束超车，防止到归中窗口才开始回撤。
+  if((difficulty==='hard'||difficulty==='extreme')&&track.features.some(f=>f.type==='cones'&&f.items?.length&&n.s>f.items[0].s-200&&n.s<f.items.at(-1).s+65))target=0;
   // 每秒最多横移 1.8 米，离开超车场景后同样平滑归位。
   passing+=clamp(target-passing,-1.8*DT,1.8*DT);
   const mistake=state.race?.frozen?null:personality.mistake(state.race?.lap??1,track);
@@ -48,7 +55,13 @@ export function createBotDriver(difficulty,{random=Math.random,cars=()=>[],id}={
   // 新指令要等队列耗尽才执行，比较那时的方向盘，避免延迟反馈导致持续欠转。
   let futureSteer=c.steer;
   for(let i=0;i<queue.length;i++){const bits=queue[(cursor+i)%queue.length],target=(bits&LEFT?1:0)-(bits&RIGHT?1:0),rate=target?T.steerRate:T.steerReturn;futureSteer+=clamp(target-futureSteer,-rate*DT,rate*DT);}
-  const bits=autopilot({...state,car:{...c,steer:futureSteer}},track,opts),steer=queue[cursor];queue[cursor]=bits&mask;cursor=(cursor+1)%queue.length;
+  const racing=difficulty==='hard'||difficulty==='extreme';
+  const input=racing?racingInput:autopilot,calibration=CALIBRATION[difficulty]?.[track.id];
+  const cornerGrip=Math.min(opts.cornerGrip*(calibration?.cornerGrip??LEVELS[difficulty].cornerGrip)/LEVELS[difficulty].cornerGrip,calibration?.cornerCap??Infinity);
+  const bits=input({...state,car:{...c,steer:futureSteer}},track,racing?{...opts,cornerGrip,lookahead:.3,grip:performance.grip,laneOffset:(s,track)=>laneOffset(s,track)*.12}:opts);
+  // 极限档可能抽到零步反应；这时直接执行，不能对空队列取模。
+  if(!queue.length)return bits;
+  const steer=queue[cursor];queue[cursor]=bits&mask;cursor=(cursor+1)%queue.length;
   return (bits&~mask)|steer;
  };
  return Object.assign(driver,{personality,laneOffset});
@@ -56,10 +69,11 @@ export function createBotDriver(difficulty,{random=Math.random,cars=()=>[],id}={
 
 // 道具反应独立于驾驶输入队列，难度越高的随机区间越短。
 export function botItemDelay(difficulty,random=Math.random) {
- const [base,span]=({easy:[.8,.4],normal:[.5,.3],hard:[.3,.2]})[difficulty]??[.5,.3];
+ const [base,span]=({easy:[.8,.4],normal:[.5,.3],hard:[.3,.2],extreme:[.3,.12]})[difficulty]??[.5,.3];
  return Math.min(1.2,Math.max(.3,base+span*random()));
 }
 export function botShouldUseItem(kind,actor,cars,track,held,locked) {
+ if(actor.difficulty==='hard'||actor.difficulty==='extreme')return smartBotShouldUseItem(kind,actor,cars,track,held,locked);
  const self={id:actor.id,lap:actor.race.lap,s:actor.car.near.s};
  if(kind==='missile')return !!pickMissileTarget(self,cars,track.length);
  if(kind==='shield')return locked||held>8;

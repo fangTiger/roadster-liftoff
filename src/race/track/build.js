@@ -241,7 +241,7 @@ export function buildTrack(def) {
     }
     return {...cp,s,...lines[0],lines,x:p.x,z:p.z,y:p.y,tx:p.tx,tz:p.tz};
   });
-  return {length:main.length,samples:main.samples,at:main.at,sections,features,branches,nearest,surfaceAt,heightAt,walls,checkpointGates,heightfield:{x0,z0,width,height,step:2,heights}};
+  return {id:def.id,length:main.length,samples:main.samples,at:main.at,sections,features,branches,nearest,surfaceAt,heightAt,walls,checkpointGates,heightfield:{x0,z0,width,height,step:2,heights}};
 }
 // 文本键排序、数值缓冲显式小端；不依赖对象插入顺序或机器端序。
 export function trackHash(def) {

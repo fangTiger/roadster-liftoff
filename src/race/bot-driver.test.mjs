@@ -39,3 +39,27 @@ test('机器人水雷前方 200 米内有效目标立即使用，排除无效目
  assert.equal(botShouldUseItem('mine',actor,[front],track,0,false),true);
  for(const patch of [{s:301},{ghost:true},{stale:true},{connected:false},{finished:true}])assert.equal(botShouldUseItem('mine',actor,[{...front,...patch}],track,0,false),false);
 });
+
+test('四档机器人均可创建，简单和普通继承上一版普通/困难驾驶预算',async()=>{
+ const {createBotDriver,createBotPersonality}=await import('./bot-driver.js');
+ assert.equal(createBotPersonality('easy',()=>.5).cornerGrip,1.72);
+ assert.equal(createBotPersonality('normal',()=>.5).cornerGrip,2.15);
+ const driver=createBotDriver('extreme',{random:()=>.5});assert.ok(Number.isInteger(driver({car:createSession(buildTrack(meadow)).car,race:{lap:1,frozen:true}},buildTrack(meadow))));
+});
+
+test('地图保留身份用于显式机器人校准，真人与低档始终中性',async()=>{
+ const {botPerformance}=await import('./bot-driver.js');const {TRACKS}=await import('./track/data/index.js');
+ for(const {def} of TRACKS){const track=buildTrack(def);assert.equal(track.id,def.id);for(const level of ['easy','normal'])assert.deepEqual(botPerformance(level,track),{engine:1,topSpeed:1,grip:1});}
+ assert.deepEqual(botPerformance('hard',buildTrack(meadow)),{engine:1,topSpeed:1,grip:1});
+ assert.ok(botPerformance('hard',buildTrack(alpine)).grip>1);
+});
+
+test('极限零反应延迟仍即时转向，不产生空队列死循环',async()=>{
+ const {createBotDriver}=await import('./bot-driver.js'),track=buildTrack(meadow),driver=createBotDriver('extreme',{random:()=>0}),p=track.at(400),car={...createSession(track).car,...p,yaw:Math.atan2(p.tx,p.tz)-.5,near:null};
+ assert.equal(driver.personality.reaction,0);
+ for(let i=0;i<4;i++)assert.ok(driver({car,race:{frozen:true,lap:1}},track)&12);
+});
+test('原车极限在个性弯速偏高时仍遵守草甸抓地安全上限',async()=>{
+ const {runSolo}=await import('../../scripts/race/benchmark-bots.mjs'),track=buildTrack(meadow);
+ for(const seed of [29,73]){const r=runSolo(track,'extreme',{seed});assert.ok(r.finished);assert.equal(r.walls,0,`种子 ${seed}`);assert.equal(r.resets,0);}
+});

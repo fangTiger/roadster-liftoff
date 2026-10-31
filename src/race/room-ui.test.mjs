@@ -58,7 +58,7 @@ test('仅房间大厅挂载展厅，room/连接/语言同步，开赛离开销�
   assert.deepEqual(calls,[]);
   const room={code:'ABC234',phase:'lobby',hostId:'a',players:[{id:'a',seat:0,name:'甲'}]};handlers.get('room')(room);handlers.get('connection')({connected:true});
   assert.equal(calls.filter(c=>c==='mount').length,1);assert.equal(calls.at(-1)[3],true);
-  get('[data-rm-difficulty]').value='hard';options.onAddBot();options.onRemoveBot('b1');assert.deepEqual(sent,[{type:'addBot',difficulty:'hard'},{type:'removeBot',botId:'b1'}]);
+  get('[data-rm-difficulty]').value='extreme';options.onAddBot();options.onRemoveBot('b1');assert.deepEqual(sent,[{type:'addBot',difficulty:'extreme'},{type:'removeBot',botId:'b1'}]);
   ui.racing();assert.equal(calls.at(-1),'dispose');handlers.get('room')(room);assert.equal(calls.filter(c=>c==='mount').length,1);
   handlers.get('results')({results:[]});get('[data-rm-return]').onclick();assert.equal(calls.filter(c=>c==='mount').length,2);
   get('[data-rm-leave]').onclick();assert.equal(calls.at(-1),'dispose');ui.destroy();
@@ -82,6 +82,20 @@ test('当前地图只显示服务器 trackId，不给空值假定草甸',async()
  try{ui=mountRoomUI({browserFactory:stubBrowser,client:f.client});f.emit('room',{...f.room,trackId:null});assert.doesNotMatch(f.get('[data-rm-track-summary]').innerHTML,/草甸|easy.webp/);assert.equal(f.get('[data-rm-laps]').textContent,'');
  f.emit('room',f.room);assert.match(f.get('[data-rm-track-summary]').innerHTML,/草甸/);
  }finally{ui?.destroy();f.restore();}
+});
+
+test('四档机器人下拉框可选极限，名牌、排名和结算随中英文同步',async()=>{
+ const {mountRoomUI}=await import('./room-ui.js'),{setLang}=await import('../i18n/i18n.js'),f=uiFixture();let ui;
+ try{
+  ui=mountRoomUI({browserFactory:stubBrowser,client:f.client});f.emit('connection',{connected:true});
+  const bot={id:'b1',seat:1,bot:true,difficulty:'extreme',ownerId:'a',connected:true,ready:true};f.emit('room',{...f.room,players:[...f.room.players,bot]});
+  for(const [difficulty,label] of [['easy','简单'],['normal','普通'],['hard','困难'],['extreme','极限']])assert.equal(f.get(`[data-rm-difficulty-option="${difficulty}"]`).textContent,label);
+  f.get('[data-rm-difficulty]').value='extreme';f.get('[data-rm-add-bot]').onclick();assert.deepEqual(f.sent.at(-1),{type:'addBot',difficulty:'extreme'});
+  assert.equal(f.get('[data-rm-players]').children[1].children[1].textContent,'机器人·极限');
+  ui.update([bot],new Map(),1000);assert.equal(f.get('[data-rm-ranks]').children[0].children[2].textContent,'机器人·极限');
+  setLang('en');assert.equal(f.get('[data-rm-difficulty-option="extreme"]').textContent,'Extreme');assert.equal(f.get('[data-rm-players]').children[1].children[1].textContent,'Bot · Extreme');
+  f.emit('results',{results:[{...bot,rank:1,elapsed:105,bestLap:35}]});assert.equal(f.get('[data-rm-result-rows]').children[0].children[1].textContent,'Bot · Extreme');
+ }finally{ui?.destroy();setLang('zh');f.restore();}
 });
 
 test('房主开始比赛按钮、人数与准备原因、中英文切换、房主名牌和访客准备',async()=>{

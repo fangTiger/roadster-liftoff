@@ -92,6 +92,15 @@ test('表情非法 id 先于阶段检查返回 BAD_MESSAGE',async()=>{
 
 const finish={type:'finish',elapsed:120,bestLap:40,lapTimes:[40,40,40]};
 async function botsRace(){const f=fixture(),a=await f.connect(),code=f.last(a,'room').code,b=await f.connect('乙',code);for(const difficulty of ['normal','hard'])f.send(a,{type:'addBot',difficulty});const bots=f.last(a,'room').players.filter(p=>p.bot);f.send(a,{type:'pickTrack',trackId:1});f.send(a,{type:'ready',on:true});f.send(b,{type:'ready',on:true});f.send(a,{type:'start'});return {...f,a,b,code,bots};}
+test('四档机器人难度兼容旧值，极限难度随大厅、发车和结算保留',async()=>{
+ const f=fixture(),a=await f.connect(),levels=['easy','normal','hard','extreme'];
+ for(const difficulty of levels)f.send(a,{type:'addBot',difficulty});
+ assert.deepEqual(f.last(a,'room').players.filter(p=>p.bot).map(p=>p.difficulty),levels);
+ f.send(a,{type:'start'});const players=f.last(a,'room').players;assert.deepEqual(f.last(a,'start').grid.map(entry=>players.find(p=>p.id===entry.id)).filter(p=>p.bot).map(p=>p.difficulty),levels);f.advance(1500);
+ const result={elapsed:120,bestLap:40,lapTimes:[40,40,40]};
+ f.send(a,{type:'finish',...result});for(const bot of f.last(a,'room').players.filter(p=>p.bot))f.send(a,{type:'botFinish',botId:bot.id,...result});
+ assert.deepEqual(f.last(a,'results').results.filter(p=>p.bot).map(p=>p.difficulty),levels);
+});
 test('机器人增删只许大厅房主，校验难度与座位，满员拒绝并可复用座位',async()=>{
  const f=fixture(),a=await f.connect(),code=f.last(a,'room').code,b=await f.connect('乙',code);
  f.send(b,{type:'addBot',difficulty:'easy'});assert.equal(f.last(b,'error').code,'NOT_HOST');
