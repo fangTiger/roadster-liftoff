@@ -77,3 +77,9 @@
 .grg-car-hit{position:absolute;pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab}
 .grg-car-hit--dragging{cursor:grabbing}.grg-plate{z-index:3}
 .grg-rotate-hint{position:absolute;z-index:4;transform:translateX(-50%);padding:5px 10px;border:1px solid #d9c69b66;border-radius:4px;background:#101a20dd;color:#e4cb9b;font:12px/1.4 system-ui;white-space:nowrap;pointer-events:none}
+
+/* 标题局部压暗，不依赖当前地图颜色；渐隐边缘保留展厅的空间感。 */
+.grg-heading{isolation:isolate;padding:16px 22px 19px 0;box-sizing:border-box;text-shadow:0 2px 8px #02070ddd,0 1px 2px #000}
+.grg-heading:before{content:'';position:absolute;z-index:-1;inset:-18px -42px -22px -46px;pointer-events:none;background:linear-gradient(90deg,#050d18f2 0%,#050d18db 65%,#050d1800 100%);mask-image:linear-gradient(180deg,#000 65%,transparent);border-radius:4px}
+.grg-heading h2{color:#fff7e8}.grg-heading p{color:#e5cfaa}.grg-heading small{color:#d4e0e7}
+@media(max-width:699px){.grg-heading{padding:10px 16px 16px 0}.grg-heading:before{inset:-18px -20px -18px -23px}}

@@ -12,7 +12,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildRowModels, nextPinFocus, isValidPin } from './room-browser.js';
+import { buildRowModels, nextPinFocus, isValidPin, createRoomBrowser } from './room-browser.js';
 
 // ── i18n 桩 ──────────────────────────────────────────────────────────────────
 
@@ -204,4 +204,46 @@ test('XSS: hostName 含脚本标签通过 textContent 安全设置', () => {
   setText(fakeEl, evil);
   assert.equal(fakeEl.textContent, evil);
   // textContent 不解析，script 不执行
+});
+
+// 用最小 DOM 容器检查真实工厂产物，不模拟被测渲染函数。
+function browserFixture() {
+  const previous = globalThis.document;
+  const element = tag => ({
+    tag, children: [], attrs: {}, dataset: {}, className: '',
+    classList: { add() {}, remove() {} },
+    appendChild(child) { child.parent = this; this.children.push(child); return child; },
+    insertBefore(child, before) { child.parent = this; const i = this.children.indexOf(before); this.children.splice(i < 0 ? this.children.length : i, 0, child); },
+    setAttribute(name, value) { this.attrs[name] = value; if (name === 'class') this.className = value; },
+    addEventListener() {},
+    set textContent(value) { this.text = value; this.children = []; },
+    get textContent() { return this.text ?? ''; },
+    remove() { if (this.parent) this.parent.children = this.parent.children.filter(child => child !== this); },
+  });
+  globalThis.document = { createElement: element, createElementNS: (_, tag) => element(tag) };
+  const container = element('div');
+  const browser = createRoomBrowser({ container, t, onJoin() {}, onCreate() {}, onRefresh() {} });
+  const find = (name, node = container) => node.className.split(' ').includes(name) ? node : node.children.map(child => find(name, child)).find(Boolean);
+  return { browser, find, restore() { globalThis.document = previous; } };
+}
+
+test('空列表展示辅助技术忽略的车辆剪影，并保留突出建房按钮', () => {
+  const f = browserFixture();
+  try {
+    const graphic = f.find('rb-empty-state__car');
+    assert.ok(graphic, '空状态必须包含车辆剪影');
+    assert.equal(graphic.attrs['aria-hidden'], 'true');
+    assert.ok(f.find('rb-btn--lg'), '空状态必须保留大号建房按钮');
+  } finally { f.restore(); }
+});
+
+test('等待房间单独标记，呼吸灯不会错误应用于满员或比赛中的人数点', () => {
+  const f = browserFixture();
+  try {
+    f.browser.update({ rows: [makeRow(), makeRow({ code: 'FULL01', joinable: false, reason: 'FULL' }), makeRow({ code: 'RACE01', joinable: false, reason: 'RACING' })] });
+    const rows = f.find('rb-list').children;
+    assert.ok(rows[0].className.includes('rb-row--waiting'));
+    assert.ok(!rows[1].className.includes('rb-row--waiting'));
+    assert.ok(!rows[2].className.includes('rb-row--waiting'));
+  } finally { f.restore(); }
 });

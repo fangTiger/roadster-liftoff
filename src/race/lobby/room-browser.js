@@ -337,7 +337,7 @@ export function createRoomBrowser({ container, t, onJoin, onCreate, onRefresh })
 
   /** 根据 row model 创建或更新一个 <li> 节点 */
   function _buildRow(model) {
-    const li = el('li', 'rb-row' + (model.joinable ? '' : ' rb-row--dim'));
+    const li = el('li', 'rb-row' + (model.joinable ? ' rb-row--waiting' : ' rb-row--dim'));
     li.dataset.code = model.code;
     li.dataset.model = JSON.stringify(model);
 
@@ -448,11 +448,29 @@ export function createRoomBrowser({ container, t, onJoin, onCreate, onRefresh })
     listEl.textContent = '';
     const empty = el('li', 'rb-empty-state');
     empty.setAttribute('role', 'listitem');
+    // 纯装饰剪影不进入读屏顺序，文字和建房按钮承担全部操作说明。
+    const car = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    car.setAttribute('class', 'rb-empty-state__car');
+    car.setAttribute('viewBox', '0 0 280 100');
+    car.setAttribute('aria-hidden', 'true');
+    car.setAttribute('focusable', 'false');
+    for (const [cls, d] of [
+      ['rb-empty-state__road', 'M10 85H270M72 94H208'],
+      ['rb-empty-state__body', 'M28 67L34 54L83 44L110 23H177L205 45L246 52L256 65V75H229A19 19 0 0 0 191 75H89A19 19 0 0 0 51 75H28ZM99 44H187L169 30H118Z'],
+      ['rb-empty-state__wheels', 'M81 76A11 11 0 1 1 59 76A11 11 0 1 1 81 76M221 76A11 11 0 1 1 199 76A11 11 0 1 1 221 76'],
+      ['rb-empty-state__lights', 'M32 61H50M232 59H249'],
+    ]) {
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('class', cls);
+      path.setAttribute('d', d);
+      car.appendChild(path);
+    }
     const msg = el('p', 'rb-empty-state__msg');
     setText(msg, t('room.browser.empty'));
     const bigBtn = el('button', 'rb-btn rb-btn--primary rb-btn--lg');
     setText(bigBtn, t('room.browser.create'));
     bigBtn.addEventListener('click', _openCreateModal);
+    empty.appendChild(car);
     empty.appendChild(msg);
     empty.appendChild(bigBtn);
     listEl.appendChild(empty);
