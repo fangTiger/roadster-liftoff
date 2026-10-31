@@ -33,7 +33,11 @@ test('大厅房主选择难度增删机器人，机器人中英文命名，权�
  handlers.get('results')({results:[{id:'b1',bot:true,difficulty:'normal',rank:1,elapsed:120,bestLap:40}]});assert.equal(get('[data-rm-result-rows]').children[0].children[1].textContent,'Bot · Normal');
  handlers.get('room')({...room,players:Array(6).fill(room.players[1])});assert.equal(get('[data-rm-add-bot]').disabled,true);
  handlers.get('room')({...room,phase:'countdown'});assert.equal(get('[data-rm-add-bot]').disabled,true);assert.equal(get('[data-rm-players]').children[1].children[3],undefined);
- handlers.get('room')({...room,hostId:'other'});assert.equal(get('[data-rm-bots]').hidden,true);assert.equal(get('[data-rm-players]').children[1].children[3],undefined);ui.destroy();
+ handlers.get('room')({...room,hostId:'other',trackId:3});assert.equal(get('[data-rm-bots]').hidden,true);assert.equal(get('[data-rm-players]').children[1].children[3],undefined);
+ assert.match(get('[data-rm-track-summary]').innerHTML,/hard\.webp/,'非房主收起选择器时仍有实景缩略图');
+ assert.match(get('[data-rm-track-summary]').innerHTML,/Alpine Loop/);assert.match(get('[data-rm-track-summary]').innerHTML,/Hard/);assert.match(get('[data-rm-track-summary]').innerHTML,/4007 m/);
+ setLang('zh');assert.match(get('[data-rm-track-summary]').innerHTML,/阿尔卑斯/);assert.match(get('[data-rm-track-summary]').innerHTML,/困难/);
+ assert.equal(get('[data-rm-track="1"]').disabled,true);ui.destroy();
  }finally{setLang('zh');globalThis.document=previous;}
 });
 test('大厅模式按钮只许房主操作，跟随 room 模式及语言',async()=>{

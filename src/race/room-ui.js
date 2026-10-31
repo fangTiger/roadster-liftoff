@@ -25,6 +25,8 @@ export function mountRoomUI({client,roomCode='',onReturn=()=>{},playSound=()=>{}
  const flash=node('div',undefined,'grg-transition');flash.hidden=true;root.append(flash);
  function garageReserve(){const panel=$('[data-rm-lobby]').getBoundingClientRect();return window.innerWidth<700?{bottom:panel.height}:{right:panel.width+44};}
  const trackPicker=$('.rm-track-picker'),trackDetails=$('.rm-track-details');
+ // 当前图紧接邀请码，窄屏首次进入也能看见，无需先滚过模式与机器人设置。
+ $('[data-rm-inside]').insertBefore?.(trackDetails,$('[data-rm-bots]'));
  function placeTrackPicker(){
   const mobile=(globalThis.window?.innerWidth||1440)<700;
   (mobile?trackDetails:root).append(trackPicker);
@@ -75,7 +77,8 @@ export function mountRoomUI({client,roomCode='',onReturn=()=>{},playSound=()=>{}
   for(const mode of ['items','speed']){const button=$(`[data-rm-mode="${mode}"]`);button.textContent=t('room.mode.'+mode);button.disabled=!connection||room?.hostId!==client.id||room?.phase!=='lobby';button.setAttribute('aria-pressed',String(mode===(room?.mode||'items')));}
   $('[data-rm-hint]').textContent=t(room?.phase==='countdown'?'room.loading':'room.hint');
   $('[data-rm-status]').textContent=error?t('room.error.'+error):busy?t('room.connecting'):room&&!connection?t('room.reconnecting'):'';
-  $('[data-rm-track-summary]').textContent=t('room.trackPreview')+(room?.trackId?' · '+t('race.track'+room.trackId):'');
+  const currentId=room?.trackId||1,current=trackPreview(currentId);
+  $('[data-rm-track-summary]').innerHTML=`<span class="rm-current-track"><img src="${current.image}" width="1920" height="1080" alt=""><span><small>${t('room.trackPreview')}</small><strong>${t('race.track'+currentId)}</strong><span>${t('room.trackLength',{length:current.length})} · ${t('race.'+current.difficulty)}</span></span><b aria-hidden="true">⌄</b></span>`;
   $('[data-rm-laps]').textContent=t('room.laps',{count:(TRACKS.find(entry=>entry.def.id===room?.trackId)||TRACKS[0]).def.laps});
   $('[data-rm-garage-title]').textContent=t('room.garageTitle');$('[data-rm-garage-count]').textContent=t('room.garageCount',{count:room?.players.length||0});scrollHint.textContent=t('room.garageScroll');
   paintPlayers();paintRanks();paintResults();syncGarage();placeTrackPicker();
