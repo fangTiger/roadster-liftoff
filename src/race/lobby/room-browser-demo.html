@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Room Browser Demo — 离地 LIFTOFF</title>
+<link rel="stylesheet" href="room-browser.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%; background: #060b12;
+    color: #f1eee7; font: 13px/1.5 'Helvetica Neue','PingFang SC',sans-serif;
+    overflow: hidden;
+  }
+
+  #app { display: flex; height: 100%; gap: 0; }
+
+  /* ── 控制面板（左侧） ── */
+  #ctrl {
+    flex: 0 0 220px; background: rgba(14,20,28,.95);
+    border-right: 1px solid rgba(209,222,234,.10);
+    display: flex; flex-direction: column; gap: 10px;
+    padding: 14px 12px; overflow-y: auto; z-index: 10;
+    font-size: 12px;
+  }
+  #ctrl h2 { font-size: 11px; color: #dbc394; letter-spacing: 2px; font-weight: 600; }
+  .cg { display: flex; flex-direction: column; gap: 5px; }
+  .cg label { display: flex; align-items: center; gap: 6px; color: rgba(241,238,231,.6); }
+  .cg input[type=checkbox] { accent-color: #dbc394; }
+  .csep { height: 1px; background: rgba(209,222,234,.08); }
+
+  .cbtn {
+    font: inherit; color: #f1eee7; cursor: pointer;
+    background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12);
+    border-radius: 5px; padding: 6px 10px; text-align: left; font-size: 11px;
+    transition: background .15s;
+  }
+  .cbtn:hover { background: rgba(255,255,255,.13); }
+  .cbtn.danger { color: #ff9d8f; }
+
+  #log {
+    font-size: 10px; color: rgba(241,238,231,.38); max-height: 120px;
+    overflow-y: auto; border-top: 1px solid rgba(255,255,255,.06);
+    padding-top: 8px; line-height: 1.7;
+  }
+
+  /* ── 展厅背景 + 浏览器面板 ── */
+  #stage {
+    flex: 1; position: relative; overflow: hidden;
+    background: radial-gradient(ellipse at 30% 60%, #1a2b3c 0%, #070d14 70%);
+  }
+
+  /* 模拟展厅底部弧光 */
+  #stage::before {
+    content: '';
+    position: absolute; bottom: -80px; left: 50%; transform: translateX(-50%);
+    width: 800px; height: 200px;
+    background: radial-gradient(ellipse, rgba(127,227,255,.06), transparent 70%);
+    pointer-events: none;
+  }
+
+  /* 浏览器面板挂在右侧，与 garage 面板风格一致 */
+  #browser-wrap {
+    position: absolute; top: 18px; right: 18px; bottom: 18px;
+    width: 360px; overflow: hidden;
+    border-radius: 8px;
+  }
+
+  @media (max-width: 700px) {
+    #app { flex-direction: column; }
+    #ctrl { flex: 0 0 auto; max-height: 180px; flex-direction: row;
+      flex-wrap: wrap; padding: 8px 10px; overflow-x: auto; }
+    #browser-wrap { top: auto; left: 0; right: 0; bottom: 0; width: 100%; border-radius: 0; height: 65vh; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── 控制面板 ── -->
+  <div id="ctrl">
+    <div>
+      <h2>ROOM BROWSER DEMO</h2>
+    </div>
+
+    <div class="csep"></div>
+
+    <div class="cg">
+      <h2>连接状态</h2>
+      <button class="cbtn" id="btn-online">→ online</button>
+      <button class="cbtn" id="btn-connecting">→ connecting</button>
+      <button class="cbtn" id="btn-offline">→ offline</button>
+    </div>
+
+    <div class="csep"></div>
+
+    <div class="cg">
+      <h2>数据状态</h2>
+      <button class="cbtn" id="btn-full">8 个房间（默认）</button>
+      <button class="cbtn" id="btn-empty">空列表</button>
+      <button class="cbtn" id="btn-one">只有一个房间</button>
+    </div>
+
+    <div class="csep"></div>
+
+    <div class="cg">
+      <h2>密码行为</h2>
+      <label><input type="checkbox" id="chk-lockout" checked> 5 次错误后锁定</label>
+      <p style="font-size:10px;color:rgba(241,238,231,.4);line-height:1.5">
+        加锁房间密码：<b style="color:#dbc394">1234</b>
+      </p>
+    </div>
+
+    <div class="csep"></div>
+
+    <div id="log"></div>
+  </div>
+
+  <!-- ── 场景 + 浏览器 ── -->
+  <div id="stage">
+    <div id="browser-wrap"></div>
+  </div>
+
+</div>
+
+<script type="module">
+import { createRoomBrowser } from './room-browser.js';
+
+// ── 日志工具 ──────────────────────────────────────────────────────────────────
+const logEl = document.getElementById('log');
+function log(msg) {
+  const d = document.createElement('div');
+  d.textContent = new Date().toLocaleTimeString('zh', { hour12: false }) + ' ' + msg;
+  logEl.prepend(d);
+  while (logEl.children.length > 60) logEl.lastChild?.remove();
+}
+
+// ── 简化 i18n ─────────────────────────────────────────────────────────────────
+const ZH = {
+  'room.browser.title': '多人房间',
+  'room.browser.count': '{n} 个房间 · {m} 人在线',
+  'room.browser.refresh': '刷新',
+  'room.browser.create': '建房',
+  'room.browser.createTitle': '创建房间',
+  'room.browser.createConfirm': '确认创建',
+  'room.browser.join': '加入',
+  'room.browser.cancel': '取消',
+  'room.browser.confirm': '确认',
+  'room.browser.enterPassword': '请输入房间密码',
+  'room.browser.setPassword': '设置 4 位数字密码',
+  'room.browser.roomNameLabel': '房间名称（可选）',
+  'room.browser.public': '公开',
+  'room.browser.locked': '加锁',
+  'room.browser.connecting': '正在连接服务器…',
+  'room.browser.offline': '服务器暂时无法连接',
+  'room.browser.retry': '重试',
+  'room.browser.empty': '暂时没有其他玩家\n点击"建房"开始一局新游戏',
+  'room.browser.badPassword': '密码错误',
+  'room.browser.lockedOut': '错误次数过多，请 1 分钟后再试',
+  'room.browser.passwordRequired': '请输入密码',
+  'room.browser.roomFull': '房间已满',
+  'room.browser.roomRacing': '比赛进行中',
+  'room.browser.joinFailed': '加入失败，请稍后再试',
+  'room.browser.createFailed': '创建失败，请稍后再试',
+  'room.browser.badParams': '参数错误',
+  'room.defaultName': '{host} 的房间',
+  'room.waiting': '等待中',
+  'room.full': '已满',
+  'room.racing': '比赛中',
+  'race.track1': '沙漠公路',
+  'race.track2': '星际轨道',
+  'race.track3': '卡门线冲刺',
+  'room.mode.speed': '极速',
+  'room.mode.items': '道具',
+};
+function t(key, params = {}) {
+  let s = ZH[key] ?? key;
+  for (const [k, v] of Object.entries(params)) s = s.replaceAll(`{${k}}`, String(v));
+  return s;
+}
+
+// ── 模拟数据 ──────────────────────────────────────────────────────────────────
+
+const EIGHT_ROOMS = [
+  { code: 'ABCD12', name: '沙漠极速挑战', hostName: 'Starman', trackId: 1, mode: 'speed', players: 2, max: 6, locked: false, joinable: true, reason: null, phase: 'lobby' },
+  { code: 'XK8891', name: '',             hostName: 'Driver X', trackId: 2, mode: 'items', players: 4, max: 6, locked: true,  joinable: true, reason: null, phase: 'lobby' },
+  { code: 'QP5500', name: '轨道对决',     hostName: 'Road Queen',trackId: 2, mode: 'speed', players: 6, max: 6, locked: false, joinable: false, reason: 'FULL',   phase: 'lobby' },
+  { code: 'MN3347', name: '卡门线冲刺',   hostName: 'Speed Bot', trackId: 3, mode: 'speed', players: 3, max: 6, locked: false, joinable: false, reason: 'RACING', phase: 'racing' },
+  { code: 'TZ9981', name: '夜间狂飙',     hostName: 'Ghost',    trackId: 1, mode: 'items', players: 1, max: 6, locked: true,  joinable: true, reason: null, phase: 'lobby' },
+  { code: 'WV2233', name: '',             hostName: 'Elon',     trackId: 3, mode: 'speed', players: 2, max: 6, locked: false, joinable: true, reason: null, phase: 'lobby' },
+  { code: 'BG6610', name: '新手专场',     hostName: '菜鸟驾驶员',trackId: 1, mode: 'items', players: 5, max: 6, locked: false, joinable: false, reason: 'FULL',  phase: 'lobby' },
+  { code: 'LR4429', name: '道具乱斗',     hostName: '老司机',   trackId: 2, mode: 'items', players: 3, max: 6, locked: true,  joinable: true, reason: null, phase: 'lobby' },
+];
+
+// ── 密码验证模拟 ──────────────────────────────────────────────────────────────
+
+const CORRECT_PW = '1234';
+// 记录错误次数
+const failCounts = new Map();
+
+async function onJoin({ code, password }) {
+  await delay(200 + Math.random() * 300);
+  const row = EIGHT_ROOMS.find(r => r.code === code);
+  if (!row) return { ok: false, code: 'NO_ROOM' };
+  if (row.reason === 'FULL')   return { ok: false, code: 'FULL' };
+  if (row.reason === 'RACING') return { ok: false, code: 'RACING' };
+  if (!row.locked) {
+    log(`✓ 加入房间 ${code}`);
+    return { ok: true };
+  }
+  // 加锁房间
+  if (!password) return { ok: false, code: 'PASSWORD_REQUIRED' };
+  const lockout = document.getElementById('chk-lockout')?.checked ?? true;
+  const fc = failCounts.get(code) || { n: 0, until: 0 };
+  if (lockout && fc.until > Date.now()) {
+    log(`✗ LOCKED_OUT ${code}`);
+    return { ok: false, code: 'LOCKED_OUT' };
+  }
+  if (password !== CORRECT_PW) {
+    fc.n++;
+    if (lockout && fc.n >= 5) fc.until = Date.now() + 60_000;
+    failCounts.set(code, fc);
+    log(`✗ 错误密码 ${code}（第 ${fc.n} 次）`);
+    return { ok: false, code: fc.until > Date.now() ? 'LOCKED_OUT' : 'BAD_PASSWORD' };
+  }
+  fc.n = 0; fc.until = 0; failCounts.set(code, fc);
+  log(`✓ 密码正确，加入房间 ${code}`);
+  return { ok: true };
+}
+
+async function onCreate({ name, locked, password }) {
+  await delay(300 + Math.random() * 400);
+  if (locked && !/^\d{4}$/.test(password)) return { ok: false, code: 'BAD_PASSWORD' };
+  const displayName = name || '新房间';
+  log(`✓ 创建房间 "${displayName}"（${locked ? '加锁' : '公开'}）`);
+  // 模拟成功后将新房间插入顶部
+  const newRoom = {
+    code: Math.random().toString(36).slice(2, 8).toUpperCase(),
+    name: displayName, hostName: '你',
+    trackId: 1, mode: 'speed', players: 1, max: 6,
+    locked, joinable: true, reason: null, phase: 'lobby',
+  };
+  EIGHT_ROOMS.unshift(newRoom);
+  browser.update({ rows: EIGHT_ROOMS, online: 12 });
+  return { ok: true };
+}
+
+function onRefresh() {
+  log('↻ 刷新请求');
+  browser.setStatus('connecting');
+  setTimeout(() => {
+    browser.update({ rows: EIGHT_ROOMS, online: Math.floor(8 + Math.random() * 20) });
+    browser.setStatus('online');
+  }, 800);
+}
+
+// ── 初始化 ────────────────────────────────────────────────────────────────────
+
+const browser = createRoomBrowser({
+  container: document.getElementById('browser-wrap'),
+  t, onJoin, onCreate, onRefresh,
+});
+
+// 启动时先显示 connecting，再给数据
+browser.setStatus('connecting');
+setTimeout(() => {
+  browser.update({ rows: EIGHT_ROOMS, online: 14 });
+  browser.setStatus('online');
+}, 900);
+
+// ── 控制按钮 ──────────────────────────────────────────────────────────────────
+
+document.getElementById('btn-online').onclick = () => {
+  browser.update({ rows: EIGHT_ROOMS, online: 14 });
+  browser.setStatus('online');
+  log('setStatus("online")');
+};
+
+document.getElementById('btn-connecting').onclick = () => {
+  browser.setStatus('connecting');
+  log('setStatus("connecting")');
+};
+
+document.getElementById('btn-offline').onclick = () => {
+  browser.setStatus('offline');
+  log('setStatus("offline")');
+};
+
+document.getElementById('btn-full').onclick = () => {
+  browser.update({ rows: EIGHT_ROOMS, online: 14 });
+  browser.setStatus('online');
+  log('update（8 个房间）');
+};
+
+document.getElementById('btn-empty').onclick = () => {
+  browser.update({ rows: [], online: 0 });
+  browser.setStatus('online');
+  log('update（空列表）');
+};
+
+document.getElementById('btn-one').onclick = () => {
+  browser.update({ rows: [EIGHT_ROOMS[0]], online: 2 });
+  browser.setStatus('online');
+  log('update（1 个房间）');
+};
+
+// ── 工具函数 ──────────────────────────────────────────────────────────────────
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+</body>
+</html>
