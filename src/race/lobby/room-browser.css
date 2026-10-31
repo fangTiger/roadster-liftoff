@@ -1,0 +1,615 @@
+/*
+ * room-browser.css — 多人房间浏览器模块样式
+ * CSS 类前缀：rb-
+ * 设计语言：参照 garage.css — 深色展厅、磨砂玻璃面板、细亮边框、金色点缀。
+ */
+
+/* ── 设计变量 ──────────────────────────────────────────────────────────────── */
+
+.rb-root {
+  --rb-ink: #f1eee7;
+  --rb-dim: #8e9ca8;
+  --rb-gold: #dbc394;
+  --rb-line: rgba(209, 222, 234, 0.14);
+  --rb-glass: linear-gradient(140deg, rgba(28, 41, 53, 0.93), rgba(14, 24, 34, 0.96));
+  --rb-glass-heavy: rgba(10, 15, 22, 0.82);
+  --rb-accent-from: #ff8a5c;
+  --rb-accent-to: #ff4d3a;
+  --rb-cy: #7fe3ff;
+  --rb-radius: 8px;
+  --rb-blur: blur(18px) saturate(160%);
+  --rb-ready: #a6ffd9;
+  color: var(--rb-ink);
+  font: 13px/1.5 'Helvetica Neue', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 根容器 ─────────────────────────────────────────────────────────────────── */
+
+.rb-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--rb-glass);
+  border: 1px solid var(--rb-line);
+  border-radius: var(--rb-radius);
+  backdrop-filter: var(--rb-blur);
+  -webkit-backdrop-filter: var(--rb-blur);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.35);
+}
+
+.rb-root [hidden],
+.rb-root [hidden="true"] {
+  display: none !important;
+}
+
+/* ── Header ────────────────────────────────────────────────────────────────── */
+
+.rb-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--rb-line);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.rb-header__left {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.rb-header__title {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  margin: 0;
+  color: var(--rb-ink);
+}
+
+.rb-header__count {
+  font-size: 11px;
+  color: var(--rb-dim);
+  margin: 0;
+}
+
+.rb-header__actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* ── 按钮基础 ───────────────────────────────────────────────────────────────── */
+
+.rb-btn {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid var(--rb-line);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--rb-ink);
+  padding: 7px 14px;
+  min-height: 34px;
+  line-height: 1;
+  transition: background 0.16s, border-color 0.16s, transform 0.1s;
+  white-space: nowrap;
+}
+
+.rb-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.rb-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.rb-btn:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.rb-btn:focus-visible {
+  outline: 2px solid var(--rb-gold);
+  outline-offset: 2px;
+}
+
+.rb-btn--primary {
+  background: linear-gradient(135deg, var(--rb-accent-from), var(--rb-accent-to));
+  border-color: transparent;
+  color: #fff;
+  font-weight: 600;
+}
+
+.rb-btn--primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+  background: linear-gradient(135deg, var(--rb-accent-from), var(--rb-accent-to));
+  border-color: transparent;
+}
+
+.rb-btn--icon {
+  padding: 7px 10px;
+  color: var(--rb-dim);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rb-btn--icon:hover:not(:disabled) {
+  color: var(--rb-ink);
+}
+
+.rb-btn--sm {
+  padding: 5px 10px;
+  font-size: 11px;
+  min-height: 28px;
+}
+
+.rb-btn--join {
+  padding: 6px 12px;
+  font-size: 12px;
+  min-height: 30px;
+}
+
+.rb-btn--lg {
+  padding: 12px 28px;
+  font-size: 15px;
+  min-height: 46px;
+}
+
+/* ── 状态条 ─────────────────────────────────────────────────────────────────── */
+
+.rb-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 20px;
+  font-size: 11px;
+  color: var(--rb-dim);
+  border-bottom: 1px solid var(--rb-line);
+  flex-shrink: 0;
+}
+
+.rb-status-bar--offline {
+  color: var(--rb-accent-from);
+}
+
+/* ── 列表区 ─────────────────────────────────────────────────────────────────── */
+
+.rb-list-wrap {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #647887 transparent;
+}
+
+.rb-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px 0;
+}
+
+/* ── 房间行 ─────────────────────────────────────────────────────────────────── */
+
+.rb-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--rb-line);
+  transition: background 0.15s;
+  cursor: default;
+}
+
+.rb-row:last-child {
+  border-bottom: none;
+}
+
+.rb-row:focus-visible {
+  outline: 2px solid var(--rb-gold);
+  outline-offset: -2px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.rb-row--dim {
+  opacity: 0.52;
+}
+
+/* 新行淡入 */
+@keyframes rb-row-enter {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.rb-row--new {
+  animation: rb-row-enter 0.35s ease-out both;
+}
+
+.rb-row__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rb-row__name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rb-row__name {
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--rb-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rb-lock-icon {
+  flex-shrink: 0;
+  color: var(--rb-gold);
+  opacity: 0.8;
+}
+
+.rb-row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--rb-dim);
+}
+
+.rb-row__host::before {
+  content: '👤 ';
+  font-size: 10px;
+}
+
+.rb-row__right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.rb-row__players {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rb-row__player-count {
+  font-size: 11px;
+  color: var(--rb-dim);
+}
+
+/* ── 席位点阵 ───────────────────────────────────────────────────────────────── */
+
+.rb-seats {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.rb-seat-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.rb-seat-dot--filled {
+  background: var(--rb-ready);
+  border-color: var(--rb-ready);
+  box-shadow: 0 0 4px var(--rb-ready);
+}
+
+/* ── 状态芯片 ───────────────────────────────────────────────────────────────── */
+
+.rb-chip {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: 20px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.rb-chip--waiting {
+  background: rgba(166, 255, 217, 0.12);
+  color: var(--rb-ready);
+}
+
+.rb-chip--racing {
+  background: rgba(127, 227, 255, 0.12);
+  color: var(--rb-cy);
+}
+
+.rb-chip--full {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--rb-dim);
+}
+
+/* ── 空态 ───────────────────────────────────────────────────────────────────── */
+
+.rb-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 52px 24px;
+  text-align: center;
+}
+
+.rb-empty-state__msg {
+  font-size: 13px;
+  color: var(--rb-dim);
+  margin: 0;
+  line-height: 1.7;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   模态对话框
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+.rb-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(4, 8, 15, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.rb-modal {
+  width: min(100%, 380px);
+  background: linear-gradient(150deg, #1e2e3e, #111d28);
+  border: 1px solid rgba(209, 222, 234, 0.18);
+  border-radius: 10px;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.55);
+  animation: rb-modal-enter 0.22s ease-out both;
+}
+
+@keyframes rb-modal-enter {
+  from { opacity: 0; transform: scale(0.95) translateY(-8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.rb-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid rgba(209, 222, 234, 0.10);
+}
+
+.rb-modal__title {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin: 0;
+  color: var(--rb-ink);
+}
+
+.rb-modal__close {
+  font: inherit;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: var(--rb-dim);
+  font-size: 22px;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.rb-modal__close:hover {
+  color: var(--rb-ink);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.rb-modal__close:focus-visible {
+  outline: 2px solid var(--rb-gold);
+  outline-offset: 2px;
+}
+
+.rb-modal__body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.rb-modal__error {
+  color: #ff9d8f;
+  font-size: 12px;
+  margin: 0;
+  padding: 8px 12px;
+  background: rgba(255, 80, 60, 0.12);
+  border: 1px solid rgba(255, 80, 60, 0.22);
+  border-radius: 5px;
+}
+
+.rb-modal__actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+/* ── PIN 码输入 ──────────────────────────────────────────────────────────────── */
+
+.rb-pin-boxes {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.rb-pin-box {
+  width: 52px;
+  height: 60px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(209, 222, 234, 0.22);
+  border-radius: 7px;
+  color: var(--rb-ink);
+  font: 700 28px/1 'Helvetica Neue', sans-serif;
+  text-align: center;
+  caret-color: transparent;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.rb-pin-box:focus {
+  outline: none;
+  border-color: var(--rb-gold);
+  background: rgba(219, 195, 148, 0.08);
+}
+
+/* ── 建房表单 ───────────────────────────────────────────────────────────────── */
+
+.rb-form-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--rb-dim);
+}
+
+.rb-form-input {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(209, 222, 234, 0.18);
+  border-radius: 6px;
+  color: var(--rb-ink);
+  font: inherit;
+  padding: 9px 12px;
+  min-height: 38px;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+
+.rb-form-input:focus {
+  outline: none;
+  border-color: var(--rb-gold);
+}
+
+.rb-form-hint {
+  font-size: 11px;
+  color: var(--rb-dim);
+  margin: 0;
+}
+
+/* ── 分段切换（公开 / 加锁） ─────────────────────────────────────────────────── */
+
+.rb-segment {
+  display: flex;
+  border: 1px solid rgba(209, 222, 234, 0.16);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.rb-segment__btn {
+  flex: 1;
+  font: inherit;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--rb-dim);
+  padding: 8px 12px;
+  min-height: 36px;
+  transition: background 0.15s, color 0.15s;
+  font-size: 12px;
+}
+
+.rb-segment__btn + .rb-segment__btn {
+  border-left: 1px solid rgba(209, 222, 234, 0.16);
+}
+
+.rb-segment__btn:hover:not(.rb-segment__btn--active) {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--rb-ink);
+}
+
+.rb-segment__btn--active {
+  background: rgba(219, 195, 148, 0.12);
+  color: var(--rb-gold);
+  font-weight: 600;
+}
+
+.rb-segment__btn:focus-visible {
+  outline: 2px solid var(--rb-gold);
+  outline-offset: -2px;
+}
+
+/* ── 密码区 ─────────────────────────────────────────────────────────────────── */
+
+.rb-pw-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   响应式
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 520px) {
+  .rb-header {
+    padding: 14px 14px 12px;
+  }
+
+  .rb-row {
+    padding: 10px 14px;
+    flex-wrap: wrap;
+  }
+
+  .rb-row__right {
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .rb-btn--lg {
+    padding: 11px 20px;
+  }
+}
+
+@media (max-width: 390px) {
+  .rb-header__title {
+    font-size: 15px;
+  }
+
+  .rb-pin-box {
+    width: 46px;
+    height: 54px;
+    font-size: 24px;
+  }
+}
+
+/* ── 无动效模式 ─────────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-root *,
+  .rb-modal,
+  .rb-row--new {
+    animation: none !important;
+    transition: none !important;
+  }
+}
