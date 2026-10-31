@@ -28,8 +28,8 @@ try{
  }
  await Promise.all(pages.map(page=>page.waitForFunction(expected=>document.querySelectorAll('[data-rm-players] li').length===expected,count)));
  console.log(bots?'一个真人和两个机器人已加入':'两位玩家已加入');
- for(const page of pages)await page.locator('[data-rm-ready]').click();
- await a.locator('[data-rm-track="1"]').click();console.log(`房间 ${code}：${count} 位参赛者开始比赛`);
+ if(!bots)await b.getByRole('button',{name:'准备',exact:true}).click();
+ await a.getByRole('button',{name:'开始比赛',exact:true}).click();console.log(`房间 ${code}：${count} 位参赛者开始比赛`);
  await Promise.all(pages.map(page=>page.locator('[data-rm-results]').waitFor({state:'visible',timeout})));
  const read=page=>page.locator('[data-rm-result-rows] tr').evaluateAll(rows=>rows.map(row=>({id:row.dataset.rmResultId,rank:Number(row.dataset.rank),cells:[...row.cells].map(c=>c.textContent)})));
  const results=await Promise.all(pages.map(read)),ra=results[0];assert.equal(ra.length,count);if(!bots)assert.deepEqual(ra,results[1],'两页最终名次与计时必须一致');assert.ok(ra.every(row=>!row.cells.includes('未完成')),'所有参赛者均须完赛');assert.deepEqual(ra.map(row=>row.rank),Array.from({length:count},(_,i)=>i+1));if(bots)assert.equal(ra.filter(row=>row.id.startsWith('b')).length,2);

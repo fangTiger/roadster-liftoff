@@ -8,11 +8,11 @@ function fixture() {
  const rooms=createRooms({now:()=>time,random:()=>((seed=seed*16807%2147483647)/2147483647),send:(c,m)=>out.get(c).push(m),close:c=>closed.push(c)});
  const connect=(name='玩家',code,resumeToken)=>{const c={};out.set(c,[]);rooms.receive(c,JSON.stringify({type:'hello',name,roomCode:code,resumeToken}));return c;};
  const send=(c,m)=>rooms.receive(c,JSON.stringify(m)),last=(c,type)=>out.get(c).filter(m=>m.type===type).at(-1);
- const start=()=>{const a=connect(),code=last(a,'room').code,b=connect('对手',code);send(a,{type:'ready',on:true});send(b,{type:'ready',on:true});send(a,{type:'pickTrack',trackId:1});return {a,b,code,start:last(a,'start')};};
+ const start=()=>{const a=connect(),code=last(a,'room').code,b=connect('对手',code);send(b,{type:'ready',on:true});send(a,{type:'start'});return {a,b,code,start:last(a,'start')};};
  return {rooms,out,closed,connect,send,last,start,advance(ms){time+=ms;rooms.tick();},get time(){return time;}};
 }
 test('建房、昵称清理、加入、六人满员与不存在的码',()=>{
- const f=fixture(),a=f.connect('\u0000赛车手😀'.repeat(8)),r=f.last(a,'room');assert.match(r.code,/^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$/);assert.equal(r.hostId,r.players[0].id);assert.equal([...r.players[0].name].length,16);assert.ok(!r.players[0].name.includes('\0'));
+ const f=fixture(),a=f.connect('\u0000赛车手😀'.repeat(8)),r=f.last(a,'room');assert.match(r.code,/^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$/);assert.equal(r.hostId,r.players[0].id);assert.equal(r.trackId,1);assert.equal([...r.players[0].name].length,16);assert.ok(!r.players[0].name.includes('\0'));
  for(let i=0;i<5;i++)f.connect('玩家',r.code);assert.equal(f.last(a,'room').players.length,6);
  assert.equal(f.last(f.connect('满员',r.code),'error').code,'ROOM_FULL');assert.equal(f.last(f.connect('不存在','ZZZZZZ'),'error').code,'NO_ROOM');
 });
@@ -22,10 +22,10 @@ test('非房主拒绝选图；离开和掉线均移交给最早在场的人',()=
  f.rooms.disconnect(a);assert.equal(f.last(b,'room').hostId,f.last(b,'welcome').id);assert.equal(f.last(b,'room').players.length,3);
  f.send(b,{type:'leave'});assert.equal(f.last(c,'room').hostId,f.last(c,'welcome').id);assert.equal(f.last(c,'left').id,f.last(b,'welcome').id);
 });
-test('至少两人、全部准备且选图才 start，预留 1500ms，阶段按时切换',()=>{
+test('房主手动 start，至少两人且其他真人准备，预留 1500ms，阶段按时切换',()=>{
  const f=fixture(),{a,b,start}=f.start();assert.equal(start.startAt,2500);assert.equal(start.laps,3);assert.deepEqual(start.grid.map(p=>p.seat),[0,1]);assert.equal(f.last(a,'room').phase,'countdown');
  f.send(b,{type:'ready',on:false});assert.equal(f.last(b,'error').code,'BAD_PHASE');f.advance(1500);assert.equal(f.last(a,'room').phase,'racing');
- const g=fixture(),solo=g.connect();g.send(solo,{type:'ready',on:true});g.send(solo,{type:'pickTrack',trackId:1});assert.equal(g.last(solo,'start'),undefined);
+ const g=fixture(),solo=g.connect();g.send(solo,{type:'ready',on:true});g.send(solo,{type:'pickTrack',trackId:1});g.send(solo,{type:'start'});assert.equal(g.last(solo,'start'),undefined);
 });
 test('只同房转发合法状态，每连接每秒最多 30 条',()=>{
  const f=fixture(),{a,b}=f.start(),other=f.connect();f.send(a,state(0));assert.equal(f.last(b,'peer'),undefined);f.advance(1500);
@@ -58,12 +58,12 @@ test('ping 接受真实 epoch 毫秒时间戳并回显服务器时钟',()=>{
 test('超时移除的参赛者仍列为 DNF，下一局可复用空出的座位',()=>{
  const f=fixture(),{a,b,code}=f.start(),bid=f.last(b,'welcome').id;f.advance(1500);f.rooms.disconnect(b);f.advance(30000);
  f.send(a,{type:'finish',elapsed:120,bestLap:40,lapTimes:[40,40,40]});assert.equal(f.last(a,'results').results.find(p=>p.id===bid).dnf,true);
- const c=f.connect('丙',code);assert.equal(f.last(c,'room').players.find(p=>p.id===f.last(c,'welcome').id).seat,1);f.send(a,{type:'ready',on:true});f.send(c,{type:'ready',on:true});assert.equal(f.last(c,'room').phase,'countdown');assert.ok(f.last(c,'start').startAt>2500);
+ const c=f.connect('丙',code);assert.equal(f.last(c,'room').players.find(p=>p.id===f.last(c,'welcome').id).seat,1);f.send(a,{type:'ready',on:true});f.send(c,{type:'ready',on:true});assert.equal(f.last(c,'room').phase,'lobby');f.send(a,{type:'start'});assert.equal(f.last(c,'room').phase,'countdown');assert.ok(f.last(c,'start').startAt>2500);
 });
 test('断线期间不会自动开始，恢复后需要重新准备；重复 finish 不覆盖首次成绩',()=>{
  const f=fixture(),a=f.connect(),code=f.last(a,'room').code,b=f.connect('乙',code),w=f.last(b,'welcome');
- f.send(b,{type:'ready',on:true});f.rooms.disconnect(b);f.send(a,{type:'ready',on:true});f.send(a,{type:'pickTrack',trackId:1});assert.equal(f.last(a,'start'),undefined);
- const c=f.connect('乙',code,w.resumeToken);assert.equal(f.last(c,'room').players.find(p=>p.id===w.id).ready,false);f.send(c,{type:'ready',on:true});f.advance(1500);
+ f.send(b,{type:'ready',on:true});f.rooms.disconnect(b);f.send(a,{type:'ready',on:true});f.send(a,{type:'pickTrack',trackId:1});f.send(a,{type:'start'});assert.equal(f.last(a,'start'),undefined);
+ const c=f.connect('乙',code,w.resumeToken);assert.equal(f.last(c,'room').players.find(p=>p.id===w.id).ready,false);f.send(c,{type:'ready',on:true});f.send(a,{type:'start'});f.advance(1500);
  f.send(a,{type:'finish',elapsed:120,bestLap:40,lapTimes:[40,40,40]});f.send(a,{type:'finish',elapsed:100,bestLap:30,lapTimes:[30,30,40]});f.send(c,{type:'finish',elapsed:117,bestLap:38,lapTimes:[38,39,40]});assert.equal(f.last(a,'results').results.find(p=>p.id===f.last(a,'welcome').id).elapsed,120);
 });
 test('air 与 ghost 必须是布尔值，白名单转发与恢复保留真实值',()=>{
@@ -91,7 +91,7 @@ test('表情非法 id 先于阶段检查返回 BAD_MESSAGE',()=>{
 });
 
 const finish={type:'finish',elapsed:120,bestLap:40,lapTimes:[40,40,40]};
-function botsRace(){const f=fixture(),a=f.connect(),code=f.last(a,'room').code,b=f.connect('乙',code);for(const difficulty of ['normal','hard'])f.send(a,{type:'addBot',difficulty});const bots=f.last(a,'room').players.filter(p=>p.bot);f.send(a,{type:'pickTrack',trackId:1});f.send(a,{type:'ready',on:true});f.send(b,{type:'ready',on:true});return {...f,a,b,code,bots};}
+function botsRace(){const f=fixture(),a=f.connect(),code=f.last(a,'room').code,b=f.connect('乙',code);for(const difficulty of ['normal','hard'])f.send(a,{type:'addBot',difficulty});const bots=f.last(a,'room').players.filter(p=>p.bot);f.send(a,{type:'pickTrack',trackId:1});f.send(a,{type:'ready',on:true});f.send(b,{type:'ready',on:true});f.send(a,{type:'start'});return {...f,a,b,code,bots};}
 test('机器人增删只许大厅房主，校验难度与座位，满员拒绝并可复用座位',()=>{
  const f=fixture(),a=f.connect(),code=f.last(a,'room').code,b=f.connect('乙',code);
  f.send(b,{type:'addBot',difficulty:'easy'});assert.equal(f.last(b,'error').code,'NOT_HOST');
@@ -101,11 +101,11 @@ test('机器人增删只许大厅房主，校验难度与座位，满员拒绝�
  f.send(a,{type:'removeBot',botId:bot.id});assert.equal(f.last(a,'room').players.length,2);
  for(let i=0;i<4;i++)f.send(a,{type:'addBot',difficulty:'normal'});assert.equal(f.last(a,'room').players.length,6);assert.equal(f.last(a,'room').players[2].seat,2);
  f.send(a,{type:'addBot',difficulty:'hard'});assert.equal(f.last(a,'error').code,'ROOM_FULL');assert.equal(f.last(f.connect('丙',code),'error').code,'ROOM_FULL');
- f.send(a,{type:'pickTrack',trackId:1});f.send(a,{type:'ready',on:true});f.send(b,{type:'ready',on:true});
+ f.send(a,{type:'pickTrack',trackId:1});f.send(a,{type:'ready',on:true});f.send(b,{type:'ready',on:true});f.send(a,{type:'start'});
  for(const m of [{type:'addBot',difficulty:'easy'},{type:'removeBot',botId:f.last(a,'room').players[2].id}]){f.send(a,m);assert.equal(f.last(a,'error').code,'BAD_PHASE');}
 });
 test('一个真人和机器人可以开赛、完赛，机器人下局仍准备',()=>{
- const f=fixture(),a=f.connect();f.send(a,{type:'addBot',difficulty:'hard'});const bot=f.last(a,'room').players.find(p=>p.bot);assert.ok(bot);f.send(a,{type:'pickTrack',trackId:1});f.send(a,{type:'ready',on:true});assert.equal(f.last(a,'start').grid.length,2);f.advance(1500);
+ const f=fixture(),a=f.connect();f.send(a,{type:'addBot',difficulty:'hard'});const bot=f.last(a,'room').players.find(p=>p.bot);assert.ok(bot);f.send(a,{type:'pickTrack',trackId:1});f.send(a,{type:'start'});assert.equal(f.last(a,'start').grid.length,2);f.advance(1500);
  f.send(a,{...finish,type:'botFinish',botId:bot.id});f.send(a,finish);assert.equal(f.last(a,'results').results.length,2);assert.ok(f.last(a,'results').results.every(p=>!p.dnf));assert.equal(f.last(a,'room').players.find(p=>p.bot).ready,true);
 });
 test('botState 校验和授权复用真人规则，每个机器人独立限流且不回送所属房主',()=>{
@@ -138,7 +138,7 @@ test('所有真人已完赛时房主断线立即结算机器人 DNF，重连不�
 test('比赛模式默认 items，只允许大厅房主切换，room 和 start 均下发 mode',()=>{
  const f=fixture(),a=f.connect(),code=f.last(a,'room').code,b=f.connect('乙',code);assert.equal(f.last(a,'room').mode,'items');
  f.send(b,{type:'pickMode',mode:'speed'});assert.equal(f.last(b,'error').code,'NOT_HOST');f.send(a,{type:'pickMode',mode:'bad'});assert.equal(f.last(a,'error').code,'BAD_MESSAGE');
- f.send(a,{type:'pickMode',mode:'speed'});assert.equal(f.last(b,'room').mode,'speed');for(const c of [a,b])f.send(c,{type:'ready',on:true});f.send(a,{type:'pickTrack',trackId:1});assert.equal(f.last(a,'start').mode,'speed');
+ f.send(a,{type:'pickMode',mode:'speed'});assert.equal(f.last(b,'room').mode,'speed');for(const c of [a,b])f.send(c,{type:'ready',on:true});f.send(a,{type:'pickTrack',trackId:1});f.send(a,{type:'start'});assert.equal(f.last(a,'start').mode,'speed');
  f.send(a,{type:'pickMode',mode:'items'});assert.equal(f.last(a,'error').code,'BAD_PHASE');f.advance(1500);f.send(a,{type:'item',kind:'mine',itemId:f.last(a,'welcome').id+'-1',x:0,z:1,placedAt:4});assert.equal(f.last(a,'error').code,'BAD_PHASE');assert.equal(f.last(b,'item'),undefined);
 });
 test('水雷严格校验、每车 500ms 限流、itemId 跨时段去重且首次 mineHit 广播一次',()=>{
@@ -151,7 +151,7 @@ test('水雷严格校验、每车 500ms 限流、itemId 跨时段去重且首次
  f.send(b,{type:'mineHit',itemId:'unknown'});assert.equal(f.last(a,'mineGone'),undefined);f.send(b,{type:'mineHit',itemId:m.itemId,by:'伪造'});assert.deepEqual(f.last(a,'mineGone'),{type:'mineGone',itemId:m.itemId,by:f.last(b,'welcome').id});f.send(a,{type:'mineHit',itemId:m.itemId});assert.equal(f.out.get(a).filter(m=>m.type==='mineGone').length,1);
 });
 test('shield / trapped 可选布尔校验及转发白名单，机器人道具只接受所属房主',()=>{
- const f=fixture(),a=f.connect(),code=f.last(a,'room').code,b=f.connect('乙',code);f.send(a,{type:'addBot',difficulty:'normal'});const bot=f.last(a,'room').players.find(p=>p.bot);for(const c of [a,b])f.send(c,{type:'ready',on:true});f.send(a,{type:'pickTrack',trackId:1});f.advance(1500);
+ const f=fixture(),a=f.connect(),code=f.last(a,'room').code,b=f.connect('乙',code);f.send(a,{type:'addBot',difficulty:'normal'});const bot=f.last(a,'room').players.find(p=>p.bot);for(const c of [a,b])f.send(c,{type:'ready',on:true});f.send(a,{type:'pickTrack',trackId:1});f.send(a,{type:'start'});f.advance(1500);
  for(const field of ['shield','trapped'])for(const value of [1,null,'true']){f.send(a,{...state(1),[field]:value});assert.equal(f.last(a,'error').code,'BAD_MESSAGE');}
  f.send(a,{...state(2),shield:true,trapped:false});assert.equal(f.last(b,'peer').shield,true);assert.equal(f.last(b,'peer').trapped,false);
  const mine={type:'item',botId:bot.id,kind:'mine',itemId:bot.id+'-1',x:0,z:1,placedAt:3};f.send(b,mine);assert.equal(f.last(b,'error').code,'NOT_HOST');assert.equal(f.last(a,'item'),undefined);f.send(a,mine);assert.equal(f.last(b,'item').from,bot.id);assert.equal(f.last(b,'item').botId,undefined);
@@ -179,7 +179,7 @@ test('只有导弹目标可报 hit，首次广播 hitAt 并保留护盾判定，
  f.send(b,{type:'hit',itemId:m.itemId,shielded:'true'});assert.equal(f.last(b,'error').code,'BAD_MESSAGE');f.advance(1500);f.send(b,{type:'hit',itemId:m.itemId,shielded:true,by:id});assert.deepEqual(f.last(a,'hitAt'),{type:'hitAt',itemId:m.itemId,by:target,shielded:true});f.send(b,{type:'hit',itemId:m.itemId,shielded:false});assert.equal(f.out.get(a).filter(m=>m.type==='hitAt').length,1);
 });
 test('导弹不能锁定离线车，目标掉线或完赛后不接受命中，机器人只能由所属房主报 hit',()=>{
- const f=fixture(),a=f.connect(),code=f.last(a,'room').code,b=f.connect('乙',code);f.send(a,{type:'addBot',difficulty:'hard'});const bot=f.last(a,'room').players.find(p=>p.bot),id=f.last(a,'welcome').id;for(const c of [a,b])f.send(c,{type:'ready',on:true});f.send(a,{type:'pickTrack',trackId:1});f.advance(1500);
+ const f=fixture(),a=f.connect(),code=f.last(a,'room').code,b=f.connect('乙',code);f.send(a,{type:'addBot',difficulty:'hard'});const bot=f.last(a,'room').players.find(p=>p.bot),id=f.last(a,'welcome').id;for(const c of [a,b])f.send(c,{type:'ready',on:true});f.send(a,{type:'pickTrack',trackId:1});f.send(a,{type:'start'});f.advance(1500);
  const m={type:'item',kind:'missile',itemId:id+'-1',target:bot.id,x:0,z:0,yaw:0,firedAt:0};f.send(a,m);f.send(b,{type:'hit',botId:bot.id,itemId:m.itemId});assert.equal(f.last(b,'error').code,'NOT_HOST');f.advance(1500);f.send(a,{type:'hit',botId:bot.id,itemId:m.itemId,shielded:false});assert.equal(f.last(b,'hitAt').by,bot.id);
  f.advance(500);f.send(a,{...m,itemId:id+'-2',target:f.last(b,'welcome').id});f.rooms.disconnect(b);f.advance(500);f.send(a,{...m,itemId:id+'-3',target:f.last(b,'welcome').id});assert.equal(f.last(a,'error').code,'BAD_MESSAGE');
 });
@@ -203,4 +203,39 @@ test('水雷拒绝非法出手坐标（含非有限 JSON 数值）',()=>{
  for(const field of ['ox','oz'])for(const raw of ['null','"1"','true','1e999','-1e999']){
   const f=fixture(),{a,b}=f.start(),id=f.last(a,'welcome').id;f.advance(1500);const m={type:'item',kind:'mine',itemId:id+'-1',x:10,z:20,placedAt:3};f.rooms.receive(a,JSON.stringify(m).slice(0,-1)+`,"${field}":${raw}}`);assert.equal(f.last(a,'error')?.code,'BAD_MESSAGE');assert.equal(f.last(b,'item'),undefined);
  }
+});
+
+
+test('准备、选图、模式均不自动开赛，非房主 start 拒绝，房主无需准备',()=>{
+ const f=fixture(),a=f.connect(),b=f.connect('乙',f.last(a,'room').code);
+ f.send(a,{type:'start'});assert.equal(f.last(a,'start'),undefined);
+ f.send(b,{type:'start'});assert.equal(f.last(b,'error').code,'NOT_HOST');
+ f.send(a,{type:'ready',on:true});f.send(b,{type:'ready',on:true});
+ for(const message of [{type:'pickTrack',trackId:2},{type:'pickMode',mode:'speed'},{type:'ready',on:false}]){
+  f.send(a,message);assert.equal(f.last(a,'room').phase,'lobby');assert.equal(f.last(a,'start'),undefined);
+ }
+ f.send(a,{type:'start'});assert.equal(f.last(a,'start').trackId,2);assert.equal(f.last(a,'start').mode,'speed');
+ assert.equal(f.last(a,'room').players.find(p=>p.id===f.last(a,'welcome').id).ready,false);
+ assert.deepEqual(f.last(a,'start'),f.last(b,'start'));
+ f.send(a,{type:'start'});assert.equal(f.last(a,'error').code,'BAD_PHASE');assert.equal(f.out.get(a).filter(m=>m.type==='start').length,1);
+ f.send(b,{type:'start'});assert.equal(f.last(b,'error').code,'NOT_HOST');
+});
+
+test('断线宽限期即使另有已准备真人和机器人也阻止开赛，恢复或超时移除后由房主开赛',()=>{
+ for(const resume of [true,false]){
+  const f=fixture(),a=f.connect(),code=f.last(a,'room').code,b=f.connect('乙',code),c=f.connect('丙',code),token=f.last(b,'welcome').resumeToken;
+  f.send(a,{type:'addBot',difficulty:'normal'});f.send(b,{type:'ready',on:true});f.send(c,{type:'ready',on:true});f.rooms.disconnect(b);
+  f.send(a,{type:'start'});assert.equal(f.last(a,'start'),undefined);assert.equal(f.last(a,'room').phase,'lobby');
+  if(resume){const again=f.connect('乙',code,token);f.send(a,{type:'start'});assert.equal(f.last(a,'start'),undefined);f.send(again,{type:'ready',on:true});}
+  else f.advance(30000);
+  assert.equal(f.last(a,'start'),undefined);f.send(a,{type:'start'});assert.equal(f.last(a,'room').phase,'countdown');
+ }
+});
+
+test('房主加两个机器人默认图直接开赛，结算后仍须再次手动开赛',()=>{
+ const f=fixture(),a=f.connect();for(const difficulty of ['normal','hard'])f.send(a,{type:'addBot',difficulty});
+ assert.equal(f.last(a,'start'),undefined);f.send(a,{type:'start'});assert.equal(f.last(a,'start').trackId,1);assert.equal(f.last(a,'start').grid.length,3);
+ const first=f.last(a,'start');f.advance(1500);for(const bot of f.last(a,'room').players.filter(p=>p.bot))f.send(a,{...finish,type:'botFinish',botId:bot.id});f.send(a,finish);
+ assert.equal(f.last(a,'room').phase,'lobby');f.send(a,{type:'pickTrack',trackId:3});f.send(a,{type:'pickMode',mode:'speed'});assert.equal(f.last(a,'start'),first);
+ f.send(a,{type:'start'});assert.equal(f.last(a,'start').trackId,3);assert.equal(f.last(a,'room').phase,'countdown');
 });

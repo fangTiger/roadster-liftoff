@@ -61,18 +61,18 @@ try {
  assert.equal(await host.locator('.rm-current-track img').isVisible(),true);
  await host.locator('.rm-track-details summary').click();await host.waitForTimeout(300);const cards=await host.locator('.rm-track-picker').boundingBox();assert.ok(cards.x>=0&&cards.x+cards.width<=1440&&cards.width>700);await shot('03-track-cards');
  await host.locator('[data-rm-track="3"]').click();await peer.waitForFunction(()=>document.querySelector('[data-rm-track="3"]').getAttribute('aria-pressed')==='true');assert.equal(await peer.locator('[data-rm-track="3"]').isDisabled(),true);
- await host.locator('.rm-track-details summary').click();await host.waitForTimeout(1400);await shot('04-alpine-wall');
+ assert.equal(await host.locator('.rm-track-details').getAttribute('open'),null);await host.waitForTimeout(1400);await shot('04-alpine-wall');
  await peer.bringToFront();await peer.waitForTimeout(1400);await shot('05-peer-alpine-wall',peer);await checkPlates(peer,'非房主满员');
  assert.equal(await peer.locator('.rm-current-track img').isVisible(),true);assert.ok((await peer.locator('.rm-current-track').innerText()).includes('阿尔卑斯'));
  await host.bringToFront();
- const readyCDP=await context.newCDPSession(host);
- const readyCheck=checkPlates(host,'准备点击前至转身复位全程',150);readyCheck.catch(()=>{});
- await host.locator('[data-rm-ready]').click();
- await host.waitForFunction(()=>{const p=document.querySelector('.grg-canvas').garageProbe.read();return p.feedback<.3&&p.headlights?.some(v=>v===5);},null,{polling:'raf'});
+ const readyCDP=await peerContext.newCDPSession(peer);
+ const readyCheck=checkPlates(peer,'准备点击前至转身复位全程',150);readyCheck.catch(()=>{});
+ await peer.getByRole('button',{name:'准备',exact:true}).click();
+ await peer.waitForFunction(()=>{const p=document.querySelector('.grg-canvas').garageProbe.read();return p.feedback<.3&&p.headlights?.some(v=>v===5);},null,{polling:'raf'});
  const front=await readyCDP.send('Page.captureScreenshot',{format:'png'});await writeFile(`${out}/06-ready-headlights.png`,Buffer.from(front.data,'base64'));shots.push('06-ready-headlights.png');
- await host.waitForFunction(()=>{const p=document.querySelector('.grg-canvas').garageProbe.read();return p.feedback>=.85&&p.feedback<1.35;},null,{polling:'raf'});
+ await peer.waitForFunction(()=>{const p=document.querySelector('.grg-canvas').garageProbe.read();return p.feedback>=.85&&p.feedback<1.35;},null,{polling:'raf'});
  const tail=await readyCDP.send('Page.captureScreenshot',{format:'png'});await writeFile(`${out}/06-ready-burst.png`,Buffer.from(tail.data,'base64'));shots.push('06-ready-burst.png');
- await readyCheck;await host.locator('[data-rm-ready]').click();
+ await readyCheck;await peer.getByRole('button',{name:'取消准备',exact:true}).click();
  const mobileContext=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:2,isMobile:true,hasTouch:true});
  await mobileContext.addInitScript(()=>{localStorage.setItem('race.room.name','Mobile');localStorage.setItem('liftoff.lang.v1','zh');localStorage.setItem('liftoff.audio.v1',JSON.stringify({muted:true}));});
  // 满员下手机用房主本页调整尺寸，随后补充真实触屏设备场景。
@@ -90,7 +90,7 @@ try {
  });
  cdp.on('Page.screencastFrame',frame=>{if(launchStage.includes('--rush'))launchFrames.push(frame.data);void cdp.send('Page.screencastFrameAck',{sessionId:frame.sessionId}).catch(()=>{});});
  await cdp.send('Page.startScreencast',{format:'png',maxWidth:1440,maxHeight:900,everyNthFrame:1});
- await peer.locator('[data-rm-ready]').click();await host.locator('[data-rm-ready]').click();await host.locator('.grg-transition--rush').waitFor({state:'visible'});
+ await peer.locator('[data-rm-ready]').click();await host.getByRole('button',{name:'开始比赛',exact:true}).click();await host.locator('.grg-transition--rush').waitFor({state:'visible'});
  await host.locator('.grg-canvas').waitFor({state:'detached'});await host.waitForTimeout(500);await cdp.send('Page.stopScreencast');
  assert.ok(launchFrames.length,'合成器必须捕获冲镜中间帧');
  const middle=execFileSync('python3',['-c','import sys,json,base64,io; from PIL import Image,ImageStat; frames=json.load(sys.stdin); scored=[]\nfor frame in frames:\n raw=base64.b64decode(frame); im=Image.open(io.BytesIO(raw)).convert("L"); mean=ImageStat.Stat(im.resize((144,90))).mean[0]; scored.append((abs(mean-125),mean,raw))\nscore,mean,raw=min(scored,key=lambda x:x[0]); assert mean<235,"转场必须有可见内容"; sys.stdout.buffer.write(raw)'],{input:JSON.stringify(launchFrames),maxBuffer:8*1024*1024});

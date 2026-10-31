@@ -44,12 +44,14 @@
 .rm-current-track>b{font-size:17px;font-weight:400;transition:transform .2s}
 .rm-track-details[open] .rm-current-track>b{transform:rotate(180deg)}
 .grg-layout .rm-track-picker{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0}
-.grg-layout>.rm-track-picker{position:fixed;right:380px;top:170px;width:min(880px,calc(100vw - 420px));padding:18px;background:#0c1823f5;border:1px solid #c5dbea40;border-radius:6px;box-shadow:0 25px 100px #000a;backdrop-filter:blur(20px);z-index:46;pointer-events:auto}
+.grg-layout>.rm-track-picker{position:fixed;right:380px;top:170px;width:min(880px,calc(100vw - 420px));padding:42px 18px 18px;background:#0c1823f5;border:1px solid #c5dbea40;border-radius:6px;box-shadow:0 25px 100px #000a;backdrop-filter:blur(20px);z-index:46;pointer-events:auto}
 .grg-layout .rm-track-picker legend{font-size:12px;padding:0 8px}
 .grg-layout .rm-track-picker button{padding:0;overflow:hidden;border:1px solid #bed3e12e;background:#142330;border-radius:4px;text-align:left;transition:border-color .2s,transform .2s;min-height:0}
 .grg-layout .rm-track-picker button:hover:enabled{transform:translateY(-3px);border-color:#e6d1a9}
 .grg-layout .rm-track-picker button:disabled{opacity:1;cursor:default}
 .grg-layout .rm-track-picker button[aria-pressed=true]{box-shadow:0 0 0 1px #e6d1a9,0 8px 25px #e6d1a911}
+.grg-layout .rm-track-picker [data-rm-track-close]{position:absolute;right:8px;top:0;width:36px;height:36px;min-height:36px;padding:0;text-align:center;font-size:22px;z-index:1}
+.grg-layout [data-rm-start-reason]{font-size:11px;color:#ffcf9d;margin:8px 0 0}
 .grg-layout .rm-track-photo{width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;display:block}
 .grg-layout .rm-track-content{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 12px;color:#e9edf0}.grg-layout .rm-track-content strong{display:block;font-weight:500;font-size:15px}.grg-layout .rm-track-content span{font-size:11px;margin-top:6px;color:#a8becb}.grg-layout .rm-track-content small{display:block;margin-top:7px;color:#d5bd8c;font-size:10px}.grg-layout .rm-track-picker svg{flex:none;width:54px;height:58px;margin:0;color:#a4dce6}
 .grg-transition{position:fixed;inset:0;z-index:80;pointer-events:none;background:#eaf8ff;opacity:0}
@@ -62,7 +64,7 @@
  .grg-heading{top:28px;left:22px}.grg-heading h2{font-size:27px}.grg-heading small{font-size:11px}.grg-heading p{font-size:8px}
  .grg-layout [data-rm-lobby].rm-overlay{max-height:35%;overflow:auto}
  .grg-layout .rm-track-details{margin:10px 0}.grg-layout .rm-track-details summary{padding:12px}
- .grg-layout .rm-track-details[open] .rm-track-picker{position:static;width:auto;display:flex;overflow-x:auto;padding:10px;gap:10px;border:0;background:transparent;box-shadow:none;backdrop-filter:none}
+ .grg-layout .rm-track-details[open] .rm-track-picker{position:relative;width:auto;display:flex;overflow-x:auto;padding:40px 10px 10px;gap:10px;border:0;background:transparent;box-shadow:none;backdrop-filter:none}
  .grg-layout .rm-track-picker button{flex:0 0 230px}.grg-layout .rm-track-picker legend{display:none}.grg-layout .rm-track-content{padding:10px}.grg-scroll-hint{top:calc(65% - 30px)}
  .grg-plate--self{width:154px!important}.grg-plate--self .grg-plate__name{font-size:14px}
 }
