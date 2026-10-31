@@ -59,10 +59,11 @@ describe('词典完整性', () => {
   });
 });
 
-test('机器人四档难度中英文名称完整',()=>{
- const levels=['easy','normal','hard','extreme'];
- assert.deepEqual(levels.map(level=>zh['race.'+level]),['简单','普通','困难','极限']);
- assert.deepEqual(levels.map(level=>en['race.'+level]),['Easy','Normal','Hard','Extreme']);
+test('机器人仅三档难度中英文名称完整',()=>{
+ assert.equal(zh['race.extreme'],undefined);assert.equal(en['race.extreme'],undefined);
+ const levels=['easy','normal','hard'];
+ assert.deepEqual(levels.map(level=>zh['race.'+level]),['简单','普通','困难']);
+ assert.deepEqual(levels.map(level=>en['race.'+level]),['Easy','Normal','Hard']);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

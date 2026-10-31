@@ -327,7 +327,6 @@ export default {
   "race.easy": "简单",
   "race.normal": "普通",
   "race.hard": "困难",
-  "race.extreme": "极限",
   "race.sunset": "晚霞天空",
   "race.dawn": "山谷黎明",
   "race.track1": "草甸环线",
