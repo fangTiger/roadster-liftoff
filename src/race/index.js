@@ -1,6 +1,7 @@
 import { spinRotation } from './sim/effects.js';
 import './race.css';
 import './room.css';
+import './lobby/garage.css';
 import { mountRoomRace } from './room-race.js';
 import { gridSpawn } from './grid.js';
 import { createCarOpacity } from './car-opacity.js';
