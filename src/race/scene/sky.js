@@ -8,12 +8,10 @@ const R = 1500;
 // faceSun：把全景转到太阳位于发车方向（+z）偏这么多弧度处，一出发就迎着夕阳 / 朝霞开；
 // env：环境光强度（这几张全景整体偏亮，白车会过曝）；sun：太阳光强度与颜色
 export const SKIES = {
-  alps: { label: '阿尔卑斯山谷', source: 'Alps Field', fog: '#b9c7d6', tint: [0x9fbf6e, 0xaecb7a] },
   sunset: { label: '晚霞天空', source: 'Kloppenheim 06 (Pure Sky)', fog: '#cfc4c0', tint: [0x9fbf6e, 0xaecb7a], disc: true, faceSun: .35, env: .65, sun: [2.2, '#ffd2a8'] },
-  dusk: { label: '黄昏湖畔', source: 'Qwantani Dusk 2', fog: '#bfb3c2', tint: [0xc2a77a, 0xccb487], faceSun: -.3, env: .55, sun: [2, '#ffc79a'] },
   dawn: { label: '山谷黎明', source: 'Kiara 1 Dawn', fog: '#b39aa8', tint: [0xc49686, 0xcea392], faceSun: .3, env: .6, sun: [2.2, '#ffc6c0'] },
 };
-export const DEFAULT_SKY = 'alps';
+export const DEFAULT_SKY = 'sunset';
 // 太阳方向：只在地平线以上找最亮的像素（黄昏时太阳很低，全图最亮点可能是地面或湖面的反光）
 function findSun(hdr) {
   const { data, width, height } = hdr.image, stride = data.length / (width * height), half = data instanceof Uint16Array;

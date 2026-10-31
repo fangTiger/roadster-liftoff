@@ -66,9 +66,9 @@ addEventListener('pointerdown', unlockAudio); addEventListener('keydown', unlock
 addEventListener('keydown', e => { if (e.code === 'KeyM' && !e.repeat) { muteInput.checked = !audio.muted; saveAudio(); } });
 const engine = createEngine(capture ? { pixelRatio: 1 } : {});
 engine.camera.far = 1800; engine.camera.updateProjectionMatrix();
-// 背景：URL 参数 sky= 优先，其次上次的选择，默认阿尔卑斯山谷
+// 背景：房间固定用默认背景，保证同房间画面一致；单人时 URL 参数 sky= 优先，其次上次的选择
 const storedSky = (() => { try { return localStorage.getItem('race.sky'); } catch { return null; } })();
-const skyKey = SKIES[params.get('sky')] ? params.get('sky') : SKIES[storedSky] ? storedSky : DEFAULT_SKY;
+const skyKey = roomMode ? DEFAULT_SKY : SKIES[params.get('sky')] ? params.get('sky') : SKIES[storedSky] ? storedSky : DEFAULT_SKY;
 const sky = await createSky(engine.scene, engine.renderer, skyKey), skid = createSkidmarks(engine.scene), car = await createCar(); engine.scene.add(car.root);
 const setCarOpacity = roomMode ? createCarOpacity(car.root) : null;
 const boostFx = createBoostFx(engine.scene, car), camera = createRaceCamera(engine.camera, engine.renderer.domElement), celebration = createCelebration(engine.scene);
