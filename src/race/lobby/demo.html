@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="./garage.css">
+<title>Garage 展厅 Demo — Mars Roadster</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%; background: #060810;
+    color: #f4f6fa; font: 14px/1.5 -apple-system, "PingFang SC", sans-serif;
+    overflow: hidden;
+  }
+
+  /* ── 整体布局：左控制栏 + 右展厅 ── */
+  #app { display: flex; height: 100%; }
+
+  #controls {
+    flex: 0 0 240px;
+    background: rgba(10, 13, 20, 0.96);
+    border-right: 1px solid rgba(255,255,255,.10);
+    display: flex; flex-direction: column;
+    overflow-y: auto; padding: 14px 12px;
+    gap: 10px; z-index: 20;
+  }
+
+  /* ── 展厅容器（相对定位，让 canvas 和 overlay 填满）── */
+  #garage-wrap {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    /* 确保 canvas 能拿到正确的 clientWidth/Height */
+    min-width: 0;
+    min-height: 0;
+  }
+
+  /* ── 右侧房间面板（浮于展厅上方）── */
+  #room-panel {
+    position: absolute;
+    right: 16px; top: 16px; bottom: 16px;
+    width: 300px; z-index: 10;
+    background: rgba(14, 16, 22, .48);
+    backdrop-filter: blur(14px) saturate(150%);
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+    border: 1px solid rgba(255,255,255,.13);
+    border-radius: 16px;
+    padding: 18px 16px;
+    overflow-y: auto;
+    display: flex; flex-direction: column; gap: 12px;
+    font-size: 13px; color: #f4f6fa;
+  }
+
+  /* ── 控制台样式 ── */
+  h2 { font-size: 12px; font-weight: 700; color: #7fe3ff; letter-spacing: 2px; }
+  h3 { font-size: 10px; color: rgba(244,246,250,.45); letter-spacing: 1px;
+    margin-bottom: 4px; text-transform: uppercase; }
+
+  .ctrl-group { display: flex; flex-direction: column; gap: 5px; }
+
+  button {
+    font: inherit; color: #f4f6fa; cursor: pointer;
+    background: rgba(255,255,255,.07);
+    border: 1px solid rgba(255,255,255,.13);
+    border-radius: 7px; padding: 6px 11px;
+    transition: background .14s, border-color .14s;
+    text-align: left; font-size: 12px; line-height: 1.4;
+  }
+  button:hover { background: rgba(255,255,255,.13); border-color: rgba(255,255,255,.28); }
+  button.primary {
+    background: linear-gradient(180deg, #ff8a5c, #ff4d3a);
+    border-color: transparent; color: #fff; font-weight: 600;
+    text-align: center;
+  }
+  button.primary:hover { filter: brightness(1.1); }
+  button:disabled { opacity: .36; cursor: default; }
+
+  select {
+    font: inherit; color: #f4f6fa; background: rgba(255,255,255,.07);
+    border: 1px solid rgba(255,255,255,.13); border-radius: 6px;
+    padding: 5px 9px; width: 100%; font-size: 12px;
+  }
+  label { display: flex; align-items: center; gap: 7px; font-size: 12px;
+    color: rgba(244,246,250,.6); }
+  input[type=checkbox] { width: 15px; height: 15px; accent-color: #ff8a5c; }
+
+  #log { font-size: 10px; color: rgba(244,246,250,.38); max-height: 100px;
+    overflow-y: auto; border-top: 1px solid rgba(255,255,255,.07); padding-top: 6px; }
+  #log div { padding: 1px 0; }
+  .sep { height: 1px; background: rgba(255,255,255,.07); }
+
+  /* ── 简化房间面板样式 ── */
+  .rm-badge {
+    display: inline-block; font-size: 10px; border-radius: 4px;
+    padding: 1px 5px; font-weight: 500; white-space: nowrap;
+  }
+  .rm-badge--ready  { background: rgba(95,230,170,.18); color: #7efbb4; }
+  .rm-badge--wait   { background: rgba(255,255,255,.08); color: rgba(244,246,250,.5); }
+  .rm-badge--host   { background: rgba(255,211,106,.14); color: #ffd36a; }
+  .room-player {
+    display: flex; align-items: center; gap: 7px; padding: 5px 0;
+    border-bottom: 1px solid rgba(255,255,255,.06); font-size: 12px;
+  }
+  .room-player:last-child { border-bottom: none; }
+  .room-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .room-player-name { flex: 1; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  @media (max-width: 700px) {
+    #app { flex-direction: column; }
+    #controls { flex: 0 0 auto; max-height: 180px; overflow-x: auto;
+      flex-direction: row; flex-wrap: wrap; padding: 8px; }
+    #room-panel { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- 左控制台 -->
+  <div id="controls">
+    <div>
+      <h2>GARAGE DEMO</h2>
+      <p style="font-size:10px;color:rgba(244,246,250,.35);margin-top:3px">Mars Roadster 展厅模块</p>
+    </div>
+    <div class="sep"></div>
+
+    <div class="ctrl-group">
+      <h3>添加</h3>
+      <button id="btn-add-human">+ 添加玩家</button>
+      <button id="btn-add-bot">+ 添加机器人</button>
+    </div>
+
+    <div class="ctrl-group">
+      <h3>房间操作</h3>
+      <button id="btn-toggle-ready">切换自己准备</button>
+      <button id="btn-change-host">随机换房主</button>
+      <button id="btn-remove-random">× 移除随机玩家</button>
+      <button id="btn-clear">清空（保留自己）</button>
+    </div>
+
+    <div class="ctrl-group">
+      <h3>Socket 状态</h3>
+      <label><input type="checkbox" id="chk-connected" checked>已连接</label>
+    </div>
+
+    <div class="ctrl-group">
+      <h3>视口</h3>
+      <button id="btn-narrow">切换手机模式（390px）</button>
+      <button id="btn-resize">触发 resize()</button>
+    </div>
+
+    <div class="sep"></div>
+    <div>
+      <h3>事件日志</h3>
+      <div id="log"></div>
+    </div>
+  </div>
+
+  <!-- 展厅容器：garage.js 在此创建 canvas + overlay -->
+  <div id="garage-wrap">
+    <!-- 浮动房间面板（演示用） -->
+    <div id="room-panel">
+      <div>
+        <div style="font-size:10px;letter-spacing:3px;color:#7fe3ff;margin-bottom:6px">MARS ROADSTER · LIVE</div>
+        <div style="font-size:17px;font-weight:700;letter-spacing:.05em">
+          房间 <span id="rp-code" style="color:#ffd36a">ABCD12</span>
+        </div>
+      </div>
+      <div id="rp-players" style="display:flex;flex-direction:column"></div>
+      <div id="rp-status" style="font-size:11px;color:#ff9d8f;min-height:14px"></div>
+      <button id="rp-ready" class="primary">准备出发</button>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+// 独立演示沿用正式场景和真实 Roadster 车模。
+import { createGarageCarLoader } from './garage-cars.js';
+import { createGarage } from './garage.js';
+
+// ── 假数据工厂 ────────────────────────────────────────────────────────────────
+
+const COLORS = ['#ef5350','#42b9ff','#ffd34d','#57db85','#c58aff','#ff963e'];
+const NAMES  = ['你', 'Starman', 'Road Queen', 'Driver X', 'Speed Bot', 'Ghost'];
+const DIFFS  = ['easy', 'normal', 'hard'];
+
+let uid = 200;
+function mkPlayer(opts = {}) {
+  const seat = opts.seat ?? 0;
+  return {
+    id:         opts.id         ?? String(uid++),
+    name:       opts.name       ?? NAMES[seat] ?? `P${uid}`,
+    seat,
+    color:      opts.color      ?? COLORS[seat],
+    ready:      opts.ready      ?? false,
+    bot:        opts.bot        ?? false,
+    difficulty: opts.difficulty ?? 'normal',
+    connected:  opts.connected  ?? true,
+  };
+}
+
+// 初始房间
+let selfId = 'self1';
+let room = {
+  code: 'MRST42', hostId: 'self1', phase: 'lobby',
+  mode: 'speed', trackId: 1,
+  players: [
+    mkPlayer({ id: 'self1', name: '你', seat: 0, color: COLORS[0] }),
+    mkPlayer({ id: 'p2', name: 'Starman', seat: 2, color: COLORS[2], ready: true }),
+    mkPlayer({ id: 'bot1', name: 'Speed Bot', seat: 4, color: COLORS[4], ready: true, bot: true, difficulty: 'hard' }),
+  ],
+};
+let socketConnected = true;
+
+// ── 日志 ──────────────────────────────────────────────────────────────────────
+
+const logEl = document.getElementById('log');
+function log(msg) {
+  const d = document.createElement('div');
+  d.textContent = new Date().toLocaleTimeString() + ' ' + msg;
+  logEl.prepend(d);
+  while (logEl.children.length > 40) logEl.lastChild?.remove();
+}
+
+// ── 最小 i18n ─────────────────────────────────────────────────────────────────
+
+const ZH = {
+  'room.readyState': '已准备', 'room.you': '你', 'room.botName': '机器人·{difficulty}', 'room.addBotSeat': '+ 添加机器人', 'room.host': '房主', 'room.ready': '已准备', 'room.waiting': '等待中',
+  'room.disconnected': '断线', 'room.bot': 'AI', 'room.you': '你',
+  'room.emptySeat': '等待加入', 'room.addBot': '+ 添加机器人',
+  'room.removeBot': '移除 {name}',
+  'race.easy': '简单', 'race.normal': '普通', 'race.hard': '困难',
+};
+function t(key, params = {}) {
+  let s = ZH[key] ?? key;
+  for (const [k, v] of Object.entries(params)) s = s.replace(`{${k}}`, v);
+  return s;
+}
+
+// ── 真实车模缓存──────────────────────────────────────────
+
+const carLoader = createGarageCarLoader();
+const loadCar = color => carLoader.load(color);
+
+// ── 初始化展厅 ────────────────────────────────────────────────────────────────
+
+const garageWrap = document.getElementById('garage-wrap');
+
+// 将右侧面板宽度（+间距）告知展厅，用于摄像机取景偏移
+const PANEL_RESERVE = { right: 332, bottom: 0 };
+function resizeDemo() {
+ const mobile = garageWrap.clientWidth < 700;
+ garage.resize(mobile ? { bottom: document.getElementById('room-panel').offsetHeight } : PANEL_RESERVE);
+}
+window.addEventListener('pagehide', () => { garage.dispose(); carLoader.dispose(); });
+
+const garage = createGarage({
+  container: garageWrap,
+  loadCar,
+  t,
+  reserve: PANEL_RESERVE,
+  onAddBot: () => {
+    const occupied = new Set(room.players.map(p => p.seat));
+    const free = [0,1,2,3,4,5].find(s => !occupied.has(s));
+    if (free == null) { log('所有席位已满'); return; }
+    const diff = DIFFS[Math.floor(Math.random() * DIFFS.length)];
+    const bot  = mkPlayer({ seat: free, name: `Bot${free}`, color: COLORS[free], bot: true, difficulty: diff });
+    room = { ...room, players: [...room.players, bot] };
+    log(`+ Bot${free} 加入席位 ${free}（${diff}）`);
+    refresh();
+  },
+  onRemoveBot: (id) => {
+    room = { ...room, players: room.players.filter(p => p.id !== id) };
+    log(`× 移除机器人 ${id}`);
+    refresh();
+  },
+});
+
+// ── 更新右侧演示面板 ──────────────────────────────────────────────────────────
+
+function renderPanel() {
+  document.getElementById('rp-code').textContent = room.code;
+  const list = document.getElementById('rp-players');
+  list.innerHTML = '';
+  for (const p of room.players) {
+    const div = document.createElement('div');
+    div.className = 'room-player';
+    div.innerHTML = `
+      <span class="room-dot" style="background:${p.color}"></span>
+      <span class="room-player-name">${p.name}${p.id === selfId ? ' (你)' : ''}</span>
+      ${p.id === room.hostId ? '<span class="rm-badge rm-badge--host">房主</span>' : ''}
+      <span class="rm-badge ${p.ready ? 'rm-badge--ready' : 'rm-badge--wait'}">${p.ready ? '已准备' : '等待'}</span>
+    `;
+    list.appendChild(div);
+  }
+  const self = room.players.find(p => p.id === selfId);
+  const readyBtn = document.getElementById('rp-ready');
+  const rdy = self?.ready;
+  readyBtn.textContent    = rdy ? '取消准备' : '准备出发';
+  readyBtn.style.background = rdy ? 'rgba(127,227,255,.18)' : 'linear-gradient(180deg,#ff8a5c,#ff4d3a)';
+  readyBtn.style.color      = rdy ? '#7fe3ff' : '#fff';
+  readyBtn.style.border     = rdy ? '1px solid #7fe3ff' : '1px solid transparent';
+  document.getElementById('rp-status').textContent = socketConnected ? '' : '⚡ 连接断开';
+}
+
+function refresh() {
+  garage.update(room, selfId, socketConnected);
+  renderPanel();
+}
+
+refresh();
+
+// ── 按钮事件 ──────────────────────────────────────────────────────────────────
+
+document.getElementById('btn-add-human').onclick = () => {
+  const occ  = new Set(room.players.map(p => p.seat));
+  const free = [0,1,2,3,4,5].find(s => !occ.has(s));
+  if (free == null) { log('席位已满'); return; }
+  const p = mkPlayer({ seat: free, name: NAMES[free] ?? `P${uid}`, color: COLORS[free] });
+  room = { ...room, players: [...room.players, p] };
+  log(`+ ${p.name} 加入席位 ${free}`);
+  refresh();
+};
+
+document.getElementById('btn-add-bot').onclick = () => {
+  const occ  = new Set(room.players.map(p => p.seat));
+  const free = [0,1,2,3,4,5].find(s => !occ.has(s));
+  if (free == null) { log('席位已满'); return; }
+  const p = mkPlayer({ seat: free, name: `Bot${free}`, color: COLORS[free], bot: true, difficulty: 'hard' });
+  room = { ...room, players: [...room.players, p] };
+  log(`+ Bot${free} 加入席位 ${free}`);
+  refresh();
+};
+
+document.getElementById('btn-toggle-ready').onclick = () => {
+  room = { ...room, players: room.players.map(p => p.id === selfId ? { ...p, ready: !p.ready } : p) };
+  const s = room.players.find(p => p.id === selfId);
+  log(`自己 ${s?.ready ? '已准备' : '取消准备'}`);
+  refresh();
+};
+
+document.getElementById('btn-change-host').onclick = () => {
+  const others = room.players.filter(p => p.id !== room.hostId);
+  if (!others.length) { log('没有其他玩家'); return; }
+  const next = others[Math.floor(Math.random() * others.length)];
+  room = { ...room, hostId: next.id };
+  log(`房主 → ${next.name}`);
+  refresh();
+};
+
+document.getElementById('btn-remove-random').onclick = () => {
+  const others = room.players.filter(p => p.id !== selfId);
+  if (!others.length) { log('无可移除玩家'); return; }
+  const t = others[Math.floor(Math.random() * others.length)];
+  room = { ...room, players: room.players.filter(p => p.id !== t.id) };
+  log(`× 移除 ${t.name}（席位 ${t.seat}）`);
+  refresh();
+};
+
+document.getElementById('btn-clear').onclick = () => {
+  room = { ...room, players: room.players.filter(p => p.id === selfId) };
+  log('清空（保留自己）');
+  refresh();
+};
+
+document.getElementById('chk-connected').onchange = e => {
+  socketConnected = e.target.checked;
+  log(`Socket: ${socketConnected ? '已连接' : '断线'}`);
+  refresh();
+};
+
+document.getElementById('rp-ready').onclick = () => {
+  room = { ...room, players: room.players.map(p => p.id === selfId ? { ...p, ready: !p.ready } : p) };
+  refresh();
+};
+
+// 窄屏切换
+let narrow = false;
+document.getElementById('btn-narrow').onclick = () => {
+  narrow = !narrow;
+  if (narrow) {
+    garageWrap.style.width  = '390px';
+    garageWrap.style.height = '844px';
+    document.getElementById('controls').style.display = 'none';
+  } else {
+    garageWrap.style.width  = '';
+    garageWrap.style.height = '';
+    document.getElementById('controls').style.display = '';
+  }
+  resizeDemo();
+  log(`视口: ${narrow ? '390×844（手机）' : '全屏'}`);
+};
+
+document.getElementById('btn-resize').onclick = () => {
+  resizeDemo();
+  log('resize() 调用');
+};
+
+window.addEventListener('resize', resizeDemo);
+resizeDemo();
+</script>
+</body>
+</html>

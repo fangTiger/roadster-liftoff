@@ -1,20 +1,38 @@
 import { t,onLangChange } from '../i18n/i18n.js';
 import { playerName } from './room-player.js';
+import { createGarage } from './lobby/garage.js';
+import { createGarageCarLoader } from './lobby/garage-cars.js';
 import { TRACKS } from './track/data/index.js';
 const format=value=>value===null||value===undefined?'—':`${Math.floor(value/60)}:${(value%60).toFixed(3).padStart(6,'0')}`;
 export function invitationURL(code,href=location.href){const url=new URL(href);url.searchParams.set('race','');url.searchParams.set('room',code);for(const key of ['capture','map'])url.searchParams.delete(key);return url.href;}
 export function standings(players,states,length){return [...players].sort((a,b)=>{const x=states.get(a.id),y=states.get(b.id);return (y?y.lap*length+y.s:0)-(x?x.lap*length+x.s:0)||a.seat-b.seat;});}
 const node=(tag,text,className)=>{const el=document.createElement(tag);if(text!==undefined)el.textContent=text;if(className)el.className=className;return el;};
-export function mountRoomUI({client,roomCode='',onReturn=()=>{}}) {
+export function mountRoomUI({client,roomCode='',onReturn=()=>{},garageFactory=createGarage}) {
  const root=node('div',undefined,'rm-root');root.id='rm-room';
  root.innerHTML=`<section class="rm-overlay" data-rm-lobby role="dialog" aria-modal="true" aria-labelledby="rm-title"><div class="rm-card"><p class="rm-eyebrow">MARS ROADSTER · LIVE</p><h1 id="rm-title"></h1><p class="rm-note" data-rm-intro></p>
 <form class="rm-form"><label><span data-rm-name-label></span><input data-rm-name maxlength="32" autocomplete="nickname"></label><label><span data-rm-code-label></span><input data-rm-code maxlength="6" autocomplete="off" spellcheck="false" class="rm-code-input"></label><div class="rm-actions"><button type="button" data-rm-create></button><button type="submit" data-rm-join></button></div></form>
-<div data-rm-inside hidden><div class="rm-invite"><strong data-rm-room-code></strong><button data-rm-copy></button></div><ol class="rm-players" data-rm-players></ol><div class="rm-actions rm-bots" data-rm-bots hidden><label><span data-rm-difficulty-label></span> <select data-rm-difficulty><option value="easy" data-rm-difficulty-option="easy"></option><option value="normal" data-rm-difficulty-option="normal"></option><option value="hard" data-rm-difficulty-option="hard"></option></select></label><button data-rm-add-bot></button></div><fieldset class="rm-tracks"><legend data-rm-mode-label></legend><button type="button" data-rm-mode="items"></button><button type="button" data-rm-mode="speed"></button></fieldset><fieldset class="rm-tracks"><legend data-rm-track-label></legend>${TRACKS.map(({def})=>`<button type="button" data-rm-track="${def.id}"></button>`).join('')}</fieldset><p class="rm-note" data-rm-hint></p><button class="rm-primary" data-rm-ready></button></div>
+<div data-rm-inside hidden><div class="rm-invite"><strong data-rm-room-code></strong><button data-rm-copy></button></div><ol class="rm-players" data-rm-players></ol><div class="rm-actions rm-bots" data-rm-bots hidden><label><span data-rm-difficulty-label></span> <select data-rm-difficulty><option value="easy" data-rm-difficulty-option="easy"></option><option value="normal" data-rm-difficulty-option="normal"></option><option value="hard" data-rm-difficulty-option="hard"></option></select></label><button data-rm-add-bot></button></div><fieldset class="rm-tracks"><legend data-rm-mode-label></legend><button type="button" data-rm-mode="items"></button><button type="button" data-rm-mode="speed"></button></fieldset><fieldset class="rm-tracks rm-track-picker"><legend data-rm-track-label></legend>${TRACKS.map(({def})=>`<button type="button" data-rm-track="${def.id}"></button>`).join('')}</fieldset><p class="rm-laps" data-rm-laps></p><p class="rm-note" data-rm-hint></p><button class="rm-primary" data-rm-ready></button></div>
 <p class="rm-status" role="status" aria-live="polite" data-rm-status></p><div class="rm-actions"><button data-rm-leave hidden></button><a href="/" data-rm-home></a></div></div></section>
 <aside class="rm-standings" data-rm-standings hidden aria-label="${t('room.standings')}"><h2 data-rm-standings-title></h2><ol data-rm-ranks></ol></aside>
 <section class="rm-overlay" data-rm-results hidden role="dialog" aria-modal="true" aria-labelledby="rm-results-title"><div class="rm-card rm-result-card"><p class="rm-eyebrow">MARS ROADSTER · LIVE</p><h2 id="rm-results-title"></h2><div class="rm-table-wrap"><table class="rm-table"><thead><tr><th data-rm-rank-label></th><th data-rm-player-label></th><th data-rm-elapsed-label></th><th data-rm-best-label></th></tr></thead><tbody data-rm-result-rows></tbody></table></div><div class="rm-actions"><button class="rm-primary" data-rm-rematch></button><button data-rm-return></button></div></div></section>`;
  document.body.append(root);const $=q=>root.querySelector(q),name=$('[data-rm-name]'),code=$('[data-rm-code]');code.value=roomCode;$('[data-rm-difficulty]').value='normal';
  try{name.value=localStorage.getItem('race.room.name')||'';}catch{/* 隐私模式使用内存昵称。 */}
+ const garageContainer=node('div');garageContainer.dataset.rmGarage='';garageContainer.hidden=true;root.append(garageContainer);
+ const heading=node('header',undefined,'grg-heading');heading.hidden=true;heading.innerHTML='<p>MARS ROADSTER / LIVE GARAGE</p><h2 data-rm-garage-title></h2><small data-rm-garage-count></small>';root.append(heading);
+ const scrollHint=node('p',undefined,'grg-scroll-hint');scrollHint.hidden=true;root.append(scrollHint);
+ let garage=null,carLoader=null;
+ function garageReserve(){const panel=$('[data-rm-lobby]').getBoundingClientRect();return window.innerWidth<700?{bottom:panel.height}:{right:panel.width+44};}
+ function resizeGarage(){garage?.resize(garageReserve());}
+ function syncGarage(){
+  const active=view==='lobby'&&!!room;
+  root.className=active?'rm-root grg-layout':'rm-root';garageContainer.hidden=!active;heading.hidden=!active;scrollHint.hidden=!active;
+  if(!active){garage?.dispose();garage=null;carLoader?.dispose();carLoader=null;return;}
+  // Node 单元测试显式注入场景工厂；浏览器使用真正的 WebGL 场景。
+  if(typeof window==='undefined'&&garageFactory===createGarage)return;
+  if(!garage){carLoader=createGarageCarLoader();garage=garageFactory({container:garageContainer,loadCar:color=>carLoader.load(color),t,reserve:garageReserve(),onAddBot:()=>{$('[data-rm-add-bot]').onclick();},onRemoveBot:id=>client.send({type:'removeBot',botId:id})});}
+  garage.update(room,client.id,connection);resizeGarage();
+ }
+ globalThis.window?.addEventListener('resize',resizeGarage);
  let room=null,view='lobby',busy=false,connection=false,error='',copied=false,results=null,lastRanks=[];
  function paintPlayers(){
   $('[data-rm-players]').replaceChildren();
@@ -42,11 +60,16 @@ export function mountRoomUI({client,roomCode='',onReturn=()=>{}}) {
   for(const el of [$('[data-rm-create]'),$('[data-rm-join]')])el.disabled=busy;
   $('[data-rm-room-code]').textContent=room?.code||'';
   const self=room?.players.find(p=>p.id===client.id);$('[data-rm-ready]').textContent=t(self?.ready?'room.unready':'room.ready');$('[data-rm-ready]').disabled=!connection||room?.phase!=='lobby';$('[data-rm-ready]').setAttribute('aria-pressed',String(!!self?.ready));
-  for(const button of root.querySelectorAll('[data-rm-track]')){const id=Number(button.dataset.rmTrack);button.textContent=t('race.track'+id);button.disabled=!connection||room?.hostId!==client.id||room?.phase!=='lobby';button.setAttribute('aria-pressed',String(id===room?.trackId));}
+  for(const button of root.querySelectorAll('[data-rm-track]')){const id=Number(button.dataset.rmTrack);const def=TRACKS.find(entry=>entry.def.id===id).def;
+   const points=def.points,coords=points.map(p=>[p.x,p.z]),xs=coords.map(p=>p[0]),zs=coords.map(p=>p[1]),xmin=Math.min(...xs),zmin=Math.min(...zs),scale=88/Math.max(Math.max(...xs)-xmin,Math.max(...zs)-zmin);
+   const path='M'+coords.map(([x,z])=>`${(6+(x-xmin)*scale).toFixed(1)},${(6+(z-zmin)*scale).toFixed(1)}`).join('L')+'Z';
+   button.innerHTML=`<svg viewBox="0 0 100 100" aria-hidden="true"><path d="${path}" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg><span>${t('race.track'+id)}</span>`;button.disabled=!connection||room?.hostId!==client.id||room?.phase!=='lobby';button.setAttribute('aria-pressed',String(id===room?.trackId));}
   for(const mode of ['items','speed']){const button=$(`[data-rm-mode="${mode}"]`);button.textContent=t('room.mode.'+mode);button.disabled=!connection||room?.hostId!==client.id||room?.phase!=='lobby';button.setAttribute('aria-pressed',String(mode===(room?.mode||'items')));}
   $('[data-rm-hint]').textContent=t(room?.phase==='countdown'?'room.loading':'room.hint');
   $('[data-rm-status]').textContent=error?t('room.error.'+error):busy?t('room.connecting'):room&&!connection?t('room.reconnecting'):'';
-  paintPlayers();paintRanks();paintResults();
+  $('[data-rm-laps]').textContent=t('room.laps',{count:(TRACKS.find(entry=>entry.def.id===room?.trackId)||TRACKS[0]).def.laps});
+  $('[data-rm-garage-title]').textContent=t('room.garageTitle');$('[data-rm-garage-count]').textContent=t('room.garageCount',{count:room?.players.length||0});scrollHint.textContent=t('room.garageScroll');
+  paintPlayers();paintRanks();paintResults();syncGarage();
  }
  function join(joinCode){
   error='';busy=true;const nickname=name.value.trim()||t('room.driver');try{localStorage.setItem('race.room.name',nickname);}catch{/* 无存储时继续加入。 */}
@@ -70,6 +93,6 @@ export function mountRoomUI({client,roomCode='',onReturn=()=>{}}) {
   racing(){view='racing';results=null;error='';paint();},
   update(players,states,length){lastRanks=standings(players,states,length);paintRanks();},
   fail(){error='LOAD_FAILED';view='lobby';paint();},
-  destroy(){unsubs.forEach(fn=>fn());root.remove();},
+  destroy(){unsubs.forEach(fn=>fn());globalThis.window?.removeEventListener('resize',resizeGarage);garage?.dispose();carLoader?.dispose();root.remove();},
  };
 }

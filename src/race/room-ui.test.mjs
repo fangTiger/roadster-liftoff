@@ -41,3 +41,21 @@ test('大厅模式按钮只许房主操作，跟随 room 模式及语言',async(
  const element=()=>({dataset:{},style:{},append(){},replaceChildren(){},remove(){},setAttribute(k,v){this[k]=v;},querySelector:q=>get(q),querySelectorAll:q=>q==='[data-rm-mode]'?['items','speed'].map(m=>get('[data-rm-mode="'+m+'"]')):[get('[data-rm-track="1"]')]});const get=q=>{if(!elements.has(q))elements.set(q,element());return elements.get(q);};get('[data-rm-track="1"]').dataset.rmTrack='1';for(const m of ['items','speed'])get('[data-rm-mode="'+m+'"]').dataset.rmMode=m;globalThis.document={createElement:element,body:{append(){}}};
  try{const client={id:'a',on(t,fn){handlers.set(t,fn);return ()=>{};},send:m=>sent.push(m)},ui=mountRoomUI({client}),room={phase:'lobby',hostId:'a',mode:'items',players:[]};handlers.get('connection')({connected:true});handlers.get('room')(room);const speed=get('[data-rm-mode="speed"]');assert.equal(speed.textContent,'竞速赛');assert.equal(speed.disabled,false);speed.onclick();assert.deepEqual(sent.at(-1),{type:'pickMode',mode:'speed'});handlers.get('room')({...room,mode:'speed',hostId:'b'});assert.equal(speed.disabled,true);assert.equal(speed['aria-pressed'],'true');handlers.get('room')({...room,phase:'countdown'});assert.equal(speed.disabled,true);ui.destroy();}finally{globalThis.document=previous;}
 });
+
+test('仅房间大厅挂载展厅，room/连接/语言同步，开赛离开销毁，名牌沿用难度和移除协议',async()=>{
+ const {mountRoomUI}=await import('./room-ui.js'),previous=globalThis.document,oldWindow=globalThis.window,elements=new Map(),handlers=new Map(),sent=[],calls=[];let options;
+ const element=()=>({dataset:{},style:{setProperty(){}},classList:{toggle(){}},append(){},prepend(){},replaceChildren(){},remove(){},setAttribute(){},getBoundingClientRect:()=>({width:342,height:300}),querySelector:q=>get(q),querySelectorAll:()=>[get('[data-rm-track="1"]')]});
+ const get=q=>{if(!elements.has(q))elements.set(q,element());return elements.get(q);};get('[data-rm-track="1"]').dataset.rmTrack='1';
+ globalThis.document={createElement:element,body:{append(){}}};globalThis.window={innerWidth:1440,addEventListener(){},removeEventListener(){}};
+ const client={id:'a',on(type,fn){handlers.set(type,fn);return()=>{};},send:m=>sent.push(m),leave(){}};
+ try{
+  const ui=mountRoomUI({client,garageFactory:opts=>{options=opts;calls.push('mount');return{update:(...args)=>calls.push(['update',...args]),resize(){},dispose:()=>calls.push('dispose')};}});
+  assert.deepEqual(calls,[]);
+  const room={code:'ABC234',phase:'lobby',hostId:'a',players:[{id:'a',seat:0,name:'甲'}]};handlers.get('room')(room);handlers.get('connection')({connected:true});
+  assert.equal(calls.filter(c=>c==='mount').length,1);assert.equal(calls.at(-1)[3],true);
+  get('[data-rm-difficulty]').value='hard';options.onAddBot();options.onRemoveBot('b1');assert.deepEqual(sent,[{type:'addBot',difficulty:'hard'},{type:'removeBot',botId:'b1'}]);
+  ui.racing();assert.equal(calls.at(-1),'dispose');handlers.get('room')(room);assert.equal(calls.filter(c=>c==='mount').length,1);
+  handlers.get('results')({results:[]});get('[data-rm-return]').onclick();assert.equal(calls.filter(c=>c==='mount').length,2);
+  get('[data-rm-leave]').onclick();assert.equal(calls.at(-1),'dispose');ui.destroy();
+ }finally{globalThis.document=previous;globalThis.window=oldWindow;}
+});

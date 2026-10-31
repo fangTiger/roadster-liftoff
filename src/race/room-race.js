@@ -148,7 +148,7 @@ export function mountRoomRace({engine,params,setup,clear,simulate,render,getStat
    if(items?.locked(client.id)&&snap.step*DT-lastWarning>=.45){playSound('raceMissileWarning');lastWarning=snap.step*DT;}
    itemFx?.update(client.id,snap.step*DT,states,{self:{id:client.id,lap:r.lap,s:c.near.s},back:!!(getBits()&BRAKE),cars:[...raceStates().values()]});
    render(1,dt);
-  }else engine.render();
+  }else if(ui.view!=='lobby'||!ui.room) engine.render();
   requestFrame(frame);
  }
  requestFrame(frame);

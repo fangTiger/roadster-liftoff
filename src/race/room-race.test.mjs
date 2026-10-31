@@ -129,3 +129,10 @@ test('房间每帧提供其他车颜色与位置、瞄准进度和后退输入�
  bits=2;loop.frame(10);assert.equal(updates.at(-1)[3].back,true);Object.assign(loop.itemSlot,{kind:'mine',readyAt:0});listeners.get('keydown')({code:'KeyE',preventDefault(){}});assert.equal(sent.find(m=>m.kind==='mine').z,17);
  now+=4000;loop.frame(4010);assert.equal(loop.rivals.length,2);handlers.get('left')({id:'b'});loop.frame(4020);assert.equal(loop.rivals.length,1);loop.destroy();assert.deepEqual(loop.rivals,[]);
 });
+
+test('已入房大厅由展厅负责绘制，后台赛道不重复渲染；未入房和结算仍绘制背景',()=>{
+ let renders=0;const ui={room:null,view:'lobby',destroy(){}},client={on:()=>()=>{},leave(){}},loop=mountRoomRace({engine:{render(){renders++;},scene:{add(){}}},client,ui,params:new URLSearchParams(),requestFrame(){},clear(){}});
+ loop.frame(0);assert.equal(renders,1);
+ ui.room={phase:'lobby',players:[]};loop.frame(16);loop.frame(32);assert.equal(renders,1);
+ ui.view='results';loop.frame(48);assert.equal(renders,2);loop.destroy();
+});
