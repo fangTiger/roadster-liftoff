@@ -79,6 +79,7 @@
 | `public/assets/music/road-80s-synthwave.mp3` | 80S Synthwave（公路驾驶） | AtlasAudio | [Pixabay](https://pixabay.com/music/synthwave-80s-synthwave-617535/) | [Pixabay Content License](https://pixabay.com/service/license-summary/) |
 | `public/assets/music/space-cosmos.mp3` | Cosmos（起飞到太空） | The_Mountain | [Pixabay](https://pixabay.com/music/ambient-cosmos-587577/) | Pixabay Content License |
 | `public/assets/music/oldfriend-reflected-light.mp3` | Reflected Light（与老前辈同框） | SergePavkinMusic | [Pixabay](https://pixabay.com/music/beautiful-plays-reflected-light-147979/) | Pixabay Content License |
+| `public/assets/music/lobby-rock.m4a` | Action Race Rock Music（多人房间大厅，转码为 128 kbps AAC） | magpiemusic | [Pixabay](https://pixabay.com/music/rock-action-race-rock-music-513682/) | Pixabay Content License |
 
 Pixabay Content License 允许免费商用、无需署名；此处署名以示感谢。
 
