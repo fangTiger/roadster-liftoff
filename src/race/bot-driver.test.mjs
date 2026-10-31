@@ -16,7 +16,7 @@ test('autopilot 默认参数保持既有 2000 步输入序列逐位一致',()=>{
 test('机器人仅转向延迟指定步数，油门刹车即时生效，驱动队列互相独立',async()=>{
  const {createBotDriver}=await import('./bot-driver.js');
  const track=buildTrack(meadow),session=createSession(track),mask=LEFT|RIGHT;
- for(const [difficulty,opts,reaction] of [['easy',{cruise:.82,cornerGrip:.8},18],['normal',{cruise:.9,cornerGrip:.9},10],['hard',{cruise:1,cornerGrip:1},4]]){
+ for(const [difficulty,opts,reaction] of [['easy',{cruise:1,cornerGrip:1},8],['normal',{cruise:1.15,cornerGrip:1.15},4],['hard',{cruise:1.3,cornerGrip:1.3},2]]){
   const driver=createBotDriver(difficulty),expected=[];
   for(let i=0;i<60;i++){const car={...session.car,yaw:session.car.yaw+(i%2?.2:-.2),vx:i%3?0:100},snap={car,race:session.race},bits=autopilot(snap,track,opts);expected.push(bits&mask);assert.equal(driver(snap,track),(bits&~mask)|(i<reaction?0:expected[i-reaction]));}
  }
