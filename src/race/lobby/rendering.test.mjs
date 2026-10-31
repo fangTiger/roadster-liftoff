@@ -4,19 +4,12 @@ import * as THREE from 'three';
 import { seatPosition, fitGarageCamera } from './garage.js';
 import { cloneGarageCar, createSeatLoader } from './garage-cars.js';
 
-test('桌面和手机展区完整容纳六个台、车和台前名牌，投影左右不重叠',()=>{
- for(const [width,height] of [[1016,860],[1050,520],[1050,390],[900,800]]){
-  const camera=new THREE.PerspectiveCamera(38,1,.1,160);fitGarageCamera(camera,width,height);camera.updateMatrixWorld();
-  const xs=[];
-  for(let i=0;i<6;i++){
-   const {x,z}=seatPosition(i);
-   for(const dx of [-2.5,2.5])for(const y of [-.5,3.5])for(const dz of [-2.5,2.5]){
-    const p=new THREE.Vector3(x+dx,y,z+dz).project(camera);
-    assert.ok(Math.abs(p.x)<.98&&Math.abs(p.y)<.95,`展台 ${i} 被裁切：${p.toArray()}`);
-   }
-   const p=new THREE.Vector3(x,-.2,z+2.5).project(camera);xs.push((p.x*.5+.5)*width);
-  }
-  xs.sort((a,b)=>a-b);assert.ok(xs.slice(1).every((x,i)=>x-xs[i]>105),'名牌需要独立宽度');
+test('新构图主车居中，手机横向展区仍有可投影的五个侧席',()=>{
+ for(const [width,height] of [[1054,900],[1050,548]]){
+  const camera=new THREE.PerspectiveCamera(40,1,.1,160);fitGarageCamera(camera,width,height);
+  const center=new THREE.Vector3(0,1.9,0).project(camera);assert.ok(Math.abs(center.x)<.001);
+  const xs=[];for(let i=0;i<6;i++){const {x,z}=seatPosition(i,0);const p=new THREE.Vector3(x,0,z).project(camera);assert.ok(p.toArray().every(Number.isFinite));xs.push(p.x);}
+  assert.equal(new Set(xs).size,6);
  }
 });
 

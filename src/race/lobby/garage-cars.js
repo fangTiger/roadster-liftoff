@@ -34,6 +34,8 @@ export function cloneGarageCar(source, color) {
   return cache.get(resource);
  };
  root.traverse(object => {
+  // 原车预置的推进器强度为零仍会提交绘制，大厅只保留新触发的尾焰。
+  if(object.material?.isShaderMaterial&&object.material.uniforms.k?.value===0)object.visible=false;
   if (object.geometry) object.geometry = clone(object.geometry);
   if (!object.material) return;
   const material = source => {
