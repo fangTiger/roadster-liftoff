@@ -58,7 +58,7 @@ export function mountRoomRace({engine,params,setup,clear,simulate,render,getStat
      await setup(TRACKS.find(t=>t.def.id===message.trackId).difficulty,{seat:self.seat,laps:message.laps,contacts:step=>contactsFor(client.id,step),contactId:client.id,mode:message.mode});
      if(generation!==version||dead){clear();return;}
      // 加载期间可能已断线并恢复，必须以最新座位状态判断机器人是否仍有效。
-     if(ui.room?.hostId===client.id)bots=createRoomBots({players:ui.room.players.filter(p=>message.grid.some(q=>q.id===p.id)),ownerId:client.id,track:getTrack(),laps:message.laps,contacts:contactsFor});
+     if(ui.room?.hostId===client.id)bots=createRoomBots({players:ui.room.players.filter(p=>message.grid.some(q=>q.id===p.id)),ownerId:client.id,track:getTrack(),laps:message.laps,contacts:contactsFor,traffic:contactsFor});
      await Promise.all(players.filter(p=>p.id!==client.id&&!departed.has(p.id)).map(async player=>{
       const remote=await createRemote(player);
       if(generation!==version||dead||departed.has(player.id)){remote.dispose();return;}

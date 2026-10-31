@@ -12,3 +12,12 @@ test('机器人各自拥有 session 与发车位，逐步不读取快照，接�
  for(let step=0;step<1000;step++)for(const bot of bots.values()){bot.session.step(bot.driver({car:bot.session.car,race:bot.session.race},track));bot.step++;}
  assert.deepEqual(new Set(calls.map(c=>c.id)),new Set(['b1','b2']));assert.ok(calls.every(c=>c.step>720));assert.ok([...bots.values()].every(b=>b.step===1000&&b.session.car.draft===0));
 });
+
+test('房主机器人注入随机源并从实际交通回调读取前车',()=>{
+ const track=buildTrack(meadow),players=[{id:'bot',seat:0,bot:true,ownerId:'host',difficulty:'hard',connected:true}],calls=[];
+ const options={track,players,ownerId:'host',laps:1,random:()=>.5,contacts:()=>[],traffic:(id,step)=>{calls.push({id,step});return [];}};
+ const a=createRoomBots(options).get('bot'),b=createRoomBots(options).get('bot');
+ assert.equal(JSON.stringify(a.driver.personality),JSON.stringify(b.driver.personality));
+ a.driver({car:a.session.car,race:a.session.race},track);
+ assert.deepEqual(calls,[{id:'bot',step:1}]);
+});
