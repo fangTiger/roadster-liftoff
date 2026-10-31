@@ -434,3 +434,23 @@ test('inviteUrl: 加锁但不提供密码', () => {
   const url = dir.inviteUrl('https://game.example', { code: 'XY1234', locked: true });
   assert.equal(url, 'https://game.example?room=XY1234');
 });
+
+test('checkJoin: 同房同 IP 并发猜测最多执行五次校验，正确密码也不能穿透锁定', async () => {
+  let verifies=0;
+  const dir=makeDir({verify:async pw=>{verifies++;await new Promise(resolve=>setImmediate(resolve));return pw==='2468';}});
+  const room=makeRoom({locked:true,passwordHash:'仅服务器保存'});
+  const results=await Promise.all([...Array(12).fill('0000'),'2468'].map(password=>dir.checkJoin(room,{password,clientKey:'192.0.2.1'})));
+  assert.equal(verifies,5);
+  assert.equal(results.filter(r=>r.code==='BAD_PASSWORD').length,4);
+  assert.ok(results.slice(4).every(r=>r.code==='LOCKED_OUT'));
+});
+
+test('checkJoin: 锁定到期重新获得五次机会，成功会清除连续错误', async () => {
+  let ts=0;
+  const dir=makeDir({now:()=>ts,verify:async pw=>pw==='2468'}),room=makeRoom({locked:true});
+  for(let i=0;i<5;i++)await dir.checkJoin(room,{password:'0000',clientKey:'ip'});
+  ts=60001;
+  assert.equal((await dir.checkJoin(room,{password:'0000',clientKey:'ip'})).code,'BAD_PASSWORD');
+  assert.equal((await dir.checkJoin(room,{password:'2468',clientKey:'ip'})).ok,true);
+  for(let i=0;i<4;i++)assert.equal((await dir.checkJoin(room,{password:'0000',clientKey:'ip'})).code,'BAD_PASSWORD');
+});

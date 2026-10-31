@@ -1,3 +1,4 @@
+import { createRoomBrowser } from './lobby/room-browser.js';
 import { t,onLangChange } from '../i18n/i18n.js';
 import { playerName } from './room-player.js';
 import { createGarage } from './lobby/garage.js';
@@ -5,18 +6,18 @@ import { createGarageCarLoader } from './lobby/garage-cars.js';
 import { trackPreview } from './lobby/track-previews.js';
 import { TRACKS } from './track/data/index.js';
 const format=value=>value===null||value===undefined?'—':`${Math.floor(value/60)}:${(value%60).toFixed(3).padStart(6,'0')}`;
-export function invitationURL(code,href=location.href){const url=new URL(href);url.searchParams.set('race','');url.searchParams.set('room',code);for(const key of ['capture','map'])url.searchParams.delete(key);return url.href;}
+export function invitationURL(code,href=location.href,password,locked=false){const url=new URL(href);url.searchParams.set('race','');url.searchParams.set('room',code);url.searchParams.delete('pw');if(locked&&password)url.searchParams.set('pw',password);for(const key of ['capture','map'])url.searchParams.delete(key);return url.href;}
 export function standings(players,states,length){return [...players].sort((a,b)=>{const x=states.get(a.id),y=states.get(b.id);return (y?y.lap*length+y.s:0)-(x?x.lap*length+x.s:0)||a.seat-b.seat;});}
 const node=(tag,text,className)=>{const el=document.createElement(tag);if(text!==undefined)el.textContent=text;if(className)el.className=className;return el;};
-export function mountRoomUI({client,roomCode='',onReturn=()=>{},playSound=()=>{},setMusicPhase=()=>{},garageFactory=createGarage}) {
+export function mountRoomUI({client,roomCode='',password='',browserFactory=createRoomBrowser,onReturn=()=>{},playSound=()=>{},setMusicPhase=()=>{},garageFactory=createGarage}) {
  const root=node('div',undefined,'rm-root');root.id='rm-room';
- root.innerHTML=`<section class="rm-overlay" data-rm-lobby role="dialog" aria-modal="true" aria-labelledby="rm-title"><div class="rm-card"><p class="rm-eyebrow">MARS ROADSTER · LIVE</p><h1 id="rm-title"></h1><p class="rm-note" data-rm-intro></p>
-<form class="rm-form"><label><span data-rm-name-label></span><input data-rm-name maxlength="32" autocomplete="nickname"></label><label><span data-rm-code-label></span><input data-rm-code maxlength="6" autocomplete="off" spellcheck="false" class="rm-code-input"></label><div class="rm-actions"><button type="button" data-rm-create></button><button type="submit" data-rm-join></button></div></form>
+ root.innerHTML=`<section class="rm-browser-page" data-rm-browser-page><div class="rm-browser-shell"><header class="rm-browser-masthead"><p class="rm-eyebrow">MARS ROADSTER · LIVE</p><a href="/" data-rm-browser-home></a></header><div data-rm-profile></div><div data-rm-browser></div><p class="rm-status" data-rm-browser-error role="status" aria-live="polite"></p></div></section><section class="rm-overlay" data-rm-lobby role="dialog" aria-modal="true" aria-labelledby="rm-title"><div class="rm-card"><p class="rm-eyebrow">MARS ROADSTER · LIVE</p><h1 id="rm-title"></h1><p class="rm-note" data-rm-intro></p>
+<form class="rm-form"><label><span data-rm-name-label></span><input data-rm-name maxlength="32" autocomplete="nickname"></label><label><span data-rm-code-label></span><input data-rm-code maxlength="6" autocomplete="off" spellcheck="false" class="rm-code-input"></label><div class="rm-actions"><button type="submit" data-rm-join></button></div></form>
 <div data-rm-inside hidden><div class="rm-invite"><strong data-rm-room-code></strong><button data-rm-copy></button></div><ol class="rm-players" data-rm-players></ol><div class="rm-actions rm-bots" data-rm-bots hidden><label><span data-rm-difficulty-label></span> <select data-rm-difficulty><option value="easy" data-rm-difficulty-option="easy"></option><option value="normal" data-rm-difficulty-option="normal"></option><option value="hard" data-rm-difficulty-option="hard"></option></select></label><button data-rm-add-bot></button></div><fieldset class="rm-tracks"><legend data-rm-mode-label></legend><button type="button" data-rm-mode="items"></button><button type="button" data-rm-mode="speed"></button></fieldset><details class="rm-track-details"><summary data-rm-track-summary></summary><fieldset class="rm-tracks rm-track-picker"><legend data-rm-track-label></legend><button type="button" data-rm-track-close>×</button>${TRACKS.map(({def})=>`<button type="button" data-rm-track="${def.id}"></button>`).join('')}</fieldset></details><p class="rm-laps" data-rm-laps></p><p class="rm-note" data-rm-hint></p><button class="rm-primary" data-rm-ready aria-describedby="rm-start-reason"></button><p id="rm-start-reason" class="rm-note" data-rm-start-reason aria-live="polite" hidden></p></div>
 <p class="rm-status" role="status" aria-live="polite" data-rm-status></p><div class="rm-actions"><button data-rm-leave hidden></button><a href="/" data-rm-home></a></div></div></section>
 <aside class="rm-standings" data-rm-standings hidden aria-label="${t('room.standings')}"><h2 data-rm-standings-title></h2><ol data-rm-ranks></ol></aside>
 <section class="rm-overlay" data-rm-results hidden role="dialog" aria-modal="true" aria-labelledby="rm-results-title"><div class="rm-card rm-result-card"><p class="rm-eyebrow">MARS ROADSTER · LIVE</p><h2 id="rm-results-title"></h2><div class="rm-table-wrap"><table class="rm-table"><thead><tr><th data-rm-rank-label></th><th data-rm-player-label></th><th data-rm-elapsed-label></th><th data-rm-best-label></th></tr></thead><tbody data-rm-result-rows></tbody></table></div><div class="rm-actions"><button class="rm-primary" data-rm-rematch></button><button data-rm-return></button></div></div></section>`;
- document.body.append(root);const $=q=>root.querySelector(q),name=$('[data-rm-name]'),code=$('[data-rm-code]');code.value=roomCode;$('[data-rm-difficulty]').value='normal';
+ document.body.append(root);const $=q=>root.querySelector(q),name=$('[data-rm-name]'),code=$('[data-rm-code]');code.value=roomCode;$('[data-rm-profile]').append($('.rm-form'));$('[data-rm-difficulty]').value='normal';
  try{name.value=localStorage.getItem('race.room.name')||'';}catch{/* 隐私模式使用内存昵称。 */}
  const garageContainer=node('div');garageContainer.dataset.rmGarage='';garageContainer.hidden=true;root.append(garageContainer);
  const heading=node('header',undefined,'grg-heading');heading.hidden=true;heading.innerHTML='<p>MARS ROADSTER / LIVE GARAGE</p><h2 data-rm-garage-title></h2><small data-rm-garage-count></small>';root.append(heading);
@@ -53,10 +54,21 @@ export function mountRoomUI({client,roomCode='',onReturn=()=>{},playSound=()=>{}
   garage.update(room,client.id,connection);resizeGarage();
  }
  globalThis.window?.addEventListener('resize',resizeGarage);
- let room=null,view='lobby',busy=false,connection=false,error='',copied=false,results=null,lastRanks=[];
+ let room=null,view='lobby',busy=false,connection=false,error='',copied=false,results=null,lastRanks=[],roomPassword='',pendingJoin=null,browserRows={rows:[],online:0};
+ function finishJoin(result){
+  const pending=pendingJoin;if(!pending)return;
+  pendingJoin=null;clearTimeout(pending.timer);
+  if(result.ok)roomPassword=pending.password||'';
+  pending.resolve(result);
+ }
+ const browser=browserFactory({container:$('[data-rm-browser]'),t,
+  onJoin:({code,password})=>join({roomCode:code,password}),
+  onCreate:create=>join({create}),
+  onRefresh:()=>{if(busy)return;browser.setStatus('connecting');client.browse?.();},
+ });
  function paintPlayers(){
   $('[data-rm-players]').replaceChildren();
-  for(const p of room?.players||[]){const row=node('li'),swatch=node('i',undefined,'rm-swatch');swatch.style.background=p.color;const info=node('span',playerName(p),'rm-player-name'),badges=node('span',`${p.bot?t('room.bot')+' · ':''}${!p.connected?t('room.disconnected'):p.id===room.hostId?t('room.host'):p.ready?t('room.ready'):t('room.waiting')}`,'rm-badges');row.append(swatch,info,badges);
+  for(const p of room?.players||[]){const row=node('li'),swatch=node('i',undefined,'rm-swatch');swatch.style.background=p.color;const info=node('span',playerName(p),'rm-player-name'),badges=node('span',`${p.bot?t('room.bot')+' · ':''}${!p.connected?t('room.disconnected'):p.id===room.hostId?t('room.host'):p.ready?t('room.ready'):t('room.notReady')}`,'rm-badges');row.append(swatch,info,badges);
    if(p.bot&&room.hostId===client.id&&room.phase==='lobby'){const remove=node('button','×');remove.dataset.rmRemoveBot=p.id;remove.setAttribute('aria-label',t('room.removeBot',{name:playerName(p)}));remove.disabled=!connection;remove.onclick=()=>client.send({type:'removeBot',botId:p.id});row.append(remove);}
    $('[data-rm-players]').append(row);}
  }
@@ -77,17 +89,19 @@ export function mountRoomUI({client,roomCode='',onReturn=()=>{},playSound=()=>{}
   return waiting?t('room.waitReady',{count:waiting}):'';
  }
  function paint(){
-  const labels={'[data-rm-mode-label]':'room.mode','#rm-title':'room.title','[data-rm-intro]':'room.intro','[data-rm-name-label]':'room.name','[data-rm-code-label]':'room.code','[data-rm-create]':'room.create','[data-rm-join]':'room.join','[data-rm-track-label]':'room.track','[data-rm-home]':'race.home','[data-rm-leave]':'room.leave','[data-rm-standings-title]':'room.standings','#rm-results-title':'room.results','[data-rm-rank-label]':'room.rank','[data-rm-player-label]':'room.player','[data-rm-elapsed-label]':'room.elapsed','[data-rm-best-label]':'race.bestLap','[data-rm-return]':'room.return','[data-rm-rematch]':'room.rematch','[data-rm-add-bot]':'room.addBot','[data-rm-difficulty-label]':'room.botDifficulty'};
+  const labels={'[data-rm-mode-label]':'room.mode','#rm-title':'room.title','[data-rm-intro]':'room.intro','[data-rm-name-label]':'room.name','[data-rm-code-label]':'room.code','[data-rm-join]':'room.join','[data-rm-track-label]':'room.track','[data-rm-home]':'race.home','[data-rm-leave]':'room.leave','[data-rm-standings-title]':'room.standings','#rm-results-title':'room.results','[data-rm-rank-label]':'room.rank','[data-rm-player-label]':'room.player','[data-rm-elapsed-label]':'room.elapsed','[data-rm-best-label]':'race.bestLap','[data-rm-return]':'room.return','[data-rm-rematch]':'room.rematch','[data-rm-add-bot]':'room.addBot','[data-rm-difficulty-label]':'room.botDifficulty'};
   for(const [selector,key] of Object.entries(labels))$(selector).textContent=t(key);
   for(const difficulty of ['easy','normal','hard'])$(`[data-rm-difficulty-option="${difficulty}"]`).textContent=t('race.'+difficulty);
+  $('[data-rm-browser-home]').textContent=t('race.home');
   $('[data-rm-bots]').hidden=room?.hostId!==client.id;
   $('[data-rm-add-bot]').disabled=!connection||room?.phase!=='lobby'||room?.players.length>=6;
   $('[data-rm-difficulty]').disabled=!connection||room?.phase!=='lobby';
   $('[data-rm-copy]').textContent=t(copied?'room.copied':'room.copy');
-  $('[data-rm-lobby]').hidden=view!=='lobby';$('[data-rm-results]').hidden=view!=='results';$('[data-rm-standings]').hidden=view!=='racing';
+  $('[data-rm-browser-page]').hidden=!!room||view!=='lobby';if(!room&&view==='lobby')browser.open();$('[data-rm-lobby]').hidden=view!=='lobby'||!room;$('[data-rm-results]').hidden=view!=='results';$('[data-rm-standings]').hidden=view!=='racing';
   $('.rm-form').hidden=!!room;$('[data-rm-inside]').hidden=!room;$('[data-rm-leave]').hidden=!room;
-  for(const el of [$('[data-rm-create]'),$('[data-rm-join]')])el.disabled=busy;
+  $('[data-rm-join]').disabled=busy;
   $('[data-rm-room-code]').textContent=room?.code||'';
+  $('#rm-title').textContent=room?`${room.locked?'🔒 ':''}${room.name||t('room.defaultName',{host:room.players.find(p=>p.id===room.hostId)?.name||''})}`:t('room.title');
   const self=room?.players.find(p=>p.id===client.id),isHost=!!room&&room.hostId===client.id,reason=isHost?startReason():'';
   $('[data-rm-ready]').textContent=t(isHost?'room.start':self?.ready?'room.unready':'room.ready');
   $('[data-rm-ready]').disabled=!connection||room?.phase!=='lobby'||(isHost&&!!reason);
@@ -101,30 +115,43 @@ export function mountRoomUI({client,roomCode='',onReturn=()=>{},playSound=()=>{}
   for(const mode of ['items','speed']){const button=$(`[data-rm-mode="${mode}"]`);button.textContent=t('room.mode.'+mode);button.disabled=!connection||room?.hostId!==client.id||room?.phase!=='lobby';button.setAttribute('aria-pressed',String(mode===(room?.mode||'items')));}
   $('[data-rm-hint]').textContent=t(room?.phase==='countdown'?'room.loading':'room.hint');
   $('[data-rm-status]').textContent=error?t('room.error.'+error):busy?t('room.connecting'):room&&!connection?t('room.reconnecting'):'';
+  $('[data-rm-browser-error]').textContent=error?t('room.error.'+error):busy?t('room.connecting'):'';
+  browser.update(browserRows);
   const currentId=room?.trackId,current=TRACKS.some(entry=>entry.def.id===currentId)?trackPreview(currentId):null;
   $('[data-rm-track-summary]').innerHTML=current?`<span class="rm-current-track"><img src="${current.image}" width="1920" height="1080" alt=""><span><small>${t('room.trackPreview')}</small><strong>${t('race.track'+currentId)}</strong><span>${t('room.trackLength',{length:current.length})} · ${t('race.'+current.difficulty)}</span></span><b aria-hidden="true">⌄</b></span>`:t('room.chooseTrack');
   $('[data-rm-laps]').textContent=current?t('room.laps',{count:TRACKS.find(entry=>entry.def.id===currentId).def.laps}):'';
-  $('[data-rm-garage-title]').textContent=t('room.garageTitle');$('[data-rm-garage-count]').textContent=t('room.garageCount',{count:room?.players.length||0});scrollHint.textContent=t('room.garageScroll');
+  $('[data-rm-garage-title]').textContent=room?$('#rm-title').textContent:t('room.garageTitle');$('[data-rm-garage-count]').textContent=t('room.garageCount',{count:room?.players.length||0});scrollHint.textContent=t('room.garageScroll');
   setMusicPhase(!room?'off':view==='lobby'?room.phase:view==='racing'?'racing':'off');
   paintPlayers();paintRanks();paintResults();syncGarage();placeTrackPicker();
  }
- function join(joinCode){
-  error='';busy=true;const nickname=name.value.trim()||t('room.driver');try{localStorage.setItem('race.room.name',nickname);}catch{/* 无存储时继续加入。 */}
-  client.connect({name:nickname,...(joinCode?{roomCode:joinCode.toUpperCase()}:{} )});paint();
+ async function joinCode(roomCode,password){
+  const row=browserRows.rows.find(r=>r.code===roomCode);
+  if(row?.locked&&!password){browser.promptPassword(roomCode);return;}
+  const result=await join({roomCode,password});
+  if(['PASSWORD_REQUIRED','BAD_PASSWORD','LOCKED_OUT'].includes(result.code))browser.promptPassword(roomCode);
  }
- $('[data-rm-create]').onclick=()=>join('');$('.rm-form').onsubmit=event=>{event.preventDefault();if(code.value.trim())join(code.value.trim());};
+ function join(options){
+  if(busy)return Promise.resolve({ok:false,code:'BUSY'});
+  error='';busy=true;copied=false;const nickname=name.value.trim()||t('room.driver');try{localStorage.setItem('race.room.name',nickname);}catch{/* 无存储时继续加入。 */}
+  return new Promise(resolve=>{
+   pendingJoin={resolve,password:options.create?.locked?options.create.password:options.password,
+    timer:setTimeout(()=>{finishJoin({ok:false,code:'CONNECT_FAILED'});busy=false;error='CONNECT_FAILED';client.browse?.();paint();},12000)};
+   client.connect({name:nickname,...options});paint();
+  });
+ }
+ $('.rm-form').onsubmit=event=>{event.preventDefault();if(code.value.trim())joinCode(code.value.trim().toUpperCase());};
  $('[data-rm-add-bot]').onclick=()=>client.send({type:'addBot',difficulty:$('[data-rm-difficulty]').value});
  $('[data-rm-ready]').onclick=()=>client.send(room?.hostId===client.id?{type:'start'}:{type:'ready',on:!room?.players.find(p=>p.id===client.id)?.ready});
  for(const button of root.querySelectorAll('[data-rm-track]'))button.onclick=()=>{client.send({type:'pickTrack',trackId:Number(button.dataset.rmTrack)});closeTrackPicker(true);};
  for(const mode of ['items','speed'])$(`[data-rm-mode="${mode}"]`).onclick=()=>client.send({type:'pickMode',mode});
- $('[data-rm-copy]').onclick=async()=>{try{await navigator.clipboard.writeText(invitationURL(room.code));copied=true;paint();}catch{error='COPY_FAILED';paint();}};
- function leave(){clearTimeout(transitionTimer);flash.hidden=true;closeTrackPicker();client.leave();room=null;results=null;busy=false;error='';view='lobby';onReturn();paint();}
+ $('[data-rm-copy]').onclick=async()=>{try{await navigator.clipboard.writeText(invitationURL(room.code,location.href,roomPassword,room.locked));copied=true;paint();}catch{error='COPY_FAILED';paint();}};
+ function leave(){clearTimeout(transitionTimer);flash.hidden=true;closeTrackPicker();finishJoin({ok:false,code:'CANCELLED'});client.leave();roomPassword='';room=null;results=null;busy=false;error='';view='lobby';onReturn();client.browse?.();paint();}
  $('[data-rm-leave]').onclick=leave;$('[data-rm-home]').onclick=()=>{setMusicPhase('off');client.leave();};
  function returnToLobby(){results=null;view='lobby';onReturn();paint();}
  $('[data-rm-return]').onclick=returnToLobby;
  $('[data-rm-rematch]').onclick=()=>{returnToLobby();if(room?.hostId!==client.id)client.send({type:'ready',on:true});};
- const unsubs=[client.on('welcome',()=>{busy=false;error='';}),client.on('room',m=>{room=m;busy=false;paint();}),client.on('connection',m=>{connection=m.connected;paint();}),client.on('error',m=>{error=m.code;busy=false;if(m.code==='NO_ROOM'){room=null;view='lobby';onReturn();}paint();}),client.on('results',m=>{results=m.results;view='results';paint();}),onLangChange(paint)];
- paint();if(roomCode)join(roomCode);
+ const unsubs=[client.on('welcome',()=>{busy=false;error='';}),client.on('room',m=>{room=m;busy=false;finishJoin({ok:true});if(globalThis.location?.href){const url=new URL(location.href);if(url.searchParams.has('pw')){url.searchParams.delete('pw');globalThis.history?.replaceState(globalThis.history.state,'',url.href);}}browser.close();paint();}),client.on('connection',m=>{connection=m.connected;if(!room)browser.setStatus(connection?'online':'offline');paint();}),client.on('error',m=>{error=m.code;busy=false;finishJoin({ok:false,code:m.code});if(m.code==='NO_ROOM'){room=null;view='lobby';onReturn();}paint();}),client.on('results',m=>{results=m.results;view='results';paint();}),client.on('rooms',m=>{browserRows={rows:m.rooms,online:m.online};browser.update(browserRows);browser.setStatus('online');}),onLangChange(()=>{browser.refreshLabels?.();paint();})];
+ paint();browser.setStatus('connecting');if(roomCode)joinCode(roomCode.toUpperCase(),password);else client.browse?.();
  return {
   get room(){return room;},get view(){return view;},
   racing(){
@@ -141,6 +168,6 @@ export function mountRoomUI({client,roomCode='',onReturn=()=>{},playSound=()=>{}
   },
   update(players,states,length){lastRanks=standings(players,states,length);paintRanks();},
   fail(){error='LOAD_FAILED';view='lobby';paint();},
-  destroy(){setMusicPhase('off');clearTimeout(transitionTimer);document.removeEventListener('pointerdown',outsideTrackPicker);document.removeEventListener('keydown',escapeTrackPicker);trackDetails.ontoggle=null;unsubs.forEach(fn=>fn());globalThis.window?.removeEventListener('resize',resizeGarage);garage?.dispose();carLoader?.dispose();root.remove();},
+  destroy(){finishJoin({ok:false,code:'CANCELLED'});roomPassword='';browser.destroy();setMusicPhase('off');clearTimeout(transitionTimer);document.removeEventListener('pointerdown',outsideTrackPicker);document.removeEventListener('keydown',escapeTrackPicker);trackDetails.ontoggle=null;unsubs.forEach(fn=>fn());globalThis.window?.removeEventListener('resize',resizeGarage);garage?.dispose();carLoader?.dispose();root.remove();},
  };
 }

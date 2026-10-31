@@ -11,3 +11,17 @@
 @media(prefers-reduced-motion:reduce){.rm-root button{transition:none}}
 
 .rm-bots{margin:0 0 18px}.rm-bots label{color:#aab7bd}.rm-bots select{background:#0b0f14;color:#f4eee1;border:1px solid #ffffff33;border-radius:6px;padding:10px;font:inherit;min-height:44px}.rm-players button[data-rm-remove-bot]{padding:4px 12px;min-width:40px;min-height:40px}
+
+/* 浏览页沿用展厅的深色玻璃与金色灯带，昵称在所有房间操作之前填写。 */
+.rm-browser-page{position:fixed;inset:0;z-index:42;overflow:auto;padding:clamp(18px,5vw,72px) 20px;background:radial-gradient(ellipse at 50% 0,#3d423348,transparent 65%),linear-gradient(145deg,#141d23,#080e13);box-sizing:border-box}
+.rm-browser-shell{width:min(850px,100%);margin:auto}.rm-browser-masthead{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:28px}.rm-browser-masthead a{font-size:13px}
+.rm-browser-page .rm-form{grid-template-columns:1fr minmax(110px,.5fr) auto;align-items:end;margin-bottom:22px;gap:14px}.rm-browser-page .rm-form .rm-actions{grid-column:auto}.rm-browser-page .rm-form label{font-size:12px}.rm-browser-page .rm-form input{font-size:15px}.rm-browser-page .rm-status{margin:12px 0}
+.rm-browser-shell .rb-root{height:auto;min-height:300px;max-height:calc(100dvh - 260px)}
+/* 弹框挂载在 body，显式传递主题变量，避免继承丢失。 */
+.rb-modal-backdrop{--rb-ink:#f1eee7;--rb-dim:#9eabb4;--rb-gold:#dbc394;--rb-line:#d1deea24;--rb-accent-from:#e1c692;--rb-accent-to:#b99a61;color:var(--rb-ink);font:14px/1.5 'Helvetica Neue','PingFang SC',sans-serif;z-index:200}
+.rb-modal-backdrop,.rb-modal-backdrop *{box-sizing:border-box}.rb-modal-backdrop{overflow:auto}.rb-modal{margin:auto;max-height:calc(100dvh - 40px);overflow:auto}
+.rm-browser-shell .rb-root{--rb-accent-from:#e1c692;--rb-accent-to:#b99a61}.rm-browser-shell .rb-btn--primary,.rb-modal .rb-btn--primary{color:#161c20}.rm-browser-shell .rb-btn,.rb-modal .rb-btn,.rb-modal .rb-segment__btn{min-height:44px}.rm-browser-shell .rb-btn--primary{background:linear-gradient(135deg,#e1c692,#b99a61);border-color:transparent}.rm-browser-shell .rb-btn:hover:enabled{border-color:#dbc394;background:#dbc39422}.rm-browser-shell :focus-visible{outline-color:#dbc394}.rm-browser-shell .rb-header__title{font-size:25px;letter-spacing:.08em}.rb-modal .rb-pin-box{box-sizing:border-box}.rb-modal-backdrop [hidden]{display:none!important}
+@media(max-width:600px){.rm-browser-page{padding:24px 14px}.rm-browser-masthead{margin-bottom:20px}.rm-browser-page .rm-form{grid-template-columns:1fr 1fr}.rm-browser-page .rm-form .rm-actions{grid-column:1/-1}.rm-browser-page .rm-form .rm-actions button{width:100%}.rm-browser-shell .rb-root{max-height:none}.rm-browser-shell .rb-header__title{font-size:20px}.rb-modal-backdrop{padding:14px}.rb-modal{max-height:calc(100dvh - 28px)}}
+
+.grg-heading{max-width:calc(100% - 430px)}.grg-heading h2{overflow-wrap:anywhere}
+@media(max-width:699px){.grg-heading{max-width:calc(100% - 46px)}.grg-heading h2{font-size:24px}}

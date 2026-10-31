@@ -19,7 +19,7 @@ export function mountRoomRace({engine,params,setup,clear,simulate,render,getStat
  function clearEmotes(){for(const emote of emotes.values())emote.dispose();emotes.clear();}
  function removeRemotes(){clearItems();bots.clear();clearEmotes();for(const remote of remotes.values())remote.dispose();remotes.clear();buffers.clear();rivals=[];}
  function reset(){active=false;round=null;++version;removeRemotes();if(!loading)clear();}
- ui??=mountRoomUI({client,roomCode:params.get('room')||'',onReturn:reset,playSound,setMusicPhase});
+ ui??=mountRoomUI({client,roomCode:params.get('room')||'',password:params.get('pw')||'',onReturn:reset,playSound,setMusicPhase});
  const unsubs=[
   client.on('peer',message=>{if(round&&round.grid.some(p=>p.id===message.id))buffers.set(message.id,pushState(buffers.get(message.id)||[],{...message,simT:round.startAt+message.step*DT*1000}));}),
   client.on('connection',({connected})=>{if(!connected)for(const id of [client.id,...players.filter(p=>p.bot&&p.ownerId===client.id).map(p=>p.id)])invalidateTarget(id);}),

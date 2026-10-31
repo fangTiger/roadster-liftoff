@@ -18,7 +18,7 @@ try{
  if(bots)await contexts[0].addInitScript(()=>{const original=Math.random,values=[.6,.95,.46,.01];let draw=0;Math.random=function(){return new Error().stack?.includes('rollItem')?values[draw++%values.length]:original();};});
  const [a,b]=await Promise.all(contexts.map(c=>c.newPage()));pages=[a,b].filter(Boolean);console.log('浏览器已启动');
  for(const [i,page] of pages.entries()){page.on('websocket',socket=>socket.on('framesent',({payload})=>{let m;try{m=JSON.parse(String(payload));}catch{return;}if(m.type==='item'&&m.botId&&['mine','missile'].includes(m.kind))used.add(m.kind);if(m.type==='botState'&&m.shield)used.add('shield');if(m.type==='botState'&&m.boost&&boxS.some(s=>m.s>=s&&m.s<s+16))used.add('nitro');}));page.on('pageerror',error=>errors.push(`页面 ${i+1}：${error.message}`));page.on('request',req=>{if(new URL(req.url()).pathname==='/api/verify')errors.push('房间赛不应调用 /api/verify');});page.setDefaultTimeout(60000);}
- await a.goto(url.href);await a.locator('[data-rm-name]').fill('机器人 A');await a.locator('[data-rm-create]').click();
+ await a.goto(url.href);await a.locator('[data-rm-name]').fill('机器人 A');await a.locator('.rb-header').getByRole('button',{name:'建房',exact:true}).click();await a.getByRole('button',{name:'确认创建',exact:true}).click();
  await a.locator('[data-rm-room-code]').waitFor({state:'visible'});const code=await a.locator('[data-rm-room-code]').innerText();console.log(`已建房 ${code}`);assert.match(code,/^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$/);
  if(bots){
   await a.locator('[data-rm-mode="items"]').click();assert.equal(await a.locator('[data-rm-mode="items"]').getAttribute('aria-pressed'),'true');

@@ -3,7 +3,7 @@
  * 负责：创建参数校验、房间摘要、列表排序、加入验证（含限流）、邀请 URL 生成。
  */
 
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { scrypt as _scrypt } from 'node:crypto';
 
@@ -209,7 +209,19 @@ export function createDirectory({ now = Date.now, hash = defaultHash, verify = d
    * @param {{ password?: string, clientKey?: string }} opts
    * @returns {Promise<{ ok: boolean, code?: string }>}
    */
-  async function checkJoin(room, { password, clientKey = '' } = {}) {
+  const checks = new Map();
+
+  // 同房同 IP 的校验排队，计数完成后才允许下一次尝试进入 scrypt。
+  async function checkJoin(room, opts = {}) {
+    const key = _rateLimitKey(room.code, opts.clientKey ?? '');
+    const previous = checks.get(key) ?? Promise.resolve();
+    const pending = previous.catch(() => {}).then(() => checkJoinSerial(room, opts));
+    checks.set(key, pending);
+    try { return await pending; }
+    finally { if (checks.get(key) === pending) checks.delete(key); }
+  }
+
+  async function checkJoinSerial(room, { password, clientKey = '' } = {}) {
     const playerCount = (room.players ?? []).length;
 
     // 阶段检查
@@ -237,6 +249,9 @@ export function createDirectory({ now = Date.now, hash = defaultHash, verify = d
       return { ok: false, code: 'LOCKED_OUT' };
     }
 
+    // 锁定到期后开启新一轮计数。
+    if (entry.lockedUntil) { entry.failures = 0; entry.lockedUntil = 0; }
+
     // 未提供密码
     if (!password) {
       return { ok: false, code: 'PASSWORD_REQUIRED' };
@@ -254,7 +269,7 @@ export function createDirectory({ now = Date.now, hash = defaultHash, verify = d
     // 失败：累积计数
     entry.failures += 1;
     if (entry.failures >= MAX_FAILURES) {
-      entry.lockedUntil = ts + LOCKOUT_MS;
+      entry.lockedUntil = now() + LOCKOUT_MS;
       return { ok: false, code: 'LOCKED_OUT' };
     }
 
