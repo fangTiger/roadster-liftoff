@@ -325,3 +325,11 @@ test('diffLayouts: 全部 6 个席位同时移除', () => {
   assert.deepEqual(diff.removed.sort(), [0,1,2,3,4,5]);
   assert.deepEqual(diff.added, []);
 });
+
+test('房主展台名牌显示房主，准备状态只用于其他玩家，断线仍标记断线',()=>{
+ const base={name:'甲',isHost:true,connected:true,ready:false};
+ for(const ready of [true,false])assert.equal(extractPlateData({...base,ready},key=>key).status,'room.host');
+ assert.equal(extractPlateData({...base,isHost:false,ready:true},key=>key).status,'room.readyState');
+ assert.equal(extractPlateData({...base,isHost:false},key=>key).status,'room.waiting');
+ assert.equal(extractPlateData({...base,connected:false},key=>key).status,'room.disconnected');
+});

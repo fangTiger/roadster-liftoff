@@ -99,6 +99,7 @@ export function extractPlateData(seatData, t) {
     isBot: seatData.bot,
     difficulty: seatData.difficulty,
     ready: seatData.ready,
+    status: tk(!seatData.connected?'room.disconnected':seatData.isHost?'room.host':seatData.ready?'room.readyState':'room.waiting'),
     connected: seatData.connected,
     color: seatData.color,
   };
@@ -247,8 +248,11 @@ export function createGarage({container,loadCar,t=k=>k,onAddBot=()=>{},onRemoveB
  const wallLoader=new THREE.TextureLoader();
  function loadWall(id){
   const generation=++wallGeneration;
-  wallLoader.load(trackPreview(id).image,texture=>{
+  const preview=trackPreview(id);
+  if(!preview){wallBack.visible=wallFront.visible=false;return;}
+  wallLoader.load(preview.image,texture=>{
    if(disposed||generation!==wallGeneration){texture.dispose();return;}
+   wallBack.visible=wallFront.visible=true;
    configureScreenTexture(texture,renderer.capabilities.getMaxAnisotropy());
    const previous=wallBack.material.uniforms.map.value,current=wallFront.material.uniforms.map.value;
    wallBack.material.uniforms.map.value=current;
@@ -292,7 +296,7 @@ export function createGarage({container,loadCar,t=k=>k,onAddBot=()=>{},onRemoveB
    else {
     const name=data.bot?t('room.botName',{difficulty:t('race.'+data.difficulty)}):data.name;
     const label=data.bot?t('room.bot'):name;
-    plate.innerHTML=`<div class="grg-plate__header"><span class="grg-plate__dot"></span><span class="grg-plate__name" title="${escapeHtml(name)}">${escapeHtml(label)}</span>${data.isHost?`<span class="grg-plate__crown" title="${escapeHtml(t('room.host'))}">♛</span>`:''}${data.isSelf?`<span class="grg-plate__you">${escapeHtml(t('room.you'))}</span>`:''}${canManage&&data.bot?`<button class="grg-plate__remove" aria-label="${escapeHtml(t('room.removeBot',{name}))}"${disabled}>×</button>`:''}</div><div class="grg-plate__footer">${data.bot?`<span>${escapeHtml(t('race.'+data.difficulty))}</span>`:''}<span class="grg-plate__status">${escapeHtml(t(!data.connected?'room.disconnected':data.ready?'room.readyState':'room.waiting'))}</span></div>`;
+    plate.innerHTML=`<div class="grg-plate__header"><span class="grg-plate__dot"></span><span class="grg-plate__name" title="${escapeHtml(name)}">${escapeHtml(label)}</span>${data.isHost?`<span class="grg-plate__crown" title="${escapeHtml(t('room.host'))}">♛</span>`:''}${data.isSelf?`<span class="grg-plate__you">${escapeHtml(t('room.you'))}</span>`:''}${canManage&&data.bot?`<button class="grg-plate__remove" aria-label="${escapeHtml(t('room.removeBot',{name}))}"${disabled}>×</button>`:''}</div><div class="grg-plate__footer">${data.bot?`<span>${escapeHtml(t('race.'+data.difficulty))}</span>`:''}<span class="grg-plate__status">${escapeHtml(extractPlateData(data,t).status)}</span></div>`;
    }
    plate.querySelector('.grg-plate__add')?.addEventListener('click',onAddBot);
    plate.querySelector('.grg-plate__remove')?.addEventListener('click',()=>onRemoveBot(data.id));
@@ -349,7 +353,7 @@ export function createGarage({container,loadCar,t=k=>k,onAddBot=()=>{},onRemoveB
    layout=buildSeatLayout(room,selfId);selfSeat=Math.max(0,layout.findIndex(p=>p?.isSelf));
    for(let i=0;i<6;i++){const p=seatPosition(i,selfSeat);seats[i].root.position.set(p.x,0,p.z);}
    loader.update(layout);
-   if((room.trackId||1)!==trackId){trackId=room.trackId||1;mapAge=0;loadWall(trackId);}
+   if(room.trackId!==trackId){trackId=room.trackId;mapAge=0;loadWall(trackId);}
    if(room.phase==='lobby')transitionAge=null;
    for(let i=0;i<6;i++)seats[i].setData(layout[i]);paintPlates();positionPlates();resume();
   },

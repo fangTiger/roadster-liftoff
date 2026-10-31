@@ -34,3 +34,7 @@ test('所有座位连同车身与展台后沿都在实体背景墙前，满员�
  assert.ok(Number.isFinite(GARAGE_WALL_DEPTH));
  for(let self=0;self<6;self++)for(let i=0;i<6;i++)assert.ok(seatPosition(i,self).z-4>GARAGE_WALL_DEPTH);
 });
+
+test('地图为空或未知时不返回默认草甸预览',()=>{
+ for(const id of [null,undefined,0,4,'1'])assert.equal(trackPreview(id),null);
+});
