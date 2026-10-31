@@ -20,7 +20,7 @@ test('桌面主车实际包围盒投影高度达到视口的三成',()=>{
 });
 test('准备反馈有两次灯闪和一次短尾焰，结束回归静态',()=>{
  assert.equal(readyEnvelope(.04).headlights,5);assert.equal(readyEnvelope(.15).headlights,.2);assert.equal(readyEnvelope(.25).headlights,5);
- assert.ok(readyEnvelope(.25).boost);assert.equal(readyEnvelope(1).boost,false);assert.equal(readyEnvelope(1).headlights,1.2);
+ assert.equal(readyEnvelope(.25).boost,false);assert.ok(readyEnvelope(.9).boost);assert.equal(readyEnvelope(2.4).boost,false);assert.equal(readyEnvelope(2.4).headlights,1.2);
 });
 test('入场和开赛镜头到达边界，减少运动立即到位',()=>{
  assert.equal(cameraProgress(0,1.2,false),0);assert.equal(cameraProgress(1.2,1.2,false),1);assert.equal(cameraProgress(0,1.2,true),1);

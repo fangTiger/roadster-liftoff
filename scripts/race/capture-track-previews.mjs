@@ -8,10 +8,10 @@ import { autopilot } from '../../src/race/sim/autopilot.js';
 import { buildTrack } from '../../src/race/track/build.js';
 const out=new URL('../../public/assets/race/previews/',import.meta.url);
 await mkdir(out,{recursive:true});
-const browser=await chromium.launch({channel:'chrome',headless:true,args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+const browser=await chromium.launch({channel:'chrome',headless:true,args:['--use-angle=metal','--enable-gpu','--ignore-gpu-blocklist']});
 try {
  for(const {def,difficulty} of TRACKS){
-  const page=await browser.newPage({viewport:{width:1280,height:720},deviceScaleFactor:1});
+  const page=await browser.newPage({viewport:{width:1920,height:1080},deviceScaleFactor:1});
   page.setDefaultTimeout(120000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto(`${process.env.RACE_URL||'http://localhost:8932'}/?race&capture&map=${difficulty}`);
   await page.waitForFunction(()=>!!window.__engine&&!!window.__race,null,{timeout:120000});
@@ -27,18 +27,18 @@ try {
   console.log('地图机位',difficulty,'模拟步数',steps);
   await page.evaluate(n=>window.__race.auto(n),steps);
   const point=track.at(s),ahead=track.at(s+40);
-  // 稍高的起跑直道/弯道视角，仍使用游戏的光照、天空和赛道模型。
+  // 贴近驾驶视线，保留天空与远景，避免俯拍画面放大成背景海报。
   await page.evaluate(({p,a})=>{
    const e=window.__engine;e.scene.updateMatrixWorld(true);
-   e.camera.position.set(p.x-p.tx*30+p.tz*10,p.y+15,p.z-p.tz*30-p.tx*10);
-   e.camera.lookAt(a.x,a.y+1,a.z);e.camera.fov=54;e.camera.updateProjectionMatrix();e.render();
+   e.camera.position.set(p.x-p.tx*30+p.tz*7,p.y+5,p.z-p.tz*30-p.tx*7);
+   e.camera.lookAt(a.x,a.y+2,a.z);e.camera.fov=60;e.camera.updateProjectionMatrix();e.render();
    document.querySelectorAll('body > :not(canvas)').forEach(el=>el.style.visibility='hidden');
   },{p:point,a:ahead});
   await page.waitForTimeout(200);
   const png=await page.screenshot();
   // Pillow 仅做原始截图的格式压缩，不生成或修饰游戏画面。
   const target=new URL(`${difficulty}.webp`,out).pathname;
-  execFileSync('python3',['-c','import sys,io; from PIL import Image; im=Image.open(io.BytesIO(sys.stdin.buffer.read())).convert("RGB"); q=86\nwhile True:\n b=io.BytesIO(); im.save(b,"WEBP",quality=q,method=6)\n if len(b.getvalue())<=200000 or q<=30: break\n q-=4\nassert len(b.getvalue())<=200000\nopen(sys.argv[1],"wb").write(b.getvalue()); print(len(b.getvalue()))',target],{input:png,stdio:['pipe','inherit','inherit']});
+  execFileSync('python3',['-c','import sys,io; from PIL import Image; im=Image.open(io.BytesIO(sys.stdin.buffer.read())).convert("RGB"); q=90\nassert im.size==(1920,1080)\nwhile True:\n b=io.BytesIO(); im.save(b,"WEBP",quality=q,method=6)\n if len(b.getvalue())<=350000 or q<=30: break\n q-=4\nassert len(b.getvalue())<=350000\nopen(sys.argv[1],"wb").write(b.getvalue()); print(len(b.getvalue()))',target],{input:png,stdio:['pipe','inherit','inherit']});
   if(errors.length)throw new Error(errors.join('\n'));console.log('已生成地图实景',target);await page.close();
  }
 } finally {await browser.close();}

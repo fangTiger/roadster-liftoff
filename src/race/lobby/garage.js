@@ -3,7 +3,9 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { createSeatLoader, disposeGarageObject, disposeGarageCar } from './garage-cars.js';
 import { createBoostFx } from '../scene/boostfx.js';
-import { readyEnvelope, cameraProgress } from './garage-motion.js';
+import { readyEnvelope, cameraProgress, frontThreeQuarterYaw, readyTurn } from './garage-motion.js';
+import { measureCarCorners, projectCarBounds, placePlate } from './garage-layout.js';
+import { createScreenGeometry, createScreenMaterial, configureScreenTexture } from './garage-screen.js';
 import { trackPreview } from './track-previews.js';
 export const GARAGE_WALL_DEPTH = -41;
 const SEAT_COUNT = 6;
@@ -16,7 +18,7 @@ export function seatPosition(index, selfSeat = null) {
  if(selfSeat===null){const x=(index-2.5)*5.65;return {x,z:27-Math.sqrt(729-x*x)-6,angle:0};}
  if(index===selfSeat)return {x:0,z:0,angle:0};
  const rank=index<selfSeat?index:index-1;
- const x=[-6.8,6.8,-10.5,10.5,-7.7][rank],z=[-8,-8,-16,-16,-25][rank];
+ const x=[-6.8,6.8,-10.5,10.5,-7.7][rank],z=[-8,-8,-16,-16,-34][rank];
  return {x,z,angle:-Math.sign(x)*.12};
 }
 
@@ -147,14 +149,16 @@ class SeatObject {
   if (this.car) this.car.visible = true;
  }
  attach(car, data) {
-  this.car = car; this.age = 0; this.rotation = -.55;
+  this.car = car; this.age = 0;
+  // 在添加尾焰前缓存车身局部包围盒，供每帧投影与名牌避让。
+  this.carBounds=measureCarCorners(car);
   this.lamps=[];const materials=new Set();
   car.traverse(o=>{for(const m of [o.material].flat().filter(Boolean)){materials.add(m);if(/headlights|Glass_Clear/.test(m.name)&&m.emissive)this.lamps.push(m);}});
   for(const material of materials)if(material.color&&!data?.isSelf)material.color.multiplyScalar(.68);
   this.fx=createBoostFx(this.fxScene,{body:car});
   // 大厅仅保留火焰；六席各一盏动态点光会让所有车漆像素额外计算六次。
   for(const light of car.children.filter(o=>o.isPointLight)){light.removeFromParent();light.dispose();}
-  car.position.set(0,PODIUM_HEIGHT,0); car.rotation.y = this.rotation; this.root.add(car);
+  car.position.set(0,PODIUM_HEIGHT,0);this.root.add(car);
   this.setData(data,false);
  }
  detach(car) {
@@ -163,15 +167,14 @@ class SeatObject {
   else this.outgoing.push({car,time:0});
   this.setData(null,false);
  }
- update(dt, motion) {
+ update(dt, motion, camera) {
   this.age += dt;
   if (this.car) {
-   if (motion) this.rotation += dt * Math.PI / 150;
-   this.car.rotation.y = this.rotation;
+   this.feedback=(this.feedback??3)+dt;
+   this.car.rotation.y=frontThreeQuarterYaw(this.root.position.x,this.root.position.z,camera.position)+readyTurn(this.feedback,!motion);
    const entering = motion ? Math.max(0,1-this.age/.65) : 0;
    this.car.position.y = PODIUM_HEIGHT + entering ** 3 * 2;
    this.car.scale.setScalar((this.hero?2.1:1.15)*(1-entering**3*.18));
-   this.feedback=(this.feedback??2)+dt;
    const feedback=readyEnvelope(this.feedback);
    for(const lamp of this.lamps)lamp.emissiveIntensity=feedback.headlights;
    this.fx?.update(dt,this.age,feedback.boost);
@@ -204,12 +207,7 @@ function buildEnvironment(scene, renderer) {
  }
  const floor = new THREE.Mesh(new THREE.PlaneGeometry(180,160),new THREE.MeshStandardMaterial({color:'#101820',roughness:.26,metalness:.6,envMapIntensity:.16}));
  floor.rotation.x = -Math.PI/2; floor.position.y = -.015; scene.add(floor);
- // 建筑墙的竖向渐变与立柱，留出真正的后景距离。
- const wallCanvas = document.createElement('canvas');wallCanvas.width=8;wallCanvas.height=256;
- const ctx=wallCanvas.getContext('2d'),gradient=ctx.createLinearGradient(0,0,0,256);
- gradient.addColorStop(0,'#080d15');gradient.addColorStop(.64,'#1c3446');gradient.addColorStop(1,'#0d1721');ctx.fillStyle=gradient;ctx.fillRect(0,0,8,256);
- const wallTexture=new THREE.CanvasTexture(wallCanvas);wallTexture.colorSpace=THREE.SRGBColorSpace;
- const wall=new THREE.Mesh(new THREE.PlaneGeometry(110,30),new THREE.MeshBasicMaterial({map:wallTexture}));wall.position.set(0,13,GARAGE_WALL_DEPTH-2);scene.add(wall);
+ // 保留建筑立柱，后景让地面雾融入背景色，不再设置与地面硬相交的实体墙。
  const metal=new THREE.MeshStandardMaterial({color:'#25333e',roughness:.38,metalness:.7});
  const strip=new THREE.MeshBasicMaterial({color:'#efdab8'});
  for (const z of [-12,-19,-28]) {
@@ -221,15 +219,11 @@ function buildEnvironment(scene, renderer) {
   const beam=new THREE.Mesh(new THREE.BoxGeometry(44,.3,.4),metal);beam.position.y=13;arch.add(beam);
   const lamp=new THREE.Mesh(new THREE.BoxGeometry(43,.035,.12),strip);lamp.position.set(0,12.76,.2);arch.add(lamp);
  }
- for (const x of [-18,-12,-6,0,6,12,18]) {
-  const rib=new THREE.Mesh(new THREE.BoxGeometry(.05,18,.12),metal);rib.position.set(x,8,GARAGE_WALL_DEPTH+.4);scene.add(rib);
- }
  // 地面嵌缝和后沿灯带让透视方向可读，亮度保持克制。
  const seams=new THREE.MeshBasicMaterial({color:'#26323c'});
  for (let x=-40;x<=40;x+=6) {
   const seam=new THREE.Mesh(new THREE.PlaneGeometry(.018,80),seams);seam.rotation.x=-Math.PI/2;seam.position.set(x,-.008,0);scene.add(seam);
  }
- const horizon=new THREE.Mesh(new THREE.BoxGeometry(44,.035,.04),strip);horizon.position.set(0,.16,-17);scene.add(horizon);
  return environment;
 }
 
@@ -246,21 +240,20 @@ export function createGarage({container,loadCar,t=k=>k,onAddBot=()=>{},onRemoveB
  const spot=new THREE.SpotLight('#fff0d8',55,45,.46,.8,1.2);spot.position.set(0,14,4);spot.target.position.set(0,0,0);scene.add(spot,spot.target);
  const beam=new THREE.Mesh(new THREE.ConeGeometry(5.8,15,32,1,true),new THREE.ShaderMaterial({transparent:true,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,vertexShader:'varying vec2 vUv;varying vec3 vNormal,vView;void main(){vUv=uv;vec4 p=modelViewMatrix*vec4(position,1.);vNormal=normalMatrix*normal;vView=-p.xyz;gl_Position=projectionMatrix*p;}',fragmentShader:'varying vec2 vUv;varying vec3 vNormal,vView;void main(){float edge=pow(abs(dot(normalize(vNormal),normalize(vView))),3.);float fade=sin(vUv.y*3.14159);gl_FragColor=vec4(.55,.8,1.,edge*fade*.035);}'}));beam.position.set(0,7.5,0);scene.add(beam);
  const heroPool=new THREE.Mesh(new THREE.PlaneGeometry(23,23),new THREE.MeshBasicMaterial({map:poolTexture,color:'#8de9ff',transparent:true,opacity:.38,depthWrite:false,blending:THREE.AdditiveBlending}));heroPool.rotation.x=-Math.PI/2;heroPool.position.y=.008;scene.add(heroPool);
- const wallBack=new THREE.Mesh(new THREE.PlaneGeometry(65,36.56),new THREE.MeshBasicMaterial({color:'#071522',transparent:true,opacity:1}));wallBack.position.set(0,16,GARAGE_WALL_DEPTH);scene.add(wallBack);
- const wallFront=new THREE.Mesh(wallBack.geometry,new THREE.MeshBasicMaterial({color:'#b9d1e0',transparent:true,opacity:0}));wallFront.position.copy(wallBack.position);wallFront.position.z+=.02;scene.add(wallFront);
- const vignetteCanvas=document.createElement('canvas');vignetteCanvas.width=256;vignetteCanvas.height=144;
- const vc=vignetteCanvas.getContext('2d'),vg=vc.createRadialGradient(128,72,10,128,72,148);vg.addColorStop(0,'#06101a18');vg.addColorStop(.65,'#06101a65');vg.addColorStop(1,'#06101af5');vc.fillStyle=vg;vc.fillRect(0,0,256,144);
- const vignette=new THREE.Mesh(wallBack.geometry,new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(vignetteCanvas),transparent:true,depthWrite:false}));vignette.position.copy(wallFront.position);vignette.position.z+=.03;scene.add(vignette);
+ const wallBack=new THREE.Mesh(createScreenGeometry(),createScreenMaterial());wallBack.position.set(0,7.5,GARAGE_WALL_DEPTH);scene.add(wallBack);
+ const wallFront=new THREE.Mesh(wallBack.geometry,createScreenMaterial());wallFront.position.copy(wallBack.position);wallFront.position.z+=.02;scene.add(wallFront);
+ const screenGlow=new THREE.Mesh(new THREE.PlaneGeometry(76,28),new THREE.MeshBasicMaterial({map:poolTexture,color:'#79c9e8',transparent:true,opacity:.11,depthWrite:false,blending:THREE.AdditiveBlending}));screenGlow.position.set(0,16,GARAGE_WALL_DEPTH-.5);scene.add(screenGlow);
+ const floorGlow=new THREE.Mesh(new THREE.PlaneGeometry(70,30),screenGlow.material);floorGlow.rotation.x=-Math.PI/2;floorGlow.position.set(0,.004,GARAGE_WALL_DEPTH+8);scene.add(floorGlow);
  const wallLoader=new THREE.TextureLoader();
  function loadWall(id){
   const generation=++wallGeneration;
   wallLoader.load(trackPreview(id).image,texture=>{
    if(disposed||generation!==wallGeneration){texture.dispose();return;}
-   texture.colorSpace=THREE.SRGBColorSpace;
-   const previous=wallBack.material.map,current=wallFront.material.map;
-   wallBack.material.map=current;wallBack.material.color.set(current?'#b9d1e0':'#071522');wallBack.material.needsUpdate=true;
+   configureScreenTexture(texture,renderer.capabilities.getMaxAnisotropy());
+   const previous=wallBack.material.uniforms.map.value,current=wallFront.material.uniforms.map.value;
+   wallBack.material.uniforms.map.value=current;
    if(previous&&previous!==current)previous.dispose();
-   wallFront.material.color.set('#b9d1e0');wallFront.material.map=texture;wallFront.material.needsUpdate=true;wallFade=reducedMotion()?1:0;
+   wallFront.material.uniforms.map.value=texture;wallFade=reducedMotion()?1:0;
   },undefined,()=>{if(!disposed)console.warn('地图实景加载失败');});
  }
  const geometry={
@@ -276,12 +269,19 @@ export function createGarage({container,loadCar,t=k=>k,onAddBot=()=>{},onRemoveB
  let layout=Array(6).fill(null),room=null,selfId=null,connected=false,disposed=false,raf=0,lastTime=0,visible=true,width=1,height=1;
  const loader=createSeatLoader(loadCar,(car,i,data)=>seats[i].attach(car,data),(car,i)=>seats[i].detach(car),(error,i)=>{plates[i].dataset.loadError='true';console.error('展厅车辆加载失败',error);});
  function positionPlates() {
-  camera.updateMatrixWorld();
-  for(let i=0;i<6;i++) {
-   const {x,z}=seatPosition(i,selfSeat);projected.set(x,-.18,z+(i===selfSeat?3.9:.8)).project(camera);
-   plates[i].style.left=`${Math.max(70,Math.min(width-70,(projected.x*.5+.5)*width))}px`;plates[i].style.top=`${(-projected.y*.5+.5)*height+8}px`;
+  camera.updateMatrixWorld();scene.updateMatrixWorld(true);
+  const boxes=seats.map(seat=>seat.car?projectCarBounds(seat.carBounds,seat.car.matrixWorld,camera,width,height):null);
+  stage.style.setProperty('--grg-plate-width','112px');
+  const sizes=plates.map(plate=>({width:plate.offsetWidth,height:plate.offsetHeight}));
+  const anchors=seats.map((_,i)=>{
+   const {x,z}=seatPosition(i,selfSeat);projected.set(x,-.18,z+(i===selfSeat?5.1:3.4)).project(camera);
+   return {i,x:(projected.x*.5+.5)*width,y:Math.min(height-sizes[i].height-12,(-projected.y*.5+.5)*height+10),...sizes[i]};
+  }).sort((a,b)=>a.y-b.y);
+  const occupied=boxes.filter(Boolean);
+  for(const anchor of anchors){
+   const i=anchor.i,rect=placePlate(anchor,occupied,width,height);occupied.push(rect);
+   plates[i].style.left=`${rect.left+sizes[i].width/2}px`;plates[i].style.top=`${rect.top}px`;
   }
-  stage.style.setProperty('--grg-plate-width','128px');
  }
  function paintPlates() {
   const isHost=room?.hostId===selfId,canManage=isHost&&room?.phase==='lobby',disabled=connected?'':' disabled';
@@ -304,11 +304,11 @@ export function createGarage({container,loadCar,t=k=>k,onAddBot=()=>{},onRemoveB
  if(captureEnabled)renderer.domElement.garageProbe={
   reset(){captureFrames.length=0;captureLast=0;},
   read(){
-   const box=new THREE.Box3();seats[selfSeat].car?.traverseVisible(o=>{if(o.isMesh){o.geometry.computeBoundingBox();box.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld));}});
-   const ys=[];for(const x of [box.min.x,box.max.x])for(const y of [box.min.y,box.max.y])for(const z of [box.min.z,box.max.z])ys.push(new THREE.Vector3(x,y,z).project(camera).y);
+   const carBoxes=seats.map((seat,i)=>({seat:i,...(seat.car?projectCarBounds(seat.carBounds,seat.car.matrixWorld,camera,width,height):{})}));
    const mean=captureFrames.reduce((a,b)=>a+b,0)/captureFrames.length;
    const gl=renderer.getContext(),debug=gl.getExtension('WEBGL_debug_renderer_info');
-   return {wallImage:wallFront.material.map?.image?.src,wallOpacity:wallFront.material.opacity,pixelRatio:renderer.getPixelRatio(),fps:1000/mean,meanMs:mean,p95Ms:[...captureFrames].sort((a,b)=>a-b)[Math.floor(captureFrames.length*.95)],frames:captureFrames.length,heroHeight:(Math.max(...ys)-Math.min(...ys))*.5*height,calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,gpu:debug?gl.getParameter(debug.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER)};
+   const texture=wallFront.material.uniforms.map.value;
+   return {wallImage:texture?.image?.src,wallOpacity:wallFade,wallSize:{width:texture?.image?.width,height:texture?.image?.height},anisotropy:texture?.anisotropy,mipmaps:texture?.generateMipmaps,colorSpace:texture?.colorSpace,carBoxes,feedback:seats[selfSeat].feedback,headlights:seats[selfSeat].lamps?.map(lamp=>lamp.emissiveIntensity),pixelRatio:renderer.getPixelRatio(),fps:1000/mean,meanMs:mean,p95Ms:[...captureFrames].sort((a,b)=>a-b)[Math.floor(captureFrames.length*.95)],frames:captureFrames.length,heroHeight:carBoxes[selfSeat].bottom-carBoxes[selfSeat].top,calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,gpu:debug?gl.getParameter(debug.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER)};
   }
  };
  function shouldRun() { return !disposed&&!!room&&(room.phase==='lobby'||room.phase==='countdown'||room.phase==='racing')&&visible&&!document.hidden; }
@@ -321,9 +321,11 @@ export function createGarage({container,loadCar,t=k=>k,onAddBot=()=>{},onRemoveB
   const reduced=reducedMotion(),entry=cameraProgress(entryAge,1.2,reduced),push=(1-cameraProgress(mapAge,1.1,reduced))*.9;
   const rush=transitionAge===null||reduced?0:cameraProgress(transitionAge,.8,false);
   camera.position.set(0,7.2-rush*3+(1-entry)*4,16.4+(1-entry)*10+push-rush*10);
-  camera.lookAt(0,1.9,-1.8+rush*2);camera.updateMatrixWorld();positionPlates();
-  for(const seat of seats)seat.update(dt,!reduced);
-  wallFade=wallFront.material.map?Math.min(1,wallFade+dt*1.5):0;wallFront.material.opacity=wallFade;
+  camera.lookAt(0,1.9,-1.8+rush*2);camera.updateMatrixWorld();
+  for(const seat of seats)seat.update(dt,!reduced,camera);
+  positionPlates();
+  wallFade=wallFront.material.uniforms.map.value?Math.min(1,wallFade+dt*1.5):0;
+  wallFront.material.uniforms.opacity.value=wallFade;wallBack.material.uniforms.opacity.value=wallBack.material.uniforms.map.value?1-wallFade:0;
   renderer.render(scene,camera);raf=requestAnimationFrame(render);
  }
  function resume() { if(shouldRun()&&!raf){lastTime=performance.now();raf=requestAnimationFrame(render);}else if(!shouldRun())stop(); }
@@ -355,7 +357,9 @@ export function createGarage({container,loadCar,t=k=>k,onAddBot=()=>{},onRemoveB
   transition(){transitionStart=performance.now();transitionAge=0;resume();},
   dispose() {
    if(disposed)return;disposed=true;stop();observer.disconnect();intersection.disconnect();document.removeEventListener('visibilitychange',visibility);
-   loader.dispose();for(const seat of seats)seat.dispose();disposeGarageObject(scene);scene.clear();seats.length=0;plates.length=0;environment.dispose();renderer.dispose();renderer.forceContextLoss();viewport.remove();room=null;layout=[];
+   loader.dispose();for(const seat of seats)seat.dispose();
+   for(const texture of new Set([wallBack.material.uniforms.map.value,wallFront.material.uniforms.map.value]))texture?.dispose();
+   disposeGarageObject(scene);scene.clear();seats.length=0;plates.length=0;environment.dispose();renderer.dispose();renderer.forceContextLoss();viewport.remove();room=null;layout=[];
   },
  };
 }
