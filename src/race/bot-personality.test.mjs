@@ -60,7 +60,7 @@ test('简单每圈一次有限小失误、普通很少、困难无故意失误',
 
 test('带反应延迟的高速转向不会在连续弯累积偏差擦墙',async()=>{
  const {runSolo}=await import('../../scripts/race/benchmark-bots.mjs');
- for(const [map,seed] of [[0,29],[1,73]]){const result=runSolo(tracks[map],'hard',{seed});assert.ok(result.finished);assert.equal(result.walls,0,`地图 ${map+1} 种子 ${seed}`);assert.ok(result.maxLateral<4);}
+ for(const [map,seed] of [[0,29],[1,73]]){const result=runSolo(tracks[map],'hard',{seed});assert.ok(result.finished);assert.equal(result.walls,0,`地图 ${map+1} 种子 ${seed}`);assert.ok(result.maxRoadFraction<1);}
 });
 
 test('制动预测和刹车偏置确实改变入弯时机，较晚制动保持更久油门',()=>{
@@ -72,4 +72,9 @@ test('制动预测和刹车偏置确实改变入弯时机，较晚制动保持�
   if((autopilot(snap,track)&2)!==(autopilot(snap,track,{braking:26})&2))lateChanges++;
  }
  assert.ok(biasChanges>0);assert.ok(lateChanges>0);
+});
+
+test('六车混合同场超车不在弯中持续顶墙卡死',async()=>{
+ const {runPack}=await import('../../scripts/race/benchmark-bots.mjs');
+ for(const track of tracks.slice(1))for(const reverse of [false]){const result=runPack(track,{seed:2026,reverse});for(const car of result.cars){assert.ok(car.finished);assert.equal(car.resets,0);assert.ok(car.maxStall<2,`地图 ${track.id} 反转 ${reverse} ${car.id} 低速 ${car.maxStall}`);}}
 });

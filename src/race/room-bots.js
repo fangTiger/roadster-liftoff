@@ -1,5 +1,5 @@
 import { createSession } from './sim/session.js';
-import { createBotDriver } from './bot-driver.js';
+import { createBotDriver,botPerformance } from './bot-driver.js';
 import { gridSpawn } from './grid.js';
 // 与真人上报相同的白名单；本地碰撞与显示也直接读取当前状态。
 export function carState(car,race,ghost=false) {
@@ -8,9 +8,10 @@ export function carState(car,race,ghost=false) {
 export function createRoomBots({players,ownerId,track,laps,contacts,traffic=()=>[],random=Math.random}) {
  const bots=new Map();
  for(const player of players.filter(p=>p.bot&&p.ownerId===ownerId&&p.connected)){
-  const session=createSession(track,{laps,spawn:gridSpawn(track,player.seat),contactId:player.id,contacts:step=>contacts(player.id,step)});
+  const performance=botPerformance(player.difficulty,track);
+  const session=createSession(track,{laps,botPerformance:performance,spawn:gridSpawn(track,player.seat),contactId:player.id,contacts:step=>contacts(player.id,step)});
   const bot={session,step:0,sequence:0,lastSend:-Infinity,lastFinish:-Infinity};
-  bot.driver=createBotDriver(player.difficulty,{random,id:player.id,cars:()=>traffic(player.id,bot.step+1)});
+  bot.driver=createBotDriver(player.difficulty,{random,performance,id:player.id,cars:()=>traffic(player.id,bot.step+1)});
   bots.set(player.id,bot);
  }
  return bots;

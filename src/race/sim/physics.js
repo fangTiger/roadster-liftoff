@@ -39,7 +39,7 @@ function collide(c,a,b,radius,events,type='wall') {
  const scrape=1-T.wallScrape*DT;c.vx*=scrape;c.vz*=scrape;
  if(vn<-.5) events.push({type,impact:-vn});return true;
 }
-export function stepCar(c,bits,{track,hazards,step=0,coins}={}) {
+export function stepCar(c,bits,{track,hazards,step=0,coins,botPerformance:{engine=1,topSpeed=1,grip=1}={}}={}) {
  const events=[],edge=bits&~c.previousBits;c.previousBits=bits;
  // 翻滚只能在空中触发（离地 rollMinHeight 以上），与第一版一致；平地翻滚会让车身插进路面
  if((edge&ROLL)&&c.rollTime<=0&&!c.grounded&&c.y-c.groundY>T.rollMinHeight){c.rollTime=T.rollDuration;c.rollDirection=bits&RIGHT?-1:1;}
@@ -47,7 +47,7 @@ export function stepCar(c,bits,{track,hazards,step=0,coins}={}) {
  if(c.counterWindow>0){c.counterWindow=Math.max(0,c.counterWindow-DT);if(edge&THROTTLE){c.counterWindow=0;c.boostTime=Math.max(c.boostTime,T.counterBoost);const k=T.counterKick;c.vx+=sin(c.yaw)*k;c.vz+=cos(c.yaw)*k;events.push({type:'counterBoost'});}}
  if(c.rollTime>0){c.rollTime=Math.max(0,c.rollTime-DT);const elapsed=T.rollDuration-c.rollTime;let i=0;while(i<T.rollKeys.length-2&&elapsed>T.rollKeys[i+1])i++;c.roll=c.rollTime>0?c.rollDirection*Math.PI*(T.rollAngles[i]+(T.rollAngles[i+1]-T.rollAngles[i])*smoothstep(T.rollKeys[i],T.rollKeys[i+1],elapsed)):0;}
  let n=track.nearest(c.x,c.z,c.near);const previousNear=n;c.near=n;c.surface=track.surfaceAt(c.x,c.z);
- const mu=T.grip[c.surface]||.8,fx=sin(c.yaw),fz=cos(c.yaw),rx=fz,rz=-fx;
+ const mu=(T.grip[c.surface]||.8)*grip,fx=sin(c.yaw),fz=cos(c.yaw),rx=fz,rz=-fx;
  let forward=c.vx*fx+c.vz*fz,lateral=c.vx*rx+c.vz*rz;
  // steer > 0 为向左转（车头转向 +x；从车后看 +x 在屏幕左侧），与第一版 steerVis 的约定一致
  const target=(bits&LEFT?1:0)-(bits&RIGHT?1:0),rate=target?T.steerRate:T.steerReturn;
@@ -65,7 +65,7 @@ export function stepCar(c,bits,{track,hazards,step=0,coins}={}) {
  if(drifting){c.driftTime+=DT;c.driftTier=0;for(const threshold of T.driftThresholds)if(c.driftTime>=threshold)c.driftTier++;}
  c.drifting=drifting;
  const resistance=c.surface===SAND?T.sandResistance:c.surface===GRAVEL?T.gravelResistance:0;
- const cap=c.surface===SAND?T.sandSpeed:T.maxSpeed+(c.boostTime>0?T.boostSpeed:0);
+ const cap=c.surface===SAND?T.sandSpeed:T.maxSpeed*topSpeed+(c.boostTime>0?T.boostSpeed:0);
  let newFx,newFz;
  if(drifting){
   // 卡丁车式漂移：速度方向按下面的角速度转；
@@ -81,7 +81,7 @@ export function stepCar(c,bits,{track,hazards,step=0,coins}={}) {
   const omega=(T.driftRate0+(T.driftRate1-T.driftRate0)*hold)*steerK*Math.min(1,speed/20);
   const rate=speed*c.steer/gripRadius*(1-b)+c.driftDir*omega*b,turn=rate*DT,cs=cos(turn),sn=sin(turn),vx=c.vx*cs+c.vz*sn,vz=c.vz*cs-c.vx*sn;
   let acceleration=-(T.drag*speed*speed+resistance+T.driftDrag);
-  if(bits&THROTTLE)acceleration+=Math.min(T.acceleration,T.power/Math.max(1,speed))*T.driftThrottle;   // 漂移是用速度换转向，油门推力打折
+  if(bits&THROTTLE)acceleration+=Math.min(T.acceleration,T.power/Math.max(1,speed))*engine*T.driftThrottle;   // 漂移是用速度换转向，油门推力打折
   if(bits&BRAKE)acceleration-=T.brake;
   if(c.boostTime>0){acceleration+=T.boostAcceleration;c.boostTime=Math.max(0,c.boostTime-DT);}
   const next=clamp(speed+acceleration*DT,0,cap),k=speed>1e-6?next/speed:0;c.vx=vx*k;c.vz=vz*k;speed=next;
@@ -99,7 +99,7 @@ export function stepCar(c,bits,{track,hazards,step=0,coins}={}) {
   const recover=c.driftRecover>0?1-T.driftRecoverGrip*c.driftRecover/T.driftRecover:1;c.driftRecover=Math.max(0,c.driftRecover-DT);
   lateral-=clamp(lateral,-mu*T.arcadeGrip*T.gravity*recover*DT,mu*T.arcadeGrip*T.gravity*recover*DT);
   let acceleration=0,throttle=!!(bits&THROTTLE),braking=!!(bits&BRAKE);
-  if(throttle) acceleration+=Math.min(T.acceleration,T.power/Math.max(1,Math.abs(forward)));
+  if(throttle) acceleration+=Math.min(T.acceleration,T.power/Math.max(1,Math.abs(forward)))*engine;
   if(braking) acceleration+=forward>0?-T.brake*(bits&BRAKE?1:.6):-T.reverseAcceleration;
   acceleration-=Math.sign(forward)*(T.drag*forward*forward+resistance);
   if(c.boostTime>0){acceleration+=T.boostAcceleration;c.boostTime=Math.max(0,c.boostTime-DT);}

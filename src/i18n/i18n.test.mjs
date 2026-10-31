@@ -59,6 +59,12 @@ describe('词典完整性', () => {
   });
 });
 
+test('机器人四档难度中英文名称完整',()=>{
+ const levels=['easy','normal','hard','extreme'];
+ assert.deepEqual(levels.map(level=>zh['race.'+level]),['简单','普通','困难','极限']);
+ assert.deepEqual(levels.map(level=>en['race.'+level]),['Easy','Normal','Hard','Extreme']);
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 2. {placeholder} 对称性
 // ─────────────────────────────────────────────────────────────────────────────
