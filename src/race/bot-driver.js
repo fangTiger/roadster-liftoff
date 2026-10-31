@@ -1,7 +1,8 @@
 import { pickMissileTarget,raceProgress,itemTargetValid } from './sim/items.js';
 import { autopilot } from './sim/autopilot.js';
 import { LEFT,RIGHT } from './sim/input-bits.js';
-const LEVELS={easy:{cruise:.82,cornerGrip:.8,reaction:18},normal:{cruise:.9,cornerGrip:.9,reaction:10},hard:{cruise:1,cornerGrip:1,reaction:4}};
+// 简单档即原自动驾驶水平；普通、困难超出自动驾驶的过弯与巡航速度，单人实测每档单圈快约 2–4 秒。
+const LEVELS={easy:{cruise:1,cornerGrip:1,reaction:8},normal:{cruise:1.15,cornerGrip:1.15,reaction:4},hard:{cruise:1.3,cornerGrip:1.3,reaction:2}};
 // 反应延迟以 120Hz 物理步计，只延迟转向，油门、刹车和喷气即时生效。
 export function createBotDriver(difficulty) {
  const opts=LEVELS[difficulty];if(!opts)throw new RangeError('机器人难度无效');
