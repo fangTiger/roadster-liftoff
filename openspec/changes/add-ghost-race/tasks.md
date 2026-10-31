@@ -14,6 +14,7 @@
 - [x] 2.6 scripts/chain/set-verifier.mjs（OWNER_KEY 环境变量，--yes 才发交易）
 
 ## 3. 上线（Claude）
-- [ ] 3.1 生成核实者私钥（本机 600 权限文件），配置 Vercel 环境变量与 Blob 存储
+- [x] 3.1 本地：核实私钥与文件存储（完成；核实者由审查者运行时通过 VERIFIER_PRIVATE_KEY 注入，本地使用 GHOST_STORE=file，Codex 不接触私钥）
+- [ ] 3.1 上线：Vercel 环境变量与 Blob（待上线）
 - [ ] 3.2 测试网端到端：跑完三圈 → 核实签名 → 上链 verified=true → 另一浏览器下载影子同场
 - [ ] 3.3 用户确认后主网 setVerifier 并部署

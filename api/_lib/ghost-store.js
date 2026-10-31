@@ -1,7 +1,10 @@
 import * as blobSdk from '@vercel/blob';
 import { isAddress } from 'viem';
+import { createFileGhostStore } from './file-ghost-store.js';
 
-export function createGhostStore({ chainId, token = process.env.BLOB_READ_WRITE_TOKEN, blob = blobSdk, now = Date.now } = {}) {
+export function createGhostStore({ chainId, token = process.env.BLOB_READ_WRITE_TOKEN, blob = blobSdk, now = Date.now, mode = process.env.GHOST_STORE || 'blob', directory } = {}) {
+  if (mode === 'file') return createFileGhostStore({ chainId, directory, now });
+  if (mode !== 'blob') throw new Error('影子存储模式无效');
   function path(trackId, address = '') {
     if (!Number.isSafeInteger(chainId) || chainId <= 0 || ![1, 2, 3].includes(trackId) || (address && !isAddress(address, { strict: false }))) throw new Error('影子存储路径无效');
     if (!token) throw new Error('影子存储未配置');

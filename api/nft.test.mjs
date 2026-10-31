@@ -84,7 +84,7 @@ for (const factory of [createMetadataHandler, createImageHandler, createViewHand
 
 test('服务器配置独立于 Vite，默认测试网且支持主网与地址', () => {
   assert.equal(getServerConfig({}).chain.id, 5042002);
-  assert.equal(getServerConfig({}).address, '0xfdce518af1ebaaaec98c5ce4aa05ac5e00f1d1d9');
+  assert.equal(getServerConfig({}).address, '0xbcc98b9635113a0669F97ce4122f3e2C5490dc59');
   assert.equal(getServerConfig({ ARC_NETWORK: 'mainnet' }).address, '');
   const config = getServerConfig({ ARC_NETWORK: 'mainnet', RACING_ADDRESS: owner, SITE_URL: 'https://custom.example/' });
   assert.equal(config.chain.id, 5042);

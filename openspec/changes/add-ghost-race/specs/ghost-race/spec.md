@@ -26,6 +26,26 @@
 - **WHEN** 录像的模拟版本或赛道哈希不符、未完赛、过长或被篡改
 - **THEN** 接口返回错误且不签名
 
+#### Scenario: 密集按键录像
+- **WHEN** 合法核实请求为 100 KB，且录像通过原有重放规则
+- **THEN** 请求正常核实；超过 128 KB 的请求无论声明长度或真实流长度均返回 413
+
+### Requirement: 本地联调
+系统 SHALL 提供默认监听本机 8934 的 Node HTTP 接口服务，挂载 verify、ghost 和 NFT 接口；Vite 开发模式 SHALL 代理 /api。
+
+#### Scenario: 本地文件录像
+- **WHEN** GHOST_STORE=file
+- **THEN** 录像按 chainId、trackId、地址隔离保存在忽略提交的 .local-data/ghosts 下，重启后可读，只保留更快录像；未指定时继续使用 Blob
+
+#### Scenario: 开发自动驾驶
+- **WHEN** 开发环境 URL 含 e2eAutopilot=1
+- **THEN** 本机车可由 hard 机器人逐物理步驾驶，录像照常核实；生产构建不包含此开关或开发模块
+
+#### Scenario: 测试网端到端工具
+- **WHEN** 审查者以 PLAYER_KEY 环境变量运行脚本
+- **THEN** 脚本连接注入钱包、选择草甸、完成三圈、核实并提交，检查 bestOf verified=true，在独立无钱包页面下载影子并确认同场；逐步输出结果和交易哈希，失败时截图，绝不输出私钥
+- **AND** 无私钥模式只运行到连接钱包之前
+
 #### Scenario: 影子列表
 - **WHEN** 玩家打开某地图的影子选项
 - **THEN** 列出排行榜前 20 名中已核实且有录像的玩家

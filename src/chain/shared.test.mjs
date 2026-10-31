@@ -10,7 +10,7 @@ test('前端 ABI 每个函数、事件、错误与部署 JSON 逐项一致', asy
   for (const name of ['recordOf', 'bestOf', 'trackOf', 'players', 'submit', 'ownerOf', 'setTrack', 'FirstLap', 'LapRecorded', 'TrackClosed', 'NotQualified']) assert.ok(recordsAbi.some(item => item.name === name), name);
 });
 test('测试网默认 V2 地址，主网无默认地址且环境覆盖', () => {
-  assert.equal(config.getRacingConfig({}).address, '0xfdce518af1ebaaaec98c5ce4aa05ac5e00f1d1d9');
+  assert.equal(config.getRacingConfig({}).address, '0xbcc98b9635113a0669F97ce4122f3e2C5490dc59');
   assert.equal(config.getRacingConfig({ VITE_ARC_NETWORK: 'mainnet' }).address, '');
   assert.equal(config.getRacingConfig({ VITE_RACING_ADDRESS: ' 0xabc ' }).address, '0xabc');
 });

@@ -13,7 +13,7 @@ export function getArcChain(network = 'testnet') {
   });
 }
 
-export const TESTNET_RACING_ADDRESS = '0xfdce518af1ebaaaec98c5ce4aa05ac5e00f1d1d9';
+export const TESTNET_RACING_ADDRESS = '0xbcc98b9635113a0669F97ce4122f3e2C5490dc59';
 
 // 静态 V2 ABI；逐项一致性由 shared.test.mjs 对照部署产物验证。
 export const recordsAbi = [
