@@ -44,6 +44,8 @@ export default {
   'quality.高': '高',
   'quality.极致': '极致',
   'set.volume': '音量',
+  'set.music': '音乐',
+  'room.dragRotate': '拖动旋转',
   'set.mute': '静音',
   'set.shake': '镜头抖动',
   'set.hints': '显示操作提示',

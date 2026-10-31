@@ -72,3 +72,8 @@
 .grg-plate__footer>*{white-space:nowrap}.grg-plate__add{padding:4px 0!important;white-space:nowrap}.grg-plate__remove{padding:3px!important}
 @media(pointer:coarse) and (max-width:700px){.grg-scroll-hint:not([hidden]){top:132px;bottom:auto;left:23px;padding:4px 8px;margin:0;font-size:10px;background:#071522aa;border:1px solid #c6dce326;border-radius:3px}}
 .grg-plate:not(.grg-plate--self):not(.grg-plate--empty){min-height:46px;padding:6px 8px;font-size:11px;line-height:1.35}.grg-plate:not(.grg-plate--self) .grg-plate__footer{font-size:9px;margin-top:3px}
+
+/* 车身接受旋转手势；空白处沿用展区原生横向滚动。 */
+.grg-car-hit{position:absolute;pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab}
+.grg-car-hit--dragging{cursor:grabbing}.grg-plate{z-index:3}
+.grg-rotate-hint{position:absolute;z-index:4;transform:translateX(-50%);padding:5px 10px;border:1px solid #d9c69b66;border-radius:4px;background:#101a20dd;color:#e4cb9b;font:12px/1.4 system-ui;white-space:nowrap;pointer-events:none}

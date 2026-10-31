@@ -18,3 +18,34 @@ export function cameraProgress(age,duration,reduced) {
  const p=reduced?1:Math.min(1,Math.max(0,age/duration));
  return 1-(1-p)**3;
 }
+
+/** 每台车独立保存用户朝向；惯性按时间积分，恢复采用最短圆弧。 */
+export function createCarRotation() {
+ let yaw=0,velocity=0,dragging=false,active=false,lastX=0,lastMove=0,releasedAt=0,returnYaw=null;
+ return {
+  get yaw(){return yaw;},get velocity(){return velocity;},get active(){return active;},
+  begin(x,now,currentYaw){yaw=currentYaw;velocity=0;lastX=x;lastMove=now;dragging=active=true;returnYaw=null;},
+  move(x,now){
+   if(!dragging)return;
+   const delta=(x-lastX)*.012,elapsed=now-lastMove;
+   yaw+=delta;velocity=elapsed>0?Math.max(-12,Math.min(12,delta/elapsed)):0;lastX=x;lastMove=now;
+  },
+  end(now,reduced=false){if(!dragging)return;dragging=false;releasedAt=now;if(reduced||now-lastMove>.12)velocity=0;},
+  step(now,dt,displayYaw,reduced=false){
+   if(!active)return yaw=displayYaw;
+   if(dragging)return yaw;
+   const idle=now-releasedAt;
+   if(idle<3){
+    if(reduced)velocity=0;
+    const decay=Math.exp(-4*Math.max(0,Math.min(dt,idle)));
+    yaw+=velocity*(1-decay)/4;velocity*=decay;return yaw;
+   }
+   velocity=0;returnYaw??=yaw;
+   const progress=Math.min(1,(idle-3)/.8),ease=progress*progress*(3-2*progress);
+   const arc=Math.atan2(Math.sin(displayYaw-returnYaw),Math.cos(displayYaw-returnYaw));
+   yaw=returnYaw+arc*ease;
+   if(progress===1){active=false;returnYaw=null;yaw=displayYaw;}
+   return yaw;
+  },
+ };
+}

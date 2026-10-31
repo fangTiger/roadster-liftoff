@@ -214,3 +214,41 @@ test('七类道具音效使用现有总线合成、音量适中并释放节点',
  for(const source of sources)assert.ok(source.stopped&&source.disconnected);
  audio.setMuted(true);assert.equal(audio.muted,true);
  });
+
+test('大厅音乐按需加载、循环，复用总线，倒计时在一秒内淡出并回大厅重播',async t=>{
+ storage.clear();t.mock.timers.enable({apis:['setTimeout']});
+ const before=media.length,a=module.createAudio({music:false,urls:{lobby:'lobby.m4a'}});
+ await a.unlock();assert.equal(media.length,before,'未进大厅不加载曲目');
+ assert.equal(typeof a.setLobbyPhase,'function','缺少大厅音乐阶段接口');a.setLobbyPhase('lobby');await a.unlock();
+ const track=media.at(-1);assert.equal(track.src,'lobby.m4a');assert.equal(track.loop,true);assert.equal(track.paused,false);
+ const source=nodes.findLast(n=>n.type==='media'),output=nodes[nodes.indexOf(source)-1];
+ assert.ok(output.gain.calls.at(-1).value>0&&output.gain.calls.at(-1).value<=.3);
+ a.setLobbyPhase('countdown');assert.equal(output.gain.calls.at(-1).value,0);assert.ok(output.gain.calls.at(-1).tau<=.15);
+ t.mock.timers.tick(900);assert.equal(track.paused,true);a.setLobbyPhase('racing');await a.unlock();assert.equal(track.paused,true);
+ a.setLobbyPhase('lobby');await a.unlock();assert.equal(track.paused,false);a.setLobbyPhase('off');assert.equal(track.paused,true);
+});
+test('大厅遵守静音和独立音乐设置，持久化并容忍禁用存储',async()=>{
+ storage.clear();const a=module.createAudio({music:false,urls:{lobby:'lobby.m4a'}});
+ assert.equal(typeof a.setMusicEnabled,'function','缺少音乐设置');a.setMuted(true);const before=media.length;a.setLobbyPhase('lobby');await a.unlock();assert.equal(media.length,before);
+ a.setMuted(false);await a.unlock();const track=media.at(-1);assert.equal(track.paused,false);a.setMusicEnabled(false);assert.equal(track.paused,true);assert.equal(a.muted,false);
+ assert.equal(module.createAudio({music:false}).musicEnabled,false);a.setMusicEnabled(true);await a.unlock();assert.equal(track.paused,false);
+ a.setMuted(true);assert.equal(track.paused,true);a.setMuted(false);await a.unlock();assert.equal(track.paused,false);
+ const previous=globalThis.localStorage;Object.defineProperty(globalThis,'localStorage',{configurable:true,get(){throw Error('禁止存储');}});
+ try{a.setMusicEnabled(false);assert.equal(a.musicEnabled,false);}finally{Object.defineProperty(globalThis,'localStorage',{configurable:true,writable:true,value:previous});a.setLobbyPhase('off');storage.clear();}
+});
+test('自动播放被拒后下一次手势重试，播放尚未完成时离开不会晚到重播',async t=>{
+ storage.clear();t.mock.method(console,'warn',()=>{});const a=module.createAudio({music:false,urls:{lobby:'lobby.m4a'}});await a.unlock();
+ assert.equal(typeof a.setLobbyPhase,'function');const original=Media.prototype.play;let blocked=true;
+ Media.prototype.play=function(){if(blocked)return Promise.reject(Error('自动播放限制'));return original.call(this);};
+ try{a.setLobbyPhase('lobby');await a.unlock();blocked=false;await a.unlock();const track=media.at(-1);assert.equal(track.paused,false);
+ a.setLobbyPhase('off');let finish;track.play=()=>new Promise(resolve=>{finish=()=>{track.paused=false;resolve();};});
+ a.setLobbyPhase('lobby');a.setLobbyPhase('off');finish();await Promise.resolve();await Promise.resolve();assert.equal(track.paused,true);
+ }finally{Media.prototype.play=original;a.setLobbyPhase('off');storage.clear();}
+});
+
+test('倒计时中重复解锁保留淡出，快速返回大厅取消旧停止定时器',async t=>{
+ storage.clear();t.mock.timers.enable({apis:['setTimeout']});const a=module.createAudio({music:false,urls:{lobby:'lobby.m4a'}});
+ a.setLobbyPhase('lobby');await a.unlock();const track=media.at(-1);a.setLobbyPhase('countdown');t.mock.timers.tick(200);
+ await a.unlock();assert.equal(track.paused,false,'手势不应硬停正在淡出的曲目');t.mock.timers.tick(600);assert.equal(track.paused,true);
+ a.setLobbyPhase('lobby');await a.unlock();a.setLobbyPhase('countdown');t.mock.timers.tick(100);a.setLobbyPhase('lobby');await a.unlock();t.mock.timers.tick(1000);assert.equal(track.paused,false,'旧倒计时不能暂停重新进入大厅的播放');a.setLobbyPhase('off');storage.clear();
+});

@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { createSeatLoader, disposeGarageObject, disposeGarageCar } from './garage-cars.js';
 import { createBoostFx } from '../scene/boostfx.js';
-import { readyEnvelope, cameraProgress, frontThreeQuarterYaw, readyTurn } from './garage-motion.js';
+import { readyEnvelope, cameraProgress, frontThreeQuarterYaw, readyTurn, createCarRotation } from './garage-motion.js';
 import { measureCarCorners, projectCarBounds, placePlate } from './garage-layout.js';
 import { createScreenGeometry, createScreenMaterial, configureScreenTexture } from './garage-screen.js';
 import { trackPreview } from './track-previews.js';
@@ -123,6 +123,7 @@ class SeatObject {
   const { x, z } = seatPosition(index);
   this.root = new THREE.Group(); this.root.position.set(x,0,z); scene.add(this.root);
   this.fxScene=new THREE.Group();this.root.add(this.fxScene);
+  this.rotation=createCarRotation();
   this.index = index; this.car = null; this.outgoing = []; this.age = 0; this.ready = false;
   this.color = new THREE.Color('#55707b');
   this.podium = new THREE.Mesh(geometry.podium, new THREE.MeshStandardMaterial({color:0x252d34,roughness:.24,metalness:.85,envMapIntensity:.4}));
@@ -150,7 +151,7 @@ class SeatObject {
   if (this.car) this.car.visible = true;
  }
  attach(car, data) {
-  this.car = car; this.age = 0;
+  this.car = car; this.age = 0;this.rotation=createCarRotation();
   // 在添加尾焰前缓存车身局部包围盒，供每帧投影与名牌避让。
   this.carBounds=measureCarCorners(car);
   this.lamps=[];const materials=new Set();
@@ -168,15 +169,16 @@ class SeatObject {
   else this.outgoing.push({car,time:0});
   this.setData(null,false);
  }
- update(dt, motion, camera) {
+ update(dt, motion, camera, now) {
   this.age += dt;
   if (this.car) {
    this.feedback=(this.feedback??3)+dt;
-   this.car.rotation.y=frontThreeQuarterYaw(this.root.position.x,this.root.position.z,camera.position)+readyTurn(this.feedback,!motion);
+   const displayYaw=frontThreeQuarterYaw(this.root.position.x,this.root.position.z,camera.position)+readyTurn(this.feedback,!motion);
+   this.car.rotation.y=this.rotation.step(now,dt,displayYaw,!motion);
    const entering = motion ? Math.max(0,1-this.age/.65) : 0;
    this.car.position.y = PODIUM_HEIGHT + entering ** 3 * 2;
    this.car.scale.setScalar((this.hero?2.1:1.15)*(1-entering**3*.18));
-   const feedback=readyEnvelope(this.feedback);
+   const feedback=readyEnvelope(this.rotation.active?3:this.feedback);
    for(const lamp of this.lamps)lamp.emissiveIntensity=feedback.headlights;
    this.fx?.update(dt,this.age,feedback.boost);
   }
@@ -266,6 +268,35 @@ export function createGarage({container,loadCar,t=k=>k,onAddBot=()=>{},onRemoveB
  };
  const seats=Array.from({length:6},(_,i)=>new SeatObject(i,scene,geometry,poolTexture));
  for(const seat of seats)seat.onReady=()=>playSound('garageReady');
+ // 投影命中层在名牌之下，浏览器在手势开始前即可确定 touch-action。
+ const hits=seats.map((seat,i)=>{
+  const hit=element('div','grg-car-hit');hit.dataset.seat=i;hit.hidden=true;hit.setAttribute('aria-hidden','true');overlay.append(hit);return hit;
+ });
+ const hint=element('span','grg-rotate-hint');hint.hidden=true;overlay.append(hint);
+ let hintAt=null,hintDone=false,drag=null;
+ for(let i=0;i<hits.length;i++){
+  const hit=hits[i];
+  hit.addEventListener('pointerdown',event=>{
+   if(drag||event.button!==0||!seats[i].car)return;
+   event.preventDefault();event.stopPropagation();
+   drag={id:event.pointerId,seat:seats[i],hit};hit.setPointerCapture(event.pointerId);hit.classList.add('grg-car-hit--dragging');
+   seats[i].rotation.begin(event.clientX,performance.now()/1000,seats[i].car.rotation.y);
+   hint.hidden=true;hintDone=true;
+  });
+  hit.addEventListener('pointermove',event=>{
+   if(drag?.id!==event.pointerId||drag.hit!==hit)return;
+   event.preventDefault();seats[i].rotation.move(event.clientX,performance.now()/1000);
+  });
+  const release=event=>{
+   if(drag?.id!==event.pointerId||drag.hit!==hit)return;
+   event.preventDefault();seats[i].rotation.end(performance.now()/1000,reducedMotion()||event.type!=='pointerup');
+   hit.classList.remove('grg-car-hit--dragging');drag=null;
+   if(hit.hasPointerCapture(event.pointerId))hit.releasePointerCapture(event.pointerId);
+  };
+  for(const type of ['pointerup','pointercancel','lostpointercapture'])hit.addEventListener(type,release);
+  // 捕获指针后的兼容 click 只能停留在车上，不透传到名牌按钮。
+  hit.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();});
+ }
  const plates=seats.map((_,i)=>{const plate=element('div','grg-plate');plate.dataset.seat=i;overlay.append(plate);return plate;});
  const camera=new THREE.PerspectiveCamera(38,1,.1,160),projected=new THREE.Vector3();
  const enteredAt=performance.now();
@@ -275,6 +306,20 @@ export function createGarage({container,loadCar,t=k=>k,onAddBot=()=>{},onRemoveB
  function positionPlates() {
   camera.updateMatrixWorld();scene.updateMatrixWorld(true);
   const boxes=seats.map(seat=>seat.car?projectCarBounds(seat.carBounds,seat.car.matrixWorld,camera,width,height):null);
+  for(let i=0;i<hits.length;i++){
+   const box=boxes[i],hit=hits[i];hit.hidden=!box;
+   if(box){hit.style.left=`${box.left}px`;hit.style.top=`${box.top}px`;hit.style.width=`${box.right-box.left}px`;hit.style.height=`${box.bottom-box.top}px`;hit.style.zIndex=i===selfSeat?'2':'1';}
+  }
+  const heroBox=boxes[selfSeat],now=performance.now()/1000;
+  if(heroBox&&!hintDone){
+   if(hintAt===null){
+    hintAt=now;
+    try{hintDone=localStorage.getItem('race.garage.rotateHint')==='1';localStorage.setItem('race.garage.rotateHint','1');}catch{/* 禁用存储时当前大厅仍只提示一次。 */}
+   }
+   hint.hidden=hintDone;hint.textContent=t('room.dragRotate');
+   hint.style.left=`${(heroBox.left+heroBox.right)/2}px`;hint.style.top=`${Math.max(12,heroBox.top-32)}px`;hint.style.opacity=String(Math.max(0,Math.min(1,5-(now-hintAt))));
+   if(now-hintAt>=5){hint.hidden=true;hintDone=true;}
+  }
   stage.style.setProperty('--grg-plate-width','112px');
   const sizes=plates.map(plate=>({width:plate.offsetWidth,height:plate.offsetHeight}));
   const anchors=seats.map((_,i)=>{
@@ -312,7 +357,7 @@ export function createGarage({container,loadCar,t=k=>k,onAddBot=()=>{},onRemoveB
    const mean=captureFrames.reduce((a,b)=>a+b,0)/captureFrames.length;
    const gl=renderer.getContext(),debug=gl.getExtension('WEBGL_debug_renderer_info');
    const texture=wallFront.material.uniforms.map.value;
-   return {wallImage:texture?.image?.src,wallOpacity:wallFade,wallSize:{width:texture?.image?.width,height:texture?.image?.height},anisotropy:texture?.anisotropy,mipmaps:texture?.generateMipmaps,colorSpace:texture?.colorSpace,carBoxes,feedback:seats[selfSeat].feedback,headlights:seats[selfSeat].lamps?.map(lamp=>lamp.emissiveIntensity),pixelRatio:renderer.getPixelRatio(),fps:1000/mean,meanMs:mean,p95Ms:[...captureFrames].sort((a,b)=>a-b)[Math.floor(captureFrames.length*.95)],frames:captureFrames.length,heroHeight:carBoxes[selfSeat].bottom-carBoxes[selfSeat].top,calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,gpu:debug?gl.getParameter(debug.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER)};
+   return {wallImage:texture?.image?.src,wallOpacity:wallFade,wallSize:{width:texture?.image?.width,height:texture?.image?.height},anisotropy:texture?.anisotropy,mipmaps:texture?.generateMipmaps,colorSpace:texture?.colorSpace,carBoxes,rotations:seats.map(seat=>({yaw:seat.car?.rotation.y,active:seat.rotation.active})),feedback:seats[selfSeat].feedback,headlights:seats[selfSeat].lamps?.map(lamp=>lamp.emissiveIntensity),pixelRatio:renderer.getPixelRatio(),fps:1000/mean,meanMs:mean,p95Ms:[...captureFrames].sort((a,b)=>a-b)[Math.floor(captureFrames.length*.95)],frames:captureFrames.length,heroHeight:carBoxes[selfSeat].bottom-carBoxes[selfSeat].top,calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,gpu:debug?gl.getParameter(debug.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER)};
   }
  };
  function shouldRun() { return !disposed&&!!room&&(room.phase==='lobby'||room.phase==='countdown'||room.phase==='racing')&&visible&&!document.hidden; }
@@ -326,7 +371,7 @@ export function createGarage({container,loadCar,t=k=>k,onAddBot=()=>{},onRemoveB
   const rush=transitionAge===null||reduced?0:cameraProgress(transitionAge,.8,false);
   camera.position.set(0,7.2-rush*3+(1-entry)*4,16.4+(1-entry)*10+push-rush*10);
   camera.lookAt(0,1.9,-1.8+rush*2);camera.updateMatrixWorld();
-  for(const seat of seats)seat.update(dt,!reduced,camera);
+  for(const seat of seats)seat.update(dt,!reduced,camera,now/1000);
   positionPlates();
   wallFade=wallFront.material.uniforms.map.value?Math.min(1,wallFade+dt*1.5):0;
   wallFront.material.uniforms.opacity.value=wallFade;wallBack.material.uniforms.opacity.value=wallBack.material.uniforms.map.value?1-wallFade:0;
@@ -361,6 +406,7 @@ export function createGarage({container,loadCar,t=k=>k,onAddBot=()=>{},onRemoveB
   transition(){transitionStart=performance.now();transitionAge=0;resume();},
   dispose() {
    if(disposed)return;disposed=true;stop();observer.disconnect();intersection.disconnect();document.removeEventListener('visibilitychange',visibility);
+   if(drag){drag.seat.rotation.end(performance.now()/1000,true);drag=null;}
    loader.dispose();for(const seat of seats)seat.dispose();
    for(const texture of new Set([wallBack.material.uniforms.map.value,wallFront.material.uniforms.map.value]))texture?.dispose();
    disposeGarageObject(scene);scene.clear();seats.length=0;plates.length=0;environment.dispose();renderer.dispose();renderer.forceContextLoss();viewport.remove();room=null;layout=[];

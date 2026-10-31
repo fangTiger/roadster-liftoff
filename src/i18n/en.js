@@ -45,6 +45,8 @@ export default {
   'quality.高': 'High',
   'quality.极致': 'Ultra',
   'set.volume': 'Volume',
+  'set.music': 'Music',
+  'room.dragRotate': 'Drag to rotate',
   'set.mute': 'Mute',
   'set.shake': 'Camera shake',
   'set.hints': 'Show controls hint',
