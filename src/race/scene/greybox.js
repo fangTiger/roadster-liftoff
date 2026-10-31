@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createCoinModel } from '../../game/coin-model.js';
 import { coinPositions } from '../sim/physics.js';
 // 地表配色（高山草甸）：路面、路肩、路外草地、碎石、开阔平地、岩壁、峡谷
 // 顶点色作为草地贴图的染色：路外草地保持原色，开阔平地略亮，碎石、岩壁偏灰
@@ -62,8 +63,10 @@ export function createGreybox(scene,track,{tint,scenery=true}={}) {
   if(scenery&&f.type==='slot')for(const side of [-1,1])box(f.x-f.tz*side*(f.width/2+f.rockRadius),f.y+3.5,f.z+f.tx*side*(f.width/2+f.rockRadius),2*f.rockRadius,7,2*f.rockRadius,0x84513b,yaw);
  }
  if(scenery&&gap)for(const s of [gap.from-1,gap.to+1]){const p=track.at(s);box(p.x,p.y-2,p.z,p.w,4,1,0x9b8c7a,Math.atan2(p.tx,p.tz));}
- const coins=coinPositions(track).map(c=>({data:c,mesh:mesh(new THREE.CylinderGeometry(.5,.5,.13,12),0xffc640,c.x,c.y,c.z,{metalness:.65,roughness:.25,emissive:0x5e3700})}));for(const c of coins)c.mesh.rotation.z=Math.PI/2;
+ const coinModel=createCoinModel(),coins=coinPositions(track),coinMesh=new THREE.InstancedMesh(coinModel.geometry,coinModel.material,coins.length),coinFaces=new THREE.InstancedMesh(coinModel.faceGeometry,coinModel.faceMaterial,coins.length);
+ coinMesh.name='race-coins';coinFaces.name='race-coin-faces';coinMesh.castShadow=true;coinMesh.frustumCulled=coinFaces.frustumCulled=false;coinFaces.instanceMatrix=coinMesh.instanceMatrix;scene.add(coinMesh,coinFaces);
+
  const rocks=track.features.filter(f=>scenery&&f.type==='rockfall').map(f=>mesh(new THREE.SphereGeometry(f.radius,12,8),f.kind==='tumbleweed'?0x967d4e:0x655649,0,-100,0));
- function update(snapshot){boostTex.offset.y=-snapshot.step/120*1.6;for(const c of coins){c.mesh.visible=snapshot.car.picked[c.data.id]!==snapshot.car.lap;c.mesh.rotation.y=snapshot.step/60;}for(const r of rocks)r.visible=false;for(const p of snapshot.hazards){const r=rocks[p.id];if(!r)continue;r.visible=true;r.position.set(p.x,p.y,p.z);r.rotation.z=snapshot.step/25;}}
- return {update};
+ function update(snapshot){boostTex.offset.y=-snapshot.step/120*1.6;coins.forEach((c,i)=>{dummy.position.set(c.x,c.y,c.z);dummy.rotation.set(0,snapshot.step/60,0);dummy.scale.setScalar(snapshot.car.picked[c.id]!==snapshot.car.lap?1.5:0);dummy.updateMatrix();coinMesh.setMatrixAt(i,dummy.matrix);});coinMesh.instanceMatrix.needsUpdate=true;for(const r of rocks)r.visible=false;for(const p of snapshot.hazards){const r=rocks[p.id];if(!r)continue;r.visible=true;r.position.set(p.x,p.y,p.z);r.rotation.z=snapshot.step/25;}}
+ return {update,dispose(){coinMesh.removeFromParent();coinFaces.removeFromParent();coinMesh.dispose();coinFaces.dispose();coinModel.dispose();}};
 }

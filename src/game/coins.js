@@ -1,7 +1,7 @@
 // 金币：沿弯道摆成几种队形（一条线、换道、S 形蛇行、空中拱门），车开过去就吃掉。
 // 金币的位置按公路里程 D 记录，和路面、路边物体一样随世界滚动，横向跟着弯道走
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { createCoinModel } from './coin-model.js';
 import { roadCenter } from './road.js';
 
 const N = 180;                    // 同时存在的金币上限
@@ -10,27 +10,11 @@ const LANE = 1.9;                 // 车道中心相对路中心的偏移
 
 let seed = 23; const rnd = () => (seed = seed * 16807 % 2147483647) / 2147483647;
 
-// 金币外形：带凸边的圆片（旋转体），竖立在路上，正面朝向行驶方向
-function coinGeometry() {
-  const pts = [[0, .026], [.355, .026], [.372, .036], [.4, .036], [.42, .018], [.42, -.018], [.4, -.036], [.372, -.036], [.355, -.026], [0, -.026]].map(([x, y]) => new THREE.Vector2(x, y));
-  const g = new THREE.LatheGeometry(pts, 40); g.rotateX(Math.PI / 2); g.computeVertexNormals(); return g;
-}
-
 export function createCoins(parent) {
-  const mat = new THREE.MeshStandardMaterial({ color: '#ffc94a', metalness: 1, roughness: .26, emissive: '#6b4300', emissiveIntensity: .45 });
-  const inst = new THREE.InstancedMesh(coinGeometry(), mat, N);
+  const model = createCoinModel();
+  const inst = new THREE.InstancedMesh(model.geometry, model.material, N);
   inst.castShadow = true; inst.frustumCulled = false; inst.renderOrder = 3; parent.add(inst);
-  // 币面浮雕：正反两面各一张圆片，同一张灰度浮雕图既当明暗又当凹凸，金色仍来自材质
-  const faceTex = new THREE.TextureLoader().load('/assets/props/coin-face.webp');
-  faceTex.colorSpace = THREE.SRGBColorSpace; faceTex.anisotropy = 8;
-  const faceMat = new THREE.MeshStandardMaterial({ color: '#ffd36a', metalness: 1, roughness: .3, map: faceTex, bumpMap: faceTex, bumpScale: 4,
-    emissive: '#6b4300', emissiveMap: faceTex, emissiveIntensity: .75 });
-  const faceGeo = (() => {
-    const front = new THREE.CircleGeometry(.36, 64); front.translate(0, 0, .0262);
-    const back = new THREE.CircleGeometry(.36, 64); back.rotateY(Math.PI); back.translate(0, 0, -.0262);
-    return mergeGeometries([front, back]);
-  })();
-  const faces = new THREE.InstancedMesh(faceGeo, faceMat, N);
+  const faces = new THREE.InstancedMesh(model.faceGeometry, model.faceMaterial, N);
   faces.frustumCulled = false; faces.renderOrder = 3; faces.instanceMatrix = inst.instanceMatrix; parent.add(faces);
   const slots = Array.from({ length: N }, () => ({ live: false, D: 0, off: 0, y: 0 }));
   // 吃到金币时的闪光：金色光斑迅速放大淡出
@@ -91,5 +75,5 @@ export function createCoins(parent) {
     return got;
   }
   function setVisible(on) { inst.visible = faces.visible = on; if (!on) sparks.forEach(s => { s.s.visible = false; }); }
-  return { update, setVisible, get count() { return count; } };
+  return { update, setVisible, dispose() { inst.removeFromParent(); faces.removeFromParent(); inst.dispose(); faces.dispose(); model.dispose(); for (const { s } of sparks) { s.removeFromParent(); s.material.dispose(); } glowTex.dispose(); }, get count() { return count; } };
 }

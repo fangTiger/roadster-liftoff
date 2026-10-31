@@ -4,11 +4,18 @@ const formatDelta = value => `${value < 0 ? '−' : '+'}${Math.abs(value).toFixe
 // 竞速 HUD：左上圈数与计时、右上小地图（整条赛道、车的位置与朝向、下一道检查点）、本圈进度条、右下速度与推进剂、中部事件提示
 const format = t => t === null ? '—' : `${Math.floor(t / 60)}:${(t % 60).toFixed(3).padStart(6, '0')}`;
 const LAPS = 3;
-const ITEM_ICONS={missile:'🚀',mine:'💧',nitro:'⚡',shield:'🛡️'};
+const icon=(kind,body)=>`<svg data-item="${kind}" aria-hidden="true" viewBox="0 0 64 64" width="48" height="48" fill="none" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
+const ITEM_ICONS={
+ missile:icon('missile','<path d="m18 43-6 13 13-6 20-26-5-5Z" fill="#ff9b4b"/><path d="m22 40-7 3 2-12 8-6 14 14-6 8-12 2Z" fill="#697780" stroke="#bdced5"/><path d="M21 36 42 15l7 7-21 21Z" fill="#e0e9e9" stroke="#7f959e"/><path d="m42 15 13-6-6 13Z" fill="#db6950"/><path d="m31 27 6 6" stroke="#cf644d" stroke-width="4"/>'),
+ mine:icon('mine','<circle cx="32" cy="33" r="22" fill="#1c91c5" fill-opacity=".4" stroke="#9aefff" stroke-width="2"/><path d="M14 36q9-7 19-1t18-3M19 23q3-6 10-7" stroke="#e0faff" stroke-width="3" stroke-linecap="round"/><circle cx="27" cy="40" r="4" stroke="#b2f2ff"/><circle cx="40" cy="27" r="3" stroke="#b2f2ff"/>'),
+ nitro:icon('nitro','<path d="M19 32q-7 19 3 26 9-10 4-26M38 32q-5 20 4 26 10-9 4-26" fill="#ed9a4b"/><path d="m21 33 1 17 3-17m15 0 2 17 2-17" stroke="#c9f7ff" stroke-width="3"/><path d="M15 13h15v23H15Zm20 0h15v23H35Z" fill="#677c87" stroke="#d8e6ea" stroke-width="2"/><path d="M18 18h9m11 0h9M18 29h9m11 0h9" stroke="#72deff" stroke-width="3"/>'),
+ shield:icon('shield','<path d="m32 5 23 13v28L32 59 9 46V18Z" fill="#2a8baf" fill-opacity=".3" stroke="#9fefff" stroke-width="2"/><path d="m32 17 12 7v15l-12 8-12-8V24Zm0 0V5m12 19 11-6m-11 21 11 7M32 47v12M20 39 9 46m11-22L9 18" stroke="#74d9ef"/><path d="m25 32 5 5 10-12" stroke="#e5fcff" stroke-width="3"/>')
+};
 const EVENT_TEXT = { lap: e => e.lap >= LAPS ? '' : e.lap === LAPS - 1 ? t('race.lastLap') : t('race.nextLap', { n: e.lap + 1 }), driftBoost: e => t('race.driftBoost', { tier: 'Ⅰ Ⅱ Ⅲ'.split(' ')[e.tier - 1] }), counterBoost: () => t('race.counterBoost'), draft: () => t('race.draft'), driftSwitch: () => t('race.driftSwitch'), boost: () => t('race.boost'), coin: () => '', wall: () => '', land: () => '' };
-export function createHud(track, title = '', { roomMode = false, itemsMode = false } = {}) {
+export function createHud(track, title = '', { trackId, roomMode = false, itemsMode = false } = {}) {
   // 房间模式补充表情键，道具赛再补充道具键
-  const controls = () => t('race.controls') + (roomMode ? (itemsMode ? t('race.controlsItems') : '') + t('race.controlsRoom') : '');
+  const jetEnabled = trackId === 3;
+  const controls = () => t('race.controls') + (jetEnabled ? t('race.controlsJet') : '') + (roomMode ? (itemsMode ? t('race.controlsItems') : '') + t('race.controlsRoom') : '');
   const style = document.createElement('style');
   style.textContent = `body{margin:0;overflow:hidden;background:#0b0f14}body> :not(canvas):not(#race-hud):not(#race-pick):not(#race-loading):not(#race-tools):not(.rm-root):not(#ach-toast):not(#ach-panel-wrap):not(#roadster-wallet):not(w3m-modal):not(:has([data-rk])):not(script):not(style){display:none!important}
 #race-hud{position:fixed;inset:0;color:#f4eee1;font:16px 'Helvetica Neue','PingFang SC',sans-serif;pointer-events:none;z-index:10;font-variant-numeric:tabular-nums}
@@ -34,7 +41,7 @@ export function createHud(track, title = '', { roomMode = false, itemsMode = fal
   document.head.append(style);
   const root = document.createElement('div'); root.id = 'race-hud';
   root.innerHTML = `<header class="rh-panel"><small>MARS ROADSTER · ${typeof title === 'function' ? title() : title}</small><div class="rh-lap"><b>1</b>/ 3 ${t('race.laps')}</div><div class="rh-progress"><i></i></div><div class="rh-timing"></div></header>
-<div class="rh-map rh-panel"><canvas></canvas></div><div class="rh-speed rh-panel"><strong>0</strong> km/h<meter min="0" max="1" value="1"></meter><div class="rh-drift"></div><div class="rh-draft" hidden><span></span><meter min="0" max="1" value="0"></meter></div></div>
+<div class="rh-map rh-panel"><canvas></canvas></div><div class="rh-speed rh-panel"><strong>0</strong> km/h${jetEnabled?'<meter class="rh-fuel" min="0" max="1" value="1"></meter>':''}<div class="rh-drift"></div><div class="rh-draft" hidden><span></span><meter min="0" max="1" value="0"></meter></div></div>
 ${itemsMode?'<div class="rh-missile-warning" role="status" hidden></div><div class="rh-item rh-panel"><span class="rh-item-icon"></span><span class="rh-item-label"></span><kbd></kbd><span class="rh-shield-time"></span></div>':''}<div class="rh-delta" hidden></div><div class="rh-notice"></div><div class="rh-flash"></div><div class="rh-result rh-panel" hidden></div>
 <footer>${controls()}</footer>`;
   document.body.append(root);
@@ -56,7 +63,7 @@ ${itemsMode?'<div class="rh-missile-warning" role="status" hidden></div><div cla
     const s = track.checkpointGates.at(-1); g.fillStyle = '#fff'; const [fx, fz] = P(s.x, s.z); g.fillRect(fx - 4 * dpr, fz - 1.5 * dpr, 8 * dpr, 3 * dpr);
   }
   const lapProgress = c => { const n = c.near; if (!n) return 0; if (n.path === 'main') return n.s / track.length; const b = track.branches.find(b => b.id === n.path); return (b.from + (b.to - b.from) * n.s / b.length) / track.length; };
-  let flashEvent = null, flashUntil = 0, draftUntil = 0, seen = 0;
+  let flashEvent = null, flashUntil = 0, draftUntil = 0, seen = 0, shownItem;
   function update(s, { delta = null, deltaStep = 0, totalDelta = null, itemSlot = null, missileLocked = false, rivals = [] } = {}) {
     const comparison = $('.rh-delta');
     comparison.hidden = delta === null || s.step >= deltaStep + Math.ceil(2 / DT);
@@ -66,7 +73,7 @@ ${itemsMode?'<div class="rh-missile-warning" role="status" hidden></div><div cla
     if(itemsMode){
       $('.rh-missile-warning').hidden=!missileLocked;$('.rh-missile-warning').textContent=t('race.item.warning');
       const rolling=!!itemSlot?.kind&&s.step*DT<itemSlot.readyAt,kind=rolling?Object.keys(ITEM_ICONS)[Math.floor(s.step*DT*12)%4]:itemSlot?.kind;
-      $('.rh-item').dataset.rolling=String(rolling);$('.rh-item-icon').textContent=ITEM_ICONS[kind]||'?';
+      $('.rh-item').dataset.rolling=String(rolling);if(kind!==shownItem){$('.rh-item-icon').innerHTML=ITEM_ICONS[kind]||'';shownItem=kind;}
       $('.rh-item-label').textContent=t(rolling?'race.item.rolling':kind?'race.item.'+kind:'race.item.empty');
       $('.rh-item kbd').textContent=kind&&!rolling?t('race.item.use'):'';
       $('.rh-shield-time').textContent=c.shieldTime>0?`${t('race.item.shield')} ${c.shieldTime.toFixed(1)}s`:'';
@@ -76,8 +83,8 @@ ${itemsMode?'<div class="rh-missile-warning" role="status" hidden></div><div cla
     $('.rh-lap').innerHTML = `<b>${r.lap}</b>/ 3 ${t('race.laps')}`;
     $('.rh-progress i').style.width = (r.frozen ? 0 : lapProgress(c) * 100).toFixed(1) + '%';
     $('.rh-timing').innerHTML = `<span>${t('race.current')}</span>${format(r.lapTime)}<br><span>${t('race.best')}</span>${format(r.bestLap)}<br><span>${t('race.checkpoint')}</span>${r.nextCheckpoint} / ${track.checkpointGates.length}${r.penalty ? `　${t('race.penalty', { n: r.penalty.toFixed(0) })}` : ''}`;
-    $('strong').textContent = (Math.hypot(c.vx, c.vz) * 3.6).toFixed(0); $('meter').value = c.fuel;
-    $('.rh-drift').textContent = c.drifting ? t('race.charge', { bars: '▮'.repeat(c.driftTier) + '▯'.repeat(3 - c.driftTier) }) : c.counterWindow > 0 ? t('race.counterHint') : t('race.fuel', { n: (c.fuel * 100).toFixed(0) });
+    $('strong').textContent = (Math.hypot(c.vx, c.vz) * 3.6).toFixed(0); if (jetEnabled) $('.rh-fuel').value = c.fuel;
+    $('.rh-drift').textContent = c.drifting ? t('race.charge', { bars: '▮'.repeat(c.driftTier) + '▯'.repeat(3 - c.driftTier) }) : c.counterWindow > 0 ? t('race.counterHint') : jetEnabled ? t('race.fuel', { n: (c.fuel * 100).toFixed(0) }) : '';
     // 小地图
     ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.drawImage(base, 0, 0);
     const gate = track.checkpointGates[r.nextCheckpoint]; if (gate && !r.finished) { const [gx, gz] = P(gate.x, gate.z); ctx.fillStyle = '#ffd34d'; ctx.beginPath(); ctx.arc(gx, gz, 4.5 * dpr, 0, Math.PI * 2); ctx.fill(); }
