@@ -24,3 +24,37 @@
  body:has(.grg-layout) #race-tools>[data-ach],body:has(.grg-layout) #race-tools>details{display:none}
  .grg-scroll-hint{top:calc(62% - 40px)}
 }
+/* 第二版：中央近景车辆与实景画框，界面只占用必要空间。 */
+.grg-canvas{filter:contrast(1.06)}
+.grg-stage:after{content:'';position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 45%,transparent 28%,#030a1433 75%,#030a1477);z-index:1}
+.grg-overlay{z-index:2}.grg-plate--self{width:170px!important;border-color:#d9c69b99;border-top-color:var(--seat-color);background:#172633ee;box-shadow:0 0 36px #9fdcff26}.grg-plate--self .grg-plate__name{font-size:16px}.grg-plate--self .grg-plate__you{color:#e4cb9b}
+.grg-heading h2{font-size:clamp(26px,3.1vw,44px);letter-spacing:.06em;font-weight:500}.grg-heading p{color:#d6c39e}.grg-heading small{color:#c3d3de}.grg-scroll-hint{display:none}
+.grg-layout .rm-track-details{margin:18px 0;border:1px solid #9eb7c033;border-radius:4px;background:#09131b66}
+.grg-layout .rm-track-details summary{padding:15px 12px;cursor:pointer;color:#e5d3af;font-size:12px;list-style-position:inside}
+.grg-layout .rm-track-picker{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0}
+.grg-layout>.rm-track-picker{position:fixed;right:380px;top:170px;width:min(880px,calc(100vw - 420px));padding:18px;background:#0c1823f5;border:1px solid #c5dbea40;border-radius:6px;box-shadow:0 25px 100px #000a;backdrop-filter:blur(20px);z-index:46;pointer-events:auto}
+.grg-layout .rm-track-picker legend{font-size:12px;padding:0 8px}
+.grg-layout .rm-track-picker button{padding:0;overflow:hidden;border:1px solid #bed3e12e;background:#142330;border-radius:4px;text-align:left;transition:border-color .2s,transform .2s;min-height:0}
+.grg-layout .rm-track-picker button:hover:enabled{transform:translateY(-3px);border-color:#e6d1a9}
+.grg-layout .rm-track-picker button:disabled{opacity:1;cursor:default}
+.grg-layout .rm-track-picker button[aria-pressed=true]{box-shadow:0 0 0 1px #e6d1a9,0 8px 25px #e6d1a911}
+.grg-layout .rm-track-photo{width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;display:block}
+.grg-layout .rm-track-content{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 12px;color:#e9edf0}.grg-layout .rm-track-content strong{display:block;font-weight:500;font-size:15px}.grg-layout .rm-track-content span{font-size:11px;margin-top:6px;color:#a8becb}.grg-layout .rm-track-content small{display:block;margin-top:7px;color:#d5bd8c;font-size:10px}.grg-layout .rm-track-picker svg{flex:none;width:54px;height:58px;margin:0;color:#a4dce6}
+.grg-transition{position:fixed;inset:0;z-index:80;pointer-events:none;background:#eaf8ff;opacity:0}
+.grg-transition--rush{animation:grg-rush .8s ease-in both;background:radial-gradient(ellipse,transparent 5%,#eaf8ff66 55%,#fff 95%)}
+.grg-transition--reduced{opacity:1}.grg-transition--reveal{animation:grg-reveal .45s ease-out both}
+@keyframes grg-rush{0%{opacity:0}55%{opacity:.08}100%{opacity:1;background:#f1faff}}
+@keyframes grg-reveal{from{opacity:1}to{opacity:0}}
+@media(pointer:coarse) and (max-width:700px){.grg-scroll-hint:not([hidden]){display:block}}
+@media(max-width:699px){
+ .grg-heading{top:28px;left:22px}.grg-heading h2{font-size:27px}.grg-heading small{font-size:11px}.grg-heading p{font-size:8px}
+ .grg-layout [data-rm-lobby].rm-overlay{max-height:35%;overflow:auto}
+ .grg-layout .rm-track-details{margin:10px 0}.grg-layout .rm-track-details summary{padding:12px}
+ .grg-layout .rm-track-details[open] .rm-track-picker{position:static;width:auto;display:flex;overflow-x:auto;padding:10px;gap:10px;border:0;background:transparent;box-shadow:none;backdrop-filter:none}
+ .grg-layout .rm-track-picker button{flex:0 0 230px}.grg-layout .rm-track-picker legend{display:none}.grg-layout .rm-track-content{padding:10px}.grg-scroll-hint{top:calc(65% - 30px)}
+ .grg-plate--self{width:154px!important}.grg-plate--self .grg-plate__name{font-size:14px}
+}
+@media(prefers-reduced-motion:reduce){.grg-transition--reveal{animation:grg-reveal .25s linear both!important}}
+.grg-plate__footer>*{white-space:nowrap}.grg-plate__add{padding:4px 0!important;white-space:nowrap}.grg-plate__remove{padding:3px!important}
+@media(pointer:coarse) and (max-width:700px){.grg-scroll-hint:not([hidden]){top:132px;bottom:auto;left:23px;padding:4px 8px;margin:0;font-size:10px;background:#071522aa;border:1px solid #c6dce326;border-radius:3px}}
+.grg-plate:not(.grg-plate--self):not(.grg-plate--empty){min-height:46px;padding:6px 8px;font-size:11px;line-height:1.35}.grg-plate:not(.grg-plate--self) .grg-plate__footer{font-size:9px;margin-top:3px}

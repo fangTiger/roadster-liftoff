@@ -3,7 +3,7 @@ const MUSIC_LEVEL = 0.65;
 const SFX_LEVEL = 0.72;
 const FADE_SECONDS = 2.5;
 const NAMES = ['road', 'space', 'oldfriend'];
-const EVENTS = ['launch', 'land', 'whiteout', 'achievement', 'horn', 'roll', 'coin', 'raceWall', 'raceContact', 'raceDraft', 'raceBoost', 'raceBeep', 'raceGo', 'raceLap', 'raceFinish', 'racePickup', 'raceRoulette', 'raceNitro', 'raceShield', 'raceShieldBreak', 'raceMine', 'raceBubble', 'raceMissile', 'raceMissileWarning', 'raceExplosion'];
+const EVENTS = ['garageReady', 'launch', 'land', 'whiteout', 'achievement', 'horn', 'roll', 'coin', 'raceWall', 'raceContact', 'raceDraft', 'raceBoost', 'raceBeep', 'raceGo', 'raceLap', 'raceFinish', 'racePickup', 'raceRoulette', 'raceNitro', 'raceShield', 'raceShieldBreak', 'raceMine', 'raceBubble', 'raceMissile', 'raceMissileWarning', 'raceExplosion'];
 const STORE = 'liftoff.audio.v1';
 const clamp = (v, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, Number.isFinite(v) ? v : lo));
 const db = value => 10 ** (value / 20);
@@ -335,7 +335,10 @@ export function createAudio({ urls, music = true } = {}) {
   function event(name, opts = {}) {
     if (!EVENTS.includes(name)) throw new RangeError(`未知音效事件：${name}`);
     if (!ready) return;
-    if (name === 'raceWall') {
+    if (name === 'garageReady') {
+      shot({ kind: 'sawtooth', frequency: 65, end: 110, duration: .4, level: .15, cutoff: 240, cutoffEnd: 450 });
+      shot({ kind: 'brown', duration: .4, level: .1, cutoff: 260 });
+    } else if (name === 'raceWall') {
       shot({ kind: 'brown', duration: .24, level: .4, cutoff: 900 });
       shot({ frequency: 95, end: 35, duration: .22, level: .22 });
     } else if (name === 'raceContact') {

@@ -19,7 +19,7 @@ export function mountRoomRace({engine,params,setup,clear,simulate,render,getStat
  function clearEmotes(){for(const emote of emotes.values())emote.dispose();emotes.clear();}
  function removeRemotes(){clearItems();bots.clear();clearEmotes();for(const remote of remotes.values())remote.dispose();remotes.clear();buffers.clear();rivals=[];}
  function reset(){active=false;round=null;++version;removeRemotes();if(!loading)clear();}
- ui??=mountRoomUI({client,roomCode:params.get('room')||'',onReturn:reset});
+ ui??=mountRoomUI({client,roomCode:params.get('room')||'',onReturn:reset,playSound});
  const unsubs=[
   client.on('peer',message=>{if(round&&round.grid.some(p=>p.id===message.id))buffers.set(message.id,pushState(buffers.get(message.id)||[],{...message,simT:round.startAt+message.step*DT*1000}));}),
   client.on('connection',({connected})=>{if(!connected)for(const id of [client.id,...players.filter(p=>p.bot&&p.ownerId===client.id).map(p=>p.id)])invalidateTarget(id);}),
@@ -86,7 +86,7 @@ export function mountRoomRace({engine,params,setup,clear,simulate,render,getStat
       itemFx=createItemsFx(engine.scene,items,getTrack());
       for(const m of pendingItems)m.type==='mineGone'?items.gone(m):m.type==='hitAt'?items.hit(m):items.receive(m);pendingItems=[];
      }
-     active=true;ui.racing();
+     render?.(1,0);active=true;ui.racing();
     }catch(error){console.error('房间赛道加载失败',error);if(generation===version){active=false;++version;removeRemotes();clear();ui.fail();}}
     finally{loading=false;}
    });return queue;

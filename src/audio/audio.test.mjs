@@ -206,3 +206,11 @@ test('尾流使用短促上扬的合成音并释放节点',async()=>{
 test('七类道具音效使用现有总线合成、音量适中并释放节点',async()=>{
  const a=module.createAudio({music:false});await a.unlock();for(const name of ['racePickup','raceRoulette','raceNitro','raceShield','raceShieldBreak','raceMine','raceBubble','raceMissile','raceMissileWarning','raceExplosion']){const first=nodes.length;a.event(name);const graph=nodes.slice(first);assert.ok(graph.some(n=>n.started));assert.ok(graph.filter(n=>n.started).every(n=>n.stopped&&n.disconnected));assert.ok(Math.max(...graph.flatMap(n=>n.gain.calls.map(c=>c.value)))<=.3);}
 });
+
+ test('大厅准备通过现有音频总线合成短低频轰鸣，避免误触喇叭',async()=>{
+ const audio=module.createAudio({urls,music:false});await audio.unlock();const before=nodes.length;
+ audio.event('garageReady');const sources=nodes.slice(before).filter(n=>n.started);
+ assert.equal(sources.length,2);assert.ok(sources.some(n=>n.type==='sawtooth'&&n.frequency.value<150));
+ for(const source of sources)assert.ok(source.stopped&&source.disconnected);
+ audio.setMuted(true);assert.equal(audio.muted,true);
+ });
