@@ -13,7 +13,7 @@ try {
     page.on('pageerror', e => errors.push(e.message));
     page.on('console', e => { if (e.type() === 'error') errors.push(e.text()); if (e.type() === 'warning') warnings.push(e.text()); if (e.text().startsWith('阿尔卑斯场景渲染统计')) statistics.push(e.text()); });
     page.on('response', r => { if (r.status() >= 400) errors.push(`${r.status()} ${r.url()}`); });
-    await page.goto(`${process.env.RACE_URL || 'http://127.0.0.1:8933'}/?race&capture&map=${difficulty}&sky=alps`);
+    await page.goto(`${process.env.RACE_URL || 'http://127.0.0.1:8933'}/?race&capture&map=${difficulty}&sky=sunset`);
     await page.waitForFunction(() => document.title === 'ready', null, { timeout: 120000 });
     await page.waitForTimeout(1500);
     const track = buildTrack(def), feature = type => track.features.find(f => f.type === type);
@@ -51,7 +51,7 @@ try {
       const gl = window.__engine.renderer.getContext(), dbg = gl.getExtension('WEBGL_debug_renderer_info');
       return { frames: p.frames.length, frameMs: mean(p.frames), frameP95Ms: percentile(p.frames, .95), cpuMs: mean(p.cpu), gpuMs: mean(p.gpu), callsMean: mean(p.calls), callsMax: Math.max(...p.calls), trianglesMean: mean(p.triangles), trianglesMax: Math.max(...p.triangles), gpu: dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER) };
     });
-    const result = { map: difficulty, viewport: '1280×800', sky: 'alps', simulationStepsPerFrame: 8, metrics, shots: shots.map(i => `${difficulty}-${String(i + 1).padStart(2, '0')}.png`), snapshot, errors, warnings, statistics };
+    const result = { map: difficulty, viewport: '1280×800', sky: 'sunset', simulationStepsPerFrame: 8, metrics, shots: shots.map(i => `${difficulty}-${String(i + 1).padStart(2, '0')}.png`), snapshot, errors, warnings, statistics };
     results.push(result); await writeFile(`${out}/metrics.json`, JSON.stringify(results, null, 2));
     console.log('整圈结果', JSON.stringify(result));
     if (errors.length || shots.length !== 4 || snapshot.lap < 2) process.exitCode = 1;
