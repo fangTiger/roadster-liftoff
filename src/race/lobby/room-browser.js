@@ -108,7 +108,7 @@ function refreshIconSvg() {
 }
 
 /** 构建 4 位 PIN 输入框组 */
-function buildPinBoxes() {
+function buildPinBoxes(t) {
   const wrap = el('div', 'rb-pin-boxes');
   const inputs = [];
   for (let i = 0; i < 4; i++) {
@@ -117,7 +117,7 @@ function buildPinBoxes() {
       inputmode: 'numeric',
       maxlength: '1',
       autocomplete: 'off',
-      'aria-label': `密码第 ${i + 1} 位`,
+      'aria-label': t('room.browser.pinDigit', { n: i + 1 }),
     });
     input.dataset.pinIndex = i;
     inputs.push(input);
@@ -183,7 +183,7 @@ function buildPinBoxes() {
 }
 
 /** 构建模态对话框骨架 */
-function buildModal(titleText, onClose) {
+function buildModal(titleText, onClose, t) {
   const backdrop = el('div', 'rb-modal-backdrop');
   backdrop.setAttribute('role', 'presentation');
 
@@ -198,7 +198,7 @@ function buildModal(titleText, onClose) {
   setText(title, titleText);
   const closeBtn = el('button', 'rb-modal__close');
   setText(closeBtn, '×');
-  closeBtn.setAttribute('aria-label', '关闭');
+  closeBtn.setAttribute('aria-label', t('room.browser.close'));
   header.appendChild(title);
   header.appendChild(closeBtn);
   dialog.appendChild(header);
@@ -339,6 +339,7 @@ export function createRoomBrowser({ container, t, onJoin, onCreate, onRefresh })
   function _buildRow(model) {
     const li = el('li', 'rb-row' + (model.joinable ? '' : ' rb-row--dim'));
     li.dataset.code = model.code;
+    li.dataset.model = JSON.stringify(model);
 
     const info = el('div', 'rb-row__info');
 
@@ -405,12 +406,11 @@ export function createRoomBrowser({ container, t, onJoin, onCreate, onRefresh })
       return;
     }
 
-    // 清除空态/离线态
-    listEl.textContent = '';
-
+    // 保留未变化的行与焦点，只清除空状态。
     const existing = new Map();
-    for (const child of listEl.querySelectorAll('[data-code]')) {
-      existing.set(child.dataset.code, child);
+    for (const child of [...listEl.children]) {
+      if (child.dataset.code) existing.set(child.dataset.code, child);
+      else child.remove();
     }
 
     const newCodes = new Set(_rows.map(r => r.code));
@@ -424,25 +424,16 @@ export function createRoomBrowser({ container, t, onJoin, onCreate, onRefresh })
     _rows.forEach((model, idx) => {
       const existingNode = existing.get(model.code);
       if (existingNode) {
-        // 更新文本（不重建）
-        const nameEl = existingNode.querySelector('.rb-row__name');
-        if (nameEl) setText(nameEl, model.displayName);
-        const hostEl = existingNode.querySelector('.rb-row__host');
-        if (hostEl) setText(hostEl, model.hostName);
-        const countEl2 = existingNode.querySelector('.rb-row__player-count');
-        if (countEl2) setText(countEl2, model.players + '/' + model.max);
-        const chipEl = existingNode.querySelector('.rb-chip');
-        if (chipEl) {
-          chipEl.className = 'rb-chip rb-chip--' + model.statusMod;
-          setText(chipEl, model.statusLabel);
+        if (existingNode.dataset.model !== JSON.stringify(model)) {
+          const replacement = _buildRow(model);
+          const focused = existingNode.contains(document.activeElement);
+          const joinFocused = existingNode.querySelector('.rb-btn--join') === document.activeElement;
+          existingNode.replaceWith(replacement);
+          if (focused) (joinFocused ? replacement.querySelector('.rb-btn--join') : replacement).focus();
+          existing.set(model.code, replacement);
         }
-        const joinBtn = existingNode.querySelector('.rb-btn--join');
-        if (joinBtn) joinBtn.disabled = !model.joinable;
-        existingNode.className = 'rb-row' + (model.joinable ? '' : ' rb-row--dim');
-        // 保证顺序
-        if (listEl.children[idx] !== existingNode) {
-          listEl.insertBefore(existingNode, listEl.children[idx] || null);
-        }
+        const current = existing.get(model.code);
+        if (listEl.children[idx] !== current) listEl.insertBefore(current, listEl.children[idx] || null);
       } else {
         const newRow = _buildRow(model);
         newRow.classList.add('rb-row--new');
@@ -472,9 +463,9 @@ export function createRoomBrowser({ container, t, onJoin, onCreate, onRefresh })
   function _openJoinModal(code) {
     _closeModal();
 
-    const { backdrop, body } = buildModal(t('room.browser.enterPassword'), _closeModal);
+    const { backdrop, body } = buildModal(t('room.browser.enterPassword'), _closeModal, t);
 
-    const pin = buildPinBoxes();
+    const pin = buildPinBoxes(t);
     body.appendChild(pin.wrap);
 
     const errorEl = el('p', 'rb-modal__error');
@@ -548,7 +539,7 @@ export function createRoomBrowser({ container, t, onJoin, onCreate, onRefresh })
   function _openCreateModal() {
     _closeModal();
 
-    const { backdrop, body } = buildModal(t('room.browser.createTitle'), _closeModal);
+    const { backdrop, body } = buildModal(t('room.browser.createTitle'), _closeModal, t);
 
     // 房间名称
     const nameLabel = el('label', 'rb-form-label');
@@ -579,7 +570,7 @@ export function createRoomBrowser({ container, t, onJoin, onCreate, onRefresh })
     pwSection.hidden = true;
     const pwLabel = el('p', 'rb-form-hint');
     setText(pwLabel, t('room.browser.setPassword'));
-    const pin = buildPinBoxes();
+    const pin = buildPinBoxes(t);
     pwSection.appendChild(pwLabel);
     pwSection.appendChild(pin.wrap);
     body.appendChild(pwSection);
@@ -715,5 +706,12 @@ export function createRoomBrowser({ container, t, onJoin, onCreate, onRefresh })
   _renderCount();
   _renderList();
 
-  return { update, setStatus, open, close, destroy };
+  function refreshLabels() {
+    _closeModal();
+    setText(titleEl, t('room.browser.title'));
+    setText(createBtn, t('room.browser.create'));
+    refreshBtn.setAttribute('aria-label', t('room.browser.refresh'));
+    _renderStatusBar();
+  }
+  return { update, setStatus, open, close, destroy, refreshLabels, promptPassword: _openJoinModal };
 }

@@ -1,6 +1,7 @@
 import { spinRotation } from './sim/effects.js';
 import './race.css';
 import './room.css';
+import './lobby/room-browser.css';
 import './lobby/garage.css';
 import { mountRoomRace } from './room-race.js';
 import { gridSpawn } from './grid.js';
@@ -51,7 +52,7 @@ const loading = document.createElement('div'); loading.id = 'race-loading'; load
 Object.assign(loading.style, { position: 'fixed', inset: '0', zIndex: '50', display: 'grid', placeItems: 'center', background: '#0b0f14', color: '#cfd8e3', font: '500 15px/1 system-ui,sans-serif', letterSpacing: '.2em', transition: 'opacity .6s' });
 document.body.append(loading);
 // 竞速模式不用第一版的界面：一开始就藏起来（HUD 要等选完地图才创建）
-const hideOld = document.createElement('style'); hideOld.textContent = 'body> :not(canvas):not(#race-hud):not(#race-pick):not(#race-loading):not(#race-tools):not(.rm-root):not(#ach-toast):not(#ach-panel-wrap):not(#roadster-wallet):not(w3m-modal):not(:has([data-rk])):not(script):not(style){display:none!important}'; document.head.append(hideOld);
+const hideOld = document.createElement('style'); hideOld.textContent = 'body> :not(canvas):not(#race-hud):not(#race-pick):not(#race-loading):not(#race-tools):not(.rm-root):not(.rb-modal-backdrop):not(#ach-toast):not(#ach-panel-wrap):not(#roadster-wallet):not(w3m-modal):not(:has([data-rk])):not(script):not(style){display:none!important}'; document.head.append(hideOld);
 // 与第一版共用存储和音量总线，大厅曲目只在进入房间后加载。
 const audio = createAudio({ music: false, urls: { lobby: '/assets/music/lobby-rock.m4a' } }), raceAudio = createRaceAudio(audio), achievements = createAchievements();
 let audioSettings = {};

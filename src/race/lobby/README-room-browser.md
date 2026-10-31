@@ -82,7 +82,7 @@ const dir = createDirectory({
 验证玩家加入请求，返回 `Promise<Result>`。
 
 - 非加锁房间直接通过
-- 加锁房间：验证密码，同一 `(room.code, clientKey)` 连续错误 5 次后锁定 60 秒
+- 加锁房间：验证密码，同一 `(room.code, clientKey)` 连续错误 5 次后锁定 60 秒；调用方必须以客户端 IP 作为 clientKey，同房同 IP 的异步验证在模块内串行执行，锁定到期后重新计数
 - 锁定期内不调用 verify
 
 错误码：`'FULL' | 'RACING' | 'PASSWORD_REQUIRED' | 'BAD_PASSWORD' | 'LOCKED_OUT'`
@@ -124,6 +124,8 @@ const browser = createRoomBrowser({
   open(),                     // 显示（配合 close 控制可见性）
   close(),                    // 隐藏 + 关闭所有模态
   destroy(),                  // 移除 DOM，清理事件
+  promptPassword(code),        // 手动输入房间码或邀请密码错误后打开密码弹框
+  refreshLabels(),             // 切换语言后刷新固定标签并关闭旧语言弹框
 }
 ```
 
@@ -165,6 +167,8 @@ import { buildRowModels, nextPinFocus, isValidPin } from './room-browser.js';
 | `room.browser.joinFailed` | 加入失败，请稍后再试 | Join failed |
 | `room.browser.createFailed` | 创建失败，请稍后再试 | Create failed |
 | `room.browser.badParams` | 参数错误 | Invalid params |
+| `room.browser.close` | 关闭 | Close |
+| `room.browser.pinDigit` | 密码第 {n} 位 | Password digit {n} |
 | `room.defaultName` | {host} 的房间 | {host}'s Room |
 | `room.waiting` | 等待中 | Waiting |
 | `room.full` | 已满 | Full |
@@ -278,7 +282,7 @@ client.on('connection', ({ connected }) => {
 ## 安全注意事项
 
 - 房间名、玩家名等用户提供的字符串**只通过 `textContent` 写入 DOM**，从不使用 `innerHTML`，防止 XSS。
-- 密码**不写入 localStorage、URL 或控制台**。
+- 密码**不写入 localStorage 或控制台**；房内复制邀请链接时可附加 `pw`，接收端加入成功后立即用 `history.replaceState` 清除地址栏中的 `pw`。只有当前房间的内存保存分享所需明文，服务端仅保存哈希。
 - `directory.summary()` 保证 `passwordHash` 等敏感字段**不出现在摘要对象或其 JSON 序列化中**。
 
 ---
@@ -292,3 +296,10 @@ node --test server/rooms/directory.test.mjs
 # 前端纯函数
 node --test src/race/lobby/room-browser.test.mjs
 ```
+
+## 主项目接入说明
+
+- `room-ui.js` 在列表上方保留昵称存储与手动房间码入口，`room-client.js` 的 `browse()` 在首次连接和断线恢复后订阅列表，成功入房后退订。错误密码可以在同一连接重试；恢复入房只发送昵称、房间码（若有）与 resumeToken。
+- `server.js` 默认读取套接字 IP；只有进程显式设置 `ROOMS_TRUST_PROXY=true` 时才读取 `X-Forwarded-For` 的第一个有效 IP。该选项只应在入口由可信代理控制时配置；本次未修改本地运行配置。
+- Studio 模块调整：目录增加同房同 IP 串行验证与到期计数重置；浏览器增加中英文无障碍标签、语言刷新和主动密码弹框接口，修复列表更新前清空 DOM 导致焦点与行复用失效。主体 CSS 与独立 demo 保持原样，宿主 `room.css` 负责金色主题及 body 弹框继承。
+- 验证：`node scripts/rooms-browser-e2e.mjs`；可通过 `URL`、`ROOMS_WS`、`ROOMS_SCREENSHOTS` 覆盖本地地址和截图目录。

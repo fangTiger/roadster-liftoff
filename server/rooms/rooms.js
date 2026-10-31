@@ -1,3 +1,4 @@
+import { createDirectory } from './directory.js';
 // 房间状态机不依赖网络；时间、随机源与消息出口均可注入。
 export const COLORS = ['#ef5350','#42b9ff','#ffd34d','#57db85','#c58aff','#ff963e'];
 const ALPHABET='23456789ABCDEFGHJKMNPQRSTUVWXYZ',GRACE=30000;
@@ -7,14 +8,14 @@ const itemId=id=>typeof id==='string'&&id.length<=64&&/^[a-z0-9]+-[1-9][0-9]*$/.
 const integer=n=>Number.isSafeInteger(n)&&n>=0;
 const validState=m=>numeric.every(k=>finite(m[k]))&&integer(m.seq)&&integer(m.step)&&Number.isInteger(m.lap)&&m.lap>=1&&m.lap<=3&&m.s>=0&&typeof m.drifting==='boolean'&&typeof m.boost==='boolean'&&typeof m.ghost==='boolean'&&typeof m.air==='boolean'&&['shield','trapped','spinning','finished'].every(k=>m[k]===undefined||typeof m[k]==='boolean');
 const validFinish=m=>finite(m.elapsed)&&m.elapsed>0&&finite(m.bestLap)&&m.bestLap>0&&Array.isArray(m.lapTimes)&&m.lapTimes.length===3&&m.lapTimes.every(n=>finite(n)&&n>0);
-export function createRooms({now=Date.now,random=Math.random,send,close=()=>{},onRoom=()=>{}}={}) {
- const rooms=new Map(),clients=new Map(),tokens=new Map();let serial=0,botSerial=0,codeSerial=0;
+export function createRooms({now=Date.now,random=Math.random,send,close=()=>{},onRoom=()=>{},directory=createDirectory({now})}={}) {
+ const rooms=new Map(),clients=new Map(),tokens=new Map(),subscribers=new Map(),addresses=new Map(),pending=new Set(),disconnected=new WeakSet();let serial=0,botSerial=0,codeSerial=0;
  const randomText=n=>Array.from({length:n},()=>ALPHABET[Math.min(ALPHABET.length-1,Math.floor(random()*ALPHABET.length))]).join('');
  const error=(c,code)=>send(c,{type:'error',code});
  function code(){let value=randomText(6);while(rooms.has(value)){let n=++codeSerial;value='';for(let i=0;i<6;i++){value=ALPHABET[n%ALPHABET.length]+value;n=Math.floor(n/ALPHABET.length);}}return value;}
  const members=r=>r.players.filter(p=>!p.bot&&p.connected);
  function broadcast(r,m,except){for(const p of members(r))if(p!==except)send(p.connection,m);}
- function publish(r){broadcast(r,{type:'room',code:r.code,hostId:r.hostId,trackId:r.trackId,mode:r.mode,phase:r.phase,players:r.players.map(({id,name,seat,ready,connected,color,bot=false,difficulty,ownerId})=>({id,name,seat,ready,connected,color,bot,difficulty,ownerId}))});onRoom(r.code,r.players.length);}
+ function publish(r){broadcast(r,{type:'room',code:r.code,name:r.name,locked:r.locked,hostId:r.hostId,trackId:r.trackId,mode:r.mode,phase:r.phase,players:r.players.map(({id,name,seat,ready,connected,color,bot=false,difficulty,ownerId})=>({id,name,seat,ready,connected,color,bot,difficulty,ownerId}))});onRoom(r.code,r.players.length);}
  function invalidateTarget(r,id){for(const stored of r.items?.values()||[])if(stored.item.kind==='missile'&&stored.item.target===id)stored.invalid=true;}
  function dropBots(r,ownerId){for(const bot of r.players.filter(p=>p.bot&&p.ownerId===ownerId)){r.players=r.players.filter(p=>p!==bot);broadcast(r,{type:'left',id:bot.id});}}
  function host(r){const old=r.hostId;if(!members(r).some(p=>p.id===old))r.hostId=members(r)[0]?.id??null;if(old!==r.hostId&&r.phase==='lobby')dropBots(r,old);}
@@ -37,7 +38,7 @@ export function createRooms({now=Date.now,random=Math.random,send,close=()=>{},o
   if(p.connected)clients.delete(p.connection);tokens.delete(p.resumeToken);r.players=r.players.filter(q=>q!==p);
   const entrant=r.round?.get(p.id);if(entrant&&!entrant.finish)entrant.dnf=true;
   broadcast(r,{type:'left',id:p.id});host(r);
-  if(!r.players.some(p=>!p.bot)){rooms.delete(r.code);onRoom(r.code,0);}else{publish(r);complete(r);}
+  if(!r.players.some(p=>!p.bot)){rooms.delete(r.code);directory.forget(r.code);onRoom(r.code,0);}else{publish(r);complete(r);}
  }
  function start(r){
   if(r.phase!=='lobby'||!r.trackId||r.players.length<2||!r.players.every(p=>p.connected&&(p.bot||p.id===r.hostId||p.ready)))return;
@@ -47,6 +48,12 @@ export function createRooms({now=Date.now,random=Math.random,send,close=()=>{},o
   for(const p of r.players){p.lastItem=-Infinity;p.state=null;p.lastSeq=-1;p.rate=[];}
   r.start={type:'start',trackId:r.trackId,mode:r.mode,laps:3,startAt:now()+1500,grid:r.players.map(({id,seat})=>({id,seat}))};publish(r);broadcast(r,r.start);
  }
+ function listMessage(){return {type:'rooms',rooms:directory.list([...rooms.values()]),online:[...rooms.values()].reduce((n,r)=>n+members(r).length,0)};}
+ function publishLists(){
+  if(!subscribers.size)return;
+  const message=listMessage(),snapshot=JSON.stringify(message);
+  for(const [c,state] of subscribers)if((snapshot!==state.snapshot||state.requested)&&now()-state.sentAt>=1000){send(c,message);state.snapshot=snapshot;state.sentAt=now();state.requested=false;}
+ }
  function tick(){
   const time=now();
   for(const r of rooms.values()){
@@ -54,26 +61,44 @@ export function createRooms({now=Date.now,random=Math.random,send,close=()=>{},o
    if(r.phase==='countdown'&&time>=r.start.startAt){r.phase='racing';publish(r);}
    if(r.phase==='racing'&&r.deadline!==null&&time>=r.deadline)settle(r);
   }
+  publishLists();
  }
- function hello(c,m){
-  if(clients.has(c))return error(c,'BAD_MESSAGE');
+ async function hello(c,m){
+  if(clients.has(c)||pending.has(c))return error(c,'BAD_MESSAGE');
+  pending.add(c);
+  try{
   if(typeof m.name!=='string'||(m.roomCode!==undefined&&typeof m.roomCode!=='string')||(m.resumeToken!==undefined&&typeof m.resumeToken!=='string'))return error(c,'BAD_MESSAGE');
   if(m.resumeToken){
    const p=tokens.get(m.resumeToken),r=p&&rooms.get(p.code);
    if(!r||p.connected)return error(c,'NO_ROOM');
-   p.connection=c;p.connected=true;p.expires=null;p.rate=[];clients.set(c,p);host(r);
+   subscribers.delete(c);p.connection=c;p.connected=true;p.expires=null;p.rate=[];clients.set(c,p);host(r);
    send(c,{type:'welcome',id:p.id,resumeToken:p.resumeToken});publish(r);
    if(r.start){send(c,r.start);if(r.mode==='items')for(const stored of r.items?.values()||[])if(!stored.invalid&&now()<stored.expires)send(c,stored.gone?(stored.result??{type:'mineGone',itemId:stored.item.itemId,by:stored.by}):stored.item);for(const other of r.players)if(other!==p&&other.state)send(c,{type:'peer',id:other.id,...other.state});}
    else if(r.lastResults)send(c,r.lastResults);
    return;
   }
-  let r;
-  if(m.roomCode){r=rooms.get(m.roomCode.trim().toUpperCase());if(!r)return error(c,'NO_ROOM');if(r.players.length>=6)return error(c,'ROOM_FULL');if(r.phase!=='lobby')return error(c,'BAD_PHASE');}
-  else{r={code:code(),hostId:null,trackId:1,mode:'items',phase:'lobby',players:[],round:null,start:null,deadline:null,lastResults:null};rooms.set(r.code,r);}
-  const id=String(++serial),seat=[0,1,2,3,4,5].find(n=>!r.players.some(p=>p.seat===n));
   const name=[...m.name.replace(/[\p{Cc}\p{Cf}]/gu,'').trim()].slice(0,16).join('')||'赛车手';
+  let r;
+  if(m.roomCode){
+   r=rooms.get(m.roomCode.trim().toUpperCase());if(!r)return error(c,'NO_ROOM');
+   const result=await directory.checkJoin(r,{password:m.password,clientKey:addresses.get(c)??''});
+   if(disconnected.has(c))return;
+   if(!result.ok)return error(c,result.code);
+   // 异步密码校验期间，其他连接可能已入房、开赛或销毁房间。
+   if(rooms.get(r.code)!==r)return error(c,'NO_ROOM');
+   if(r.phase!=='lobby')return error(c,'RACING');
+   if(r.players.length>=6)return error(c,'FULL');
+  }else{
+   if(m.create!==undefined&&(!m.create||typeof m.create!=='object'||Array.isArray(m.create)))return error(c,'BAD_MESSAGE');
+   const result=await directory.validateCreate(m.create??{name:'',locked:false});
+   if(disconnected.has(c))return;
+   if(!result.ok)return error(c,result.code);
+   r={...result.value,name:result.value.name||`${name}的房间`,code:code(),hostId:null,trackId:1,mode:'items',phase:'lobby',players:[],round:null,start:null,deadline:null,lastResults:null};rooms.set(r.code,r);
+  }
+  const id=String(++serial),seat=[0,1,2,3,4,5].find(n=>!r.players.some(p=>p.seat===n));
   const p={id,name,seat,color:COLORS[seat],code:r.code,resumeToken:randomText(32)+id,ready:false,connected:true,connection:c,rate:[],lastSeq:-1};
-  r.players.push(p);clients.set(c,p);tokens.set(p.resumeToken,p);host(r);send(c,{type:'welcome',id,resumeToken:p.resumeToken});publish(r);
+  subscribers.delete(c);r.players.push(p);clients.set(c,p);tokens.set(p.resumeToken,p);host(r);send(c,{type:'welcome',id,resumeToken:p.resumeToken});publish(r);
+  }finally{pending.delete(c);}
  }
  function receive(c,raw){
   tick();
@@ -81,7 +106,14 @@ export function createRooms({now=Date.now,random=Math.random,send,close=()=>{},o
   if(new TextEncoder().encode(raw).length>2048){disconnect(c);close(c);return;}
   let m;try{m=JSON.parse(raw);}catch{return error(c,'BAD_MESSAGE');}
   if(!m||typeof m!=='object'||Array.isArray(m)||typeof m.type!=='string')return error(c,'BAD_MESSAGE');
-  if(m.type==='hello')return hello(c,m);
+  if(m.type==='listRooms'){
+   if(clients.has(c))return error(c,'BAD_MESSAGE');
+   const state=subscribers.get(c);
+   if(state&&now()-state.sentAt<1000){state.requested=true;return;}
+   const message=listMessage();send(c,message);subscribers.set(c,{snapshot:JSON.stringify(message),sentAt:now()});return;
+  }
+  if(m.type==='unlistRooms'){subscribers.delete(c);return;}
+  if(m.type==='hello')return hello(c,m).catch(()=>error(c,'BAD_MESSAGE'));
   if(m.type==='ping'){if(typeof m.t!=='number'||!Number.isFinite(m.t)||Math.abs(m.t)>Number.MAX_SAFE_INTEGER)return error(c,'BAD_MESSAGE');send(c,{type:'pong',t:m.t,serverT:now()});return;}
   // 先校验字段，再检查阶段，避免错误类型因房间状态而改变。
   if(m.type==='item'&&m.kind==='mine'&&['ox','oz'].some(k=>m[k]!==undefined&&!finite(m[k])))return error(c,'BAD_MESSAGE');
@@ -160,6 +192,6 @@ export function createRooms({now=Date.now,random=Math.random,send,close=()=>{},o
   }
   error(c,'BAD_MESSAGE');
  }
- function disconnect(c){const p=clients.get(c);if(!p)return;clients.delete(c);p.connected=false;p.ready=false;p.expires=now()+GRACE;p.connection=null;const r=rooms.get(p.code);abandonBots(r,p.id);invalidateTarget(r,p.id);host(r);publish(r);complete(r);}
- return {receive,disconnect,tick};
+ function disconnect(c){subscribers.delete(c);addresses.delete(c);disconnected.add(c);const p=clients.get(c);if(!p)return;clients.delete(c);p.connected=false;p.ready=false;p.expires=now()+GRACE;p.connection=null;const r=rooms.get(p.code);abandonBots(r,p.id);invalidateTarget(r,p.id);host(r);publish(r);complete(r);}
+ return {connect(c,ip){addresses.set(c,ip);disconnected.delete(c);},receive,disconnect,tick};
 }
