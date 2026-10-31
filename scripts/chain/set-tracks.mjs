@@ -1,4 +1,4 @@
-// 用法：node scripts/chain/set-tracks.mjs --track 1:60000:10000 --track 2:80000:15000 --track 3:120000:20000 [--yes]
+// 用法：node scripts/chain/set-tracks.mjs --track 1:58000:15000 --track 2:62000:20000 --track 3:108000:30000 [--yes]
 // 参数均为毫秒；默认只读预览，只有 --yes 才读取 OWNER_KEY 并发送交易。
 import { pathToFileURL } from 'node:url';
 import { createPublicClient, createWalletClient, http, isAddress } from 'viem';

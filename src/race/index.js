@@ -41,6 +41,11 @@ import { createGhost, checkpointCount, checkpointDelta, timeDelta } from './ghos
 import { readBestGhost, saveBestGhost } from './ghost-store.js';
 import { prepareGhostCar } from './ghost-car.js';
 const params = new URLSearchParams(location.search), roomMode = params.has('room'), capture = !roomMode && params.has('capture');
+let e2eDriver = null;
+if (import.meta.env.DEV && !roomMode && params.get('e2eAutopilot') === '1') {
+  const { createE2eDriver } = await import('./e2e-driver.js');
+  e2eDriver = createE2eDriver();
+}
 // 加载画面：素材加载、着色器预编译完成之前盖住页面
 const loading = document.createElement('div'); loading.id = 'race-loading'; loading.textContent = t('race.loading');
 Object.assign(loading.style, { position: 'fixed', inset: '0', zIndex: '50', display: 'grid', placeItems: 'center', background: '#0b0f14', color: '#cfd8e3', font: '500 15px/1 system-ui,sans-serif', letterSpacing: '.2em', transition: 'opacity .6s' });
@@ -104,6 +109,13 @@ async function setup(difficulty, replay = null, ghostName = '', roomStart = null
     }
   }
   render(); await engine.renderer.compileAsync(engine.scene, engine.camera); render();
+  if (import.meta.env.DEV && e2eDriver) {
+    // 仅开发模式提供只读诊断，核对影子车已挂载且实际随物理步前进。
+    window.__ghostE2e = () => ({ playerStep: current.step, ghostStep: ghostCurrent?.step ?? 0,
+      ghostVisible: !!ghostCar?.root.visible && ghostCar.root.parent === engine.scene,
+      ghostPosition: ghostCar ? { x: ghostCar.root.position.x, z: ghostCar.root.position.z } : null,
+    });
+  }
   if (!capture && !raceMenu) {
     const selectionParams = new URLSearchParams(location.search);
     for (const key of ['map', 'autopilot', 'capture']) selectionParams.delete(key);
@@ -228,7 +240,10 @@ if (roomMode) {
     if (raceMenu?.paused) { accumulator = 0; engine.render(); requestAnimationFrame(frame); return; }
     accumulator += elapsed; let bits = 0; for (const code of keys) bits |= map[code] || 0;
     if (auto && !current.race.finished) bits = autopilot(current, track);
-    while (accumulator >= DT) { simulate(bits); accumulator -= DT; }
+    while (accumulator >= DT) {
+      if (e2eDriver && !current.race.finished) bits = e2eDriver(current, track);
+      simulate(bits); accumulator -= DT;
+    }
     render(accumulator / DT, elapsed); requestAnimationFrame(frame);
   }
 }

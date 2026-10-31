@@ -13,8 +13,10 @@ test('倒数三短一长、过线和完赛各播一次；墙声节流、加速�
 });
 test('资格线读取优先级：链上零值不回退，赛道值优先于离线默认', () => {
  const e = { difficulty:'easy',def:{} };
- assert.equal(qualifyTime(e), 60000);
- assert.equal(qualifyTime({...e,qualifyMs:59000}),59000);
+ assert.equal(qualifyTime(e), 58000);
+ assert.equal(qualifyTime({difficulty:'normal',def:{}}),62000);
+ assert.equal(qualifyTime({difficulty:'hard',def:{}}),108000);
+ assert.equal(qualifyTime({...e,qualifyMs:57000}),57000);
  assert.equal(qualifyTime(e,{qualifyMs:0n}),0);
  assert.equal(qualifyTime(e,{qualifyMs:55000n}),55000);
 });

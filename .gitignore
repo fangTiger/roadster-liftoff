@@ -14,3 +14,4 @@ docs/studio/
 .env*
 docs/codex/
 output/
+.local-data/

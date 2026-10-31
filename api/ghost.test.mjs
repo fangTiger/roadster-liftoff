@@ -77,14 +77,16 @@ test('无效 JSON、地址、赛道、位图和录像返回400，依赖故障503
     assert.equal((await createVerifyHandler(verifyOptions({ signer: undefined }))(request(payload))).status, 503);
   } finally { if (oldKey !== undefined) process.env.VERIFIER_PRIVATE_KEY = oldKey; }
 });
-test('64KB按真实流字节限制，不能靠伪造 content-length 绕过', async () => {
+test('128KB按真实流字节限制，不能靠伪造 content-length 绕过', async () => {
   const post = createVerifyHandler(verifyOptions());
   const encoded = JSON.stringify({ ...payload, padding: '' });
-  assert.equal((await post(request({ ...payload, padding: ' '.repeat(65536 - Buffer.byteLength(encoded)) }))).status, 200);
-  assert.equal((await post(request(' '.repeat(65537)))).status, 413);
-  const req = request(' '.repeat(65537)); req.headers.set('content-length', '1');
+  assert.equal((await post(request({ ...payload, padding: ' '.repeat(131072 - Buffer.byteLength(encoded)) }))).status, 200);
+  const oversized = await post(request(' '.repeat(131073)));
+  assert.equal(oversized.status, 413);
+  assert.equal((await oversized.json()).error, '请求体超过 128 KB');
+  const req = request(' '.repeat(131073)); req.headers.set('content-length', '1');
   assert.equal((await post(req)).status, 413);
-  const utf = request(JSON.stringify({ ...payload, padding: '中'.repeat(23000) }));
+  const utf = request(JSON.stringify({ ...payload, padding: '中'.repeat(45000) }));
   assert.equal((await post(utf)).status, 413);
 });
 test('同一IP一分钟最多10次，窗口后恢复且独立IP不受影响', async () => {
@@ -128,4 +130,19 @@ test('公开Blob缓存旧内容时，连续刷新成绩仍读取新版本并保�
   await storage.put(1, address, { data: 'second' }, 40000);
   await storage.put(1, address, { data: 'third' }, 30000);
   assert.equal((await storage.get(1, address)).bestMs, 30000);
+});
+
+test('100 KB 请求进入核实并保存，不放宽录像校验', async () => {
+  let checked = false;
+  const options = verifyOptions({ replayVerifier: replay => { checked = true; assert.equal(replay.trackId, 1); return { bestLap: 47, achievements: 0 }; } });
+  const encoded = JSON.stringify({ ...payload, padding: '' });
+  const body = { ...payload, padding: ' '.repeat(100 * 1024 - Buffer.byteLength(encoded)) };
+  assert.equal(Buffer.byteLength(JSON.stringify(body)), 100 * 1024);
+  assert.equal((await createVerifyHandler(options)(request(body))).status, 200);
+  assert.equal(checked, true);
+  assert.equal((await options.store.get(1, address)).bestMs, 47000);
+  const invalid = createVerifyHandler(verifyOptions({ replayVerifier() { throw new Error('录像无效'); } }));
+  assert.equal((await invalid(request(body))).status, 400);
+  const declared = request(payload); declared.headers.set('content-length', '131073');
+  assert.equal((await createVerifyHandler(options)(declared)).status, 413);
 });

@@ -4,7 +4,7 @@ import { verifyReplay } from './_lib/replay.js';
 import { signLap } from './_lib/sign.js';
 import { createGhostStore } from './_lib/ghost-store.js';
 
-const MAX_BODY_BYTES = 64 * 1024;
+const MAX_BODY_BYTES = 128 * 1024;
 async function readBody(request) {
   if (Number(request.headers.get('content-length')) > MAX_BODY_BYTES) throw Object.assign(new Error(), { status: 413 });
   const reader = request.body?.getReader();
@@ -36,7 +36,7 @@ export function createVerifyHandler(options = {}) {
     windows.set(ip, window);
     let body;
     try { body = await readBody(request); }
-    catch (error) { return jsonResponse({ error: error.status === 413 ? '请求体超过 64 KB' : '请求 JSON 无效' }, error.status === 413 ? 413 : 400); }
+    catch (error) { return jsonResponse({ error: error.status === 413 ? '请求体超过 128 KB' : '请求 JSON 无效' }, error.status === 413 ? 413 : 400); }
     if (!body || typeof body.address !== 'string' || !isAddress(body.address, { strict: false }) || ![1, 2, 3].includes(body.trackId) || !body.replay || !Number.isInteger(body.bits0to19) || body.bits0to19 < 0 || body.bits0to19 > 0xffffffff) return jsonResponse({ error: '地址、赛道、录像或成就位无效' }, 400);
     try {
       const config = { ...getServerConfig(), ...options }, reader = createRaceReader(config);
