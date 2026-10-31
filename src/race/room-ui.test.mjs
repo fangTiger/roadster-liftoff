@@ -121,3 +121,13 @@ test('选图自动收起，弹框内部不关闭，房主和非房主均可点�
   setLang('en');assert.equal(close['aria-label'],'Close track picker');ui.destroy();ui=null;assert.equal(f.listeners.size,0);
  }finally{ui?.destroy();setLang('zh');f.restore();}
 });
+
+test('音乐阶段随进入大厅、倒计时、比赛、返回和离开更新，销毁停止',async()=>{
+ const {mountRoomUI}=await import('./room-ui.js'),f=uiFixture(),phases=[];f.client.leave=()=>{};let ui;
+ try{ui=mountRoomUI({client:f.client,setMusicPhase:phase=>phases.push(phase)});assert.equal(phases.at(-1),'off');
+ f.emit('room',f.room);assert.equal(phases.at(-1),'lobby');f.emit('room',{...f.room,phase:'countdown'});assert.equal(phases.at(-1),'countdown');
+ ui.racing();assert.equal(phases.at(-1),'racing');f.emit('results',{results:[]});assert.equal(phases.at(-1),'off');
+ f.emit('room',f.room);assert.equal(phases.at(-1),'off');f.get('[data-rm-return]').onclick();assert.equal(phases.at(-1),'lobby');
+ f.get('[data-rm-leave]').onclick();assert.equal(phases.at(-1),'off');ui.destroy();ui=null;assert.equal(phases.at(-1),'off');
+ }finally{ui?.destroy();f.restore();}
+});

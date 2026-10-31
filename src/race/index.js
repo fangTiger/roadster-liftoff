@@ -52,25 +52,27 @@ Object.assign(loading.style, { position: 'fixed', inset: '0', zIndex: '50', disp
 document.body.append(loading);
 // 竞速模式不用第一版的界面：一开始就藏起来（HUD 要等选完地图才创建）
 const hideOld = document.createElement('style'); hideOld.textContent = 'body> :not(canvas):not(#race-hud):not(#race-pick):not(#race-loading):not(#race-tools):not(.rm-root):not(#ach-toast):not(#ach-panel-wrap):not(#roadster-wallet):not(w3m-modal):not(:has([data-rk])):not(script):not(style){display:none!important}'; document.head.append(hideOld);
-// 与第一版共用存储和音量总线，竞速不加载音乐文件。
-const audio = createAudio({ music: false }), raceAudio = createRaceAudio(audio), achievements = createAchievements();
+// 与第一版共用存储和音量总线，大厅曲目只在进入房间后加载。
+const audio = createAudio({ music: false, urls: { lobby: '/assets/music/lobby-rock.m4a' } }), raceAudio = createRaceAudio(audio), achievements = createAchievements();
 let audioSettings = {};
 try { audioSettings = JSON.parse(localStorage.getItem('liftoff.ui.v1')) || {}; } catch { /* 无存储时使用音频默认值。 */ }
 if (typeof audioSettings.muted === 'boolean') audio.setMuted(audioSettings.muted);
+if (typeof audioSettings.musicEnabled === 'boolean') audio.setMusicEnabled(audioSettings.musicEnabled);
 if (Number.isFinite(audioSettings.volume)) audio.setVolume(audioSettings.volume);
 const tools = document.createElement('div'); tools.id = 'race-tools';
 Object.assign(tools.style, { position: 'fixed', left: '24px', bottom: '52px', zIndex: '60', display: 'flex', gap: '14px', alignItems: 'center', color: '#f4eee1', font: '13px system-ui' });
-tools.innerHTML = `<button data-ach></button><details><summary data-settings></summary><div style="position:absolute;bottom:32px;background:#101a20ed;padding:18px;border:1px solid #ffffff33;border-radius:12px;min-width:190px"><label><span data-volume></span> <input type="range" min="0" max="1" step=".01"></label><label><input type="checkbox"> <span data-mute></span></label></div></details><span data-lang></span>`;
-const volumeInput = tools.querySelector('[type=range]'), muteInput = tools.querySelector('[type=checkbox]');
-volumeInput.value = audioSettings.volume ?? .8; muteInput.checked = audio.muted;
-const paintTools = () => { tools.querySelector('[data-ach]').textContent = `${t('ach.title')} ${achievements.unlocked}/28`; tools.querySelector('[data-settings]').textContent = t('menu.settings'); tools.querySelector('[data-volume]').textContent = t('set.volume'); tools.querySelector('[data-mute]').textContent = t('set.mute'); };
-const saveAudio = () => { audioSettings = { ...audioSettings, volume: Number(volumeInput.value), muted: muteInput.checked }; audio.setVolume(audioSettings.volume); audio.setMuted(audioSettings.muted); try { localStorage.setItem('liftoff.ui.v1', JSON.stringify(audioSettings)); } catch { /* 隐私模式继续使用内存。 */ } };
-volumeInput.oninput = saveAudio; muteInput.onchange = saveAudio;
+tools.innerHTML = `<button data-ach></button><details><summary data-settings></summary><div style="position:absolute;bottom:32px;background:#101a20ed;padding:18px;border:1px solid #ffffff33;border-radius:12px;min-width:190px"><label><span data-volume></span> <input type="range" min="0" max="1" step=".01"></label><label><input type="checkbox" data-setting="muted"> <span data-mute></span></label><label><input type="checkbox" data-setting="musicEnabled"> <span data-music></span></label></div></details><span data-lang></span>`;
+const volumeInput = tools.querySelector('[type=range]'), muteInput = tools.querySelector('[data-setting=muted]'), musicInput = tools.querySelector('[data-setting=musicEnabled]');
+volumeInput.value = audioSettings.volume ?? .8; muteInput.checked = audio.muted; musicInput.checked = audio.musicEnabled;
+const paintTools = () => { tools.querySelector('[data-ach]').textContent = `${t('ach.title')} ${achievements.unlocked}/28`; tools.querySelector('[data-settings]').textContent = t('menu.settings'); tools.querySelector('[data-volume]').textContent = t('set.volume'); tools.querySelector('[data-mute]').textContent = t('set.mute'); tools.querySelector('[data-music]').textContent = t('set.music'); };
+const saveAudio = () => { audioSettings = { ...audioSettings, volume: Number(volumeInput.value), muted: muteInput.checked, musicEnabled: musicInput.checked }; audio.setVolume(audioSettings.volume); audio.setMuted(audioSettings.muted); audio.setMusicEnabled(audioSettings.musicEnabled); try { localStorage.setItem('liftoff.ui.v1', JSON.stringify(audioSettings)); } catch { /* 隐私模式继续使用内存。 */ } };
+volumeInput.oninput = saveAudio; muteInput.onchange = saveAudio; musicInput.onchange = saveAudio;
 tools.querySelector('[data-ach]').onclick = () => achievements.openPanel();
 mountLangToggle(tools.querySelector('[data-lang]'), { injectCss: false });
 onLangChange(paintTools); achievements.onUnlock(() => { paintTools(); audio.event('achievement'); }); paintTools(); document.body.append(tools);
 const unlockAudio = () => { void audio.unlock().catch(() => {}); };
-addEventListener('pointerdown', unlockAudio); addEventListener('keydown', unlockAudio);
+// 捕获阶段先解锁，车辆拖动阻止冒泡也不会丢失用户手势。
+addEventListener('pointerdown', unlockAudio, { capture: true }); addEventListener('keydown', unlockAudio, { capture: true });
 addEventListener('keydown', e => { if (e.code === 'KeyM' && !e.repeat) { muteInput.checked = !audio.muted; saveAudio(); } });
 const engine = createEngine(capture ? { pixelRatio: 1 } : {});
 engine.camera.far = 1800; engine.camera.updateProjectionMatrix();
@@ -202,8 +204,8 @@ if (roomMode) {
     if (sceneRestore) { engine.scene.environmentIntensity = sceneRestore.environment; if (sceneRestore.sun) sceneRestore.sun.intensity = sceneRestore.intensity; engine.scene.onAfterRender = sceneRestore.afterRender; if (engine.scene.fog && sceneRestore.fog !== undefined) engine.scene.fog.density = sceneRestore.fog; sceneRestore = null; }
     seenEvents = 0; wheelAngle = 0; celebrated = false; keys.clear();
   };
-  roomRace = mountRoomRace({ engine, params, selfRoot: car.root, setup: (difficulty, start) => setup(difficulty, null, '', start), clear, simulate, render, applyEffect: (kind, effectParams) => session.applyEffect(kind, effectParams), playSound: name => audio.event(name), getState: () => current, getGhost: () => session.ghost, getTrack: () => track, getBits: () => { let bits = 0; for (const code of keys) bits |= map[code] || 0; return bits; }, isPaused: () => !!raceMenu?.paused });
-  addEventListener('pagehide', () => roomRace.client.leave());
+  roomRace = mountRoomRace({ engine, params, setMusicPhase: phase => audio.setLobbyPhase(phase), selfRoot: car.root, setup: (difficulty, start) => setup(difficulty, null, '', start), clear, simulate, render, applyEffect: (kind, effectParams) => session.applyEffect(kind, effectParams), playSound: name => audio.event(name), getState: () => current, getGhost: () => session.ghost, getTrack: () => track, getBits: () => { let bits = 0; for (const code of keys) bits |= map[code] || 0; return bits; }, isPaused: () => !!raceMenu?.paused });
+  addEventListener('pagehide', () => { audio.setLobbyPhase('off'); roomRace.client.leave(); });
 } else if (capture) {
   await setup(params.get('map') || DEFAULT_DIFFICULTY); hideLoading();
   window.__race = { step(bits, n = 1) { for (let i = 0; i < n; i++) simulate(bits); render(1, Math.max(DT, n * DT)); return current; }, auto(n = 1) { for (let i = 0; i < n; i++) simulate(autopilot(current, track)); render(1, Math.max(DT, n * DT)); return current; }, snap: () => session.snapshot, replay: () => recorder.encode({ track: hash, trackId: def.id, laps: def.laps }), cam(mode) { const value = camera.setMode(mode); render(); return value; }, render: () => render() };

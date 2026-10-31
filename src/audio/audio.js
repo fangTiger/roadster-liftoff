@@ -15,10 +15,12 @@ export function createAudio({ urls, music = true } = {}) {
   // 复制地址，避免调用者随后修改对象影响惰性初始化。
   const sources = { ...urls };
   let muted = false;
+  let musicEnabled = true;
   let volume = 0.8;
   try {
     const saved = JSON.parse(globalThis.localStorage.getItem(STORE));
     if (typeof saved?.muted === 'boolean') muted = saved.muted;
+    if (typeof saved?.musicEnabled === 'boolean') musicEnabled = saved.musicEnabled;
     if (Number.isFinite(saved?.volume)) volume = clamp(saved.volume);
   } catch { /* 隐私模式及禁用存储时继续使用内存状态。 */ }
 
@@ -27,13 +29,14 @@ export function createAudio({ urls, music = true } = {}) {
   let tires, road, gravel, wind, hiss, roar, thrustGain, plasmaRumble, plasmaCrackle;
   let buffers, tracks, current = null, pendingCue = null, requestId = 0, ready = false, unlocking;
   let state = { mode: 'drive', landing: 0 };
+  let lobbyPhase = 'off', lobbyTrack, lobbyPending, lobbyStopTimer, lobbyFading = false;
   let landed = false;
   let previousLanding = 0;
   let previousMode = 'drive';
   const automation = new WeakMap();
 
   function persist() {
-    try { globalThis.localStorage.setItem(STORE, JSON.stringify({ muted, volume })); } catch { /* 存储失败不影响声音。 */ }
+    try { globalThis.localStorage.setItem(STORE, JSON.stringify({ muted, volume, musicEnabled })); } catch { /* 存储失败不影响声音。 */ }
   }
 
   // 保存自动化片段，旧版 Safari 无 cancelAndHoldAtTime 时也可连续重定向。
@@ -126,7 +129,7 @@ export function createAudio({ urls, music = true } = {}) {
     limiter.attack.value = 0.003; limiter.release.value = 0.22;
     limiter.connect(ctx.destination);
     master = gain(0, limiter);
-    musicBus = gain(MUSIC_LEVEL); sfxBus = gain(SFX_LEVEL, master);
+    musicBus = gain(musicEnabled ? MUSIC_LEVEL : 0); sfxBus = gain(SFX_LEVEL, master);
     const musicOutput = ctx.createStereoPanner(); musicOutput.connect(master);
     musicDuck = gain(1, musicOutput);
     musicBus.connect(musicDuck);
@@ -229,6 +232,7 @@ export function createAudio({ urls, music = true } = {}) {
     if (!ctx) initialize();
     // resume 与所有媒体 play 必须在用户手势调用栈中发起，不能先 await。
     const resumed = ctx.resume();
+    syncLobbyMusic();
     if (!music) return resumed.then(() => { ready = true; update(0, state); });
     if (ready) {
       const track = tracks.find(t => t.name === current);
@@ -289,7 +293,7 @@ export function createAudio({ urls, music = true } = {}) {
     smooth(wet.gain, openness * 0.42, landed ? 1 : 0.5);
     smooth(panDepth.gain, orbit ? 0.65 : 0, 0.6);
     // 独立增益级使推进器的 80/600 毫秒包络不受其他混音变化影响。
-    smooth(musicBus.gain, MUSIC_LEVEL * db((orbit ? -3 : 0) - (reentry ? 8 * plasma : 0)), 0.15);
+    smooth(musicBus.gain, (musicEnabled ? MUSIC_LEVEL : 0) * db((orbit ? -3 : 0) - (reentry ? 8 * plasma : 0)), 0.15);
     smooth(musicDuck.gain, duck ? db(-6) : 1, duck ? 0.08 / 3 : 0.6 / 3);
     const pitch = 80 + clamp(speed / 400) * 820;
     smooth(motor.frequency, pitch, 0.08); smooth(motorSine.frequency, pitch, 0.08);
@@ -418,9 +422,57 @@ export function createAudio({ urls, music = true } = {}) {
     smooth(hornGain.gain, on ? 0.34 : 0, on ? 0.008 : 0.035);
   }
 
-  function setMuted(value) { muted = Boolean(value); persist(); if (ctx) smooth(master.gain, muted ? 0 : volume, 0.025); }
+  // 大厅曲目也接入既有音乐总线，只在需要播放时创建媒体元素。
+  const wantsLobby = () => lobbyPhase === 'lobby' && musicEnabled && !muted && !!sources.lobby;
+  function syncLobbyMusic(fade = false) {
+    // 重复手势解锁不重置已在音频时钟上运行的倒计时淡出。
+    if (lobbyPhase === 'countdown' && lobbyFading && musicEnabled && !muted) return;
+    clearTimeout(lobbyStopTimer);
+    if (!wantsLobby()) {
+      if (!lobbyTrack) return;
+      lobbyFading = fade;
+      smooth(lobbyTrack.output.gain, 0, fade ? .1 : .008);
+      if (fade) lobbyStopTimer = setTimeout(() => { lobbyTrack.el.pause(); lobbyFading = false; }, 800);
+      else { lobbyTrack.el.pause(); lobbyFading = false; }
+      return;
+    }
+    if (!ctx) return;
+    if (!lobbyTrack) {
+      const el = new Audio(); el.preload = 'none'; el.crossOrigin = 'anonymous'; el.loop = true; el.src = sources.lobby;
+      el.addEventListener('error', () => console.warn('大厅音乐加载失败'));
+      const output = gain(0, musicHP); ctx.createMediaElementSource(el).connect(output);
+      lobbyTrack = { name: 'lobby', el, output };
+    }
+    lobbyFading = false;
+    if (lobbyPending) return;
+    if (!lobbyTrack.el.paused) { smooth(lobbyTrack.output.gain, .28, .1); return; }
+    // 必须在当前手势栈调用 play；被自动播放策略拒绝后由下次 unlock 重试。
+    lobbyPending = play(lobbyTrack).then(ok => {
+      lobbyPending = null;
+      if (!wantsLobby()) {
+        if (!lobbyFading) { smooth(lobbyTrack.output.gain, 0, .008); lobbyTrack.el.pause(); }
+        return;
+      }
+      if (ok) smooth(lobbyTrack.output.gain, .28, .1);
+    });
+  }
+  function setLobbyPhase(phase) {
+    if (phase === lobbyPhase) return;
+    lobbyPhase = phase;
+    if (wantsLobby()) { void unlock().catch(() => {}); }
+    else syncLobbyMusic(phase === 'countdown');
+  }
+  function setMusicEnabled(value) {
+    musicEnabled = Boolean(value); persist();
+    if (ctx) smooth(musicBus.gain, musicEnabled ? MUSIC_LEVEL : 0, .04);
+    if (wantsLobby()) void unlock().catch(() => {}); else syncLobbyMusic();
+  }
+  function setMuted(value) {
+    muted = Boolean(value); persist(); if (ctx) smooth(master.gain, muted ? 0 : volume, .025);
+    if (wantsLobby()) void unlock().catch(() => {}); else syncLobbyMusic();
+  }
   function toggleMuted() { setMuted(!muted); return muted; }
   function setVolume(value) { volume = clamp(value); persist(); if (ctx) smooth(master.gain, muted ? 0 : volume, 0.04); }
 
-  return { unlock, cue, update, event, horn, setMuted, toggleMuted, setVolume, get muted() { return muted; } };
+  return { unlock, cue, update, event, horn, setMuted, toggleMuted, setVolume, setLobbyPhase, setMusicEnabled, get musicEnabled() { return musicEnabled; }, get muted() { return muted; } };
 }

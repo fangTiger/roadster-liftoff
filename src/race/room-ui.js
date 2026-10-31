@@ -8,7 +8,7 @@ const format=value=>value===null||value===undefined?'—':`${Math.floor(value/60
 export function invitationURL(code,href=location.href){const url=new URL(href);url.searchParams.set('race','');url.searchParams.set('room',code);for(const key of ['capture','map'])url.searchParams.delete(key);return url.href;}
 export function standings(players,states,length){return [...players].sort((a,b)=>{const x=states.get(a.id),y=states.get(b.id);return (y?y.lap*length+y.s:0)-(x?x.lap*length+x.s:0)||a.seat-b.seat;});}
 const node=(tag,text,className)=>{const el=document.createElement(tag);if(text!==undefined)el.textContent=text;if(className)el.className=className;return el;};
-export function mountRoomUI({client,roomCode='',onReturn=()=>{},playSound=()=>{},garageFactory=createGarage}) {
+export function mountRoomUI({client,roomCode='',onReturn=()=>{},playSound=()=>{},setMusicPhase=()=>{},garageFactory=createGarage}) {
  const root=node('div',undefined,'rm-root');root.id='rm-room';
  root.innerHTML=`<section class="rm-overlay" data-rm-lobby role="dialog" aria-modal="true" aria-labelledby="rm-title"><div class="rm-card"><p class="rm-eyebrow">MARS ROADSTER · LIVE</p><h1 id="rm-title"></h1><p class="rm-note" data-rm-intro></p>
 <form class="rm-form"><label><span data-rm-name-label></span><input data-rm-name maxlength="32" autocomplete="nickname"></label><label><span data-rm-code-label></span><input data-rm-code maxlength="6" autocomplete="off" spellcheck="false" class="rm-code-input"></label><div class="rm-actions"><button type="button" data-rm-create></button><button type="submit" data-rm-join></button></div></form>
@@ -105,6 +105,7 @@ export function mountRoomUI({client,roomCode='',onReturn=()=>{},playSound=()=>{}
   $('[data-rm-track-summary]').innerHTML=current?`<span class="rm-current-track"><img src="${current.image}" width="1920" height="1080" alt=""><span><small>${t('room.trackPreview')}</small><strong>${t('race.track'+currentId)}</strong><span>${t('room.trackLength',{length:current.length})} · ${t('race.'+current.difficulty)}</span></span><b aria-hidden="true">⌄</b></span>`:t('room.chooseTrack');
   $('[data-rm-laps]').textContent=current?t('room.laps',{count:TRACKS.find(entry=>entry.def.id===currentId).def.laps}):'';
   $('[data-rm-garage-title]').textContent=t('room.garageTitle');$('[data-rm-garage-count]').textContent=t('room.garageCount',{count:room?.players.length||0});scrollHint.textContent=t('room.garageScroll');
+  setMusicPhase(!room?'off':view==='lobby'?room.phase:view==='racing'?'racing':'off');
   paintPlayers();paintRanks();paintResults();syncGarage();placeTrackPicker();
  }
  function join(joinCode){
@@ -118,7 +119,7 @@ export function mountRoomUI({client,roomCode='',onReturn=()=>{},playSound=()=>{}
  for(const mode of ['items','speed'])$(`[data-rm-mode="${mode}"]`).onclick=()=>client.send({type:'pickMode',mode});
  $('[data-rm-copy]').onclick=async()=>{try{await navigator.clipboard.writeText(invitationURL(room.code));copied=true;paint();}catch{error='COPY_FAILED';paint();}};
  function leave(){clearTimeout(transitionTimer);flash.hidden=true;closeTrackPicker();client.leave();room=null;results=null;busy=false;error='';view='lobby';onReturn();paint();}
- $('[data-rm-leave]').onclick=leave;$('[data-rm-home]').onclick=()=>client.leave();
+ $('[data-rm-leave]').onclick=leave;$('[data-rm-home]').onclick=()=>{setMusicPhase('off');client.leave();};
  function returnToLobby(){results=null;view='lobby';onReturn();paint();}
  $('[data-rm-return]').onclick=returnToLobby;
  $('[data-rm-rematch]').onclick=()=>{returnToLobby();if(room?.hostId!==client.id)client.send({type:'ready',on:true});};
@@ -127,6 +128,7 @@ export function mountRoomUI({client,roomCode='',onReturn=()=>{},playSound=()=>{}
  return {
   get room(){return room;},get view(){return view;},
   racing(){
+   setMusicPhase('racing');
    // 此时赛道和远端车辆已就绪，首帧已渲染；保留大厅直到闪白覆盖交接点。
    if(!garage?.transition){view='racing';results=null;error='';paint();return;}
    garage.transition();
@@ -139,6 +141,6 @@ export function mountRoomUI({client,roomCode='',onReturn=()=>{},playSound=()=>{}
   },
   update(players,states,length){lastRanks=standings(players,states,length);paintRanks();},
   fail(){error='LOAD_FAILED';view='lobby';paint();},
-  destroy(){clearTimeout(transitionTimer);document.removeEventListener('pointerdown',outsideTrackPicker);document.removeEventListener('keydown',escapeTrackPicker);trackDetails.ontoggle=null;unsubs.forEach(fn=>fn());globalThis.window?.removeEventListener('resize',resizeGarage);garage?.dispose();carLoader?.dispose();root.remove();},
+  destroy(){setMusicPhase('off');clearTimeout(transitionTimer);document.removeEventListener('pointerdown',outsideTrackPicker);document.removeEventListener('keydown',escapeTrackPicker);trackDetails.ontoggle=null;unsubs.forEach(fn=>fn());globalThis.window?.removeEventListener('resize',resizeGarage);garage?.dispose();carLoader?.dispose();root.remove();},
  };
 }
