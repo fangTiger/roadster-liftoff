@@ -5,11 +5,13 @@ import { gridSpawn } from './grid.js';
 export function carState(car,race,ghost=false) {
  return {x:car.x,y:car.y,z:car.z,yaw:car.yaw,pitch:car.pitch,vx:car.vx,vz:car.vz,steer:car.steer,drifting:!!car.drifting,boost:car.boostTime>0,ghost,spinning:car.spinTime>0,finished:race.finished,shield:car.shieldTime>0,trapped:car.trapTime>0,air:!car.grounded,lap:race.lap,s:car.near.s};
 }
-export function createRoomBots({players,ownerId,track,laps,contacts}) {
+export function createRoomBots({players,ownerId,track,laps,contacts,traffic=()=>[],random=Math.random}) {
  const bots=new Map();
  for(const player of players.filter(p=>p.bot&&p.ownerId===ownerId&&p.connected)){
   const session=createSession(track,{laps,spawn:gridSpawn(track,player.seat),contactId:player.id,contacts:step=>contacts(player.id,step)});
-  bots.set(player.id,{session,driver:createBotDriver(player.difficulty),step:0,sequence:0,lastSend:-Infinity,lastFinish:-Infinity});
+  const bot={session,step:0,sequence:0,lastSend:-Infinity,lastFinish:-Infinity};
+  bot.driver=createBotDriver(player.difficulty,{random,id:player.id,cars:()=>traffic(player.id,bot.step+1)});
+  bots.set(player.id,bot);
  }
  return bots;
 }
