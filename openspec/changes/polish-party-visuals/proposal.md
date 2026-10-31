@@ -9,6 +9,8 @@
 - 竞速赛道金币改用太空模式的金币造型（带浮雕币面的 Lathe 圆币），抽出共用的金币模型工厂，两种模式共用。
 - 不改物理和判定：道具效果、拾取半径、金币位置与作用保持不变，单人 golden 不变。
 
+- 本批额外按地图限制实时推进器：只在困难图保留空格 JET 与推进剂 HUD，简单/普通图隐藏，模拟与录像不变。
+
 ## Impact
 - Affected specs: party-race
 - Affected code: src/race/room-ui.js、src/race/room.css（或新建大厅 3D 场景模块）、src/race/scene/items.js、src/race/hud.js 道具槽、src/race/scene/greybox.js 金币、src/game/coins.js（抽出模型工厂）

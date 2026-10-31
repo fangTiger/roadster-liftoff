@@ -22,7 +22,9 @@ import { createSession } from './sim/session.js';
 import { DT } from './sim/physics.js';
 import { autopilot } from './sim/autopilot.js';
 import * as B from './sim/input-bits.js';
+import { createKeyMap } from './input.js';
 import { createGreybox } from './scene/greybox.js';
+import { disposeRaceObjects } from './scene/dispose.js';
 import { createAlpine } from './scene/alpine.js';
 import { createRaceCamera } from './camera.js';
 import { createHud } from './hud.js';
@@ -85,10 +87,10 @@ async function setup(difficulty, replay = null, ghostName = '', roomStart = null
   qualifyMs = qualifyTime(entry);
   // 只读公共赛道配置，无需连接钱包；读取失败使用本地默认。
   if (!roomMode) void wallet.readTrack(entry.def.id).then(value => { qualifyMs = qualifyTime(entry, value); if (current) achievements.reportRace(current, { difficulty: entry.difficulty, qualifyMs }); }).catch(() => {});
-  def = entry.def; track = buildTrack(def); hash = trackHash(def);
+  def = entry.def; map = createKeyMap(def.id); track = buildTrack(def); hash = trackHash(def);
   try { scene = params.has('greybox') ? createGreybox(engine.scene, track, { tint: sky.tint }) : await createAlpine(engine.scene, track, { tint: sky.tint, renderer: engine.renderer }); }
   finally { if (roomMode) raceObjects = engine.scene.children.filter(object => !before.has(object)); }
-  gate = createStartGate(engine.scene, track, t('race.track' + def.id)); hud = createHud(track, () => `${t('race.track' + def.id)} · ${t('race.' + entry.difficulty)}`, { roomMode, itemsMode: roomStart?.mode === 'items' });
+  gate = createStartGate(engine.scene, track, t('race.track' + def.id)); hud = createHud(track, () => `${t('race.track' + def.id)} · ${t('race.' + entry.difficulty)}`, { trackId: def.id, roomMode, itemsMode: roomStart?.mode === 'items' });
   session = createSession(track, { laps: roomStart?.laps ?? def.laps, ...(roomStart ? { spawn: gridSpawn(track, roomStart.seat), contacts: roomStart.contacts, contactId: roomStart.contactId } : {}) }); recorder = createRecorder(); previous = current = session.snapshot; raceAudio.reset();
   if (roomMode) { raceObjects = engine.scene.children.filter(object => !before.has(object)); car.root.visible = true; camera.setMode('follow'); }
   const selectedReplay = roomMode ? null : replay ?? (capture && params.get('ghost') === 'best' ? readBestGhost(def)?.replay : null);
@@ -117,7 +119,7 @@ async function setup(difficulty, replay = null, ghostName = '', roomStart = null
     });
   }
 }
-const keys = new Set(), map = { KeyW: B.THROTTLE, ArrowUp: B.THROTTLE, KeyS: B.BRAKE, ArrowDown: B.BRAKE, KeyA: B.LEFT, ArrowLeft: B.LEFT, KeyD: B.RIGHT, ArrowRight: B.RIGHT, Space: B.JET, ShiftLeft: B.DRIFT, ShiftRight: B.DRIFT, Backspace: B.RESET, KeyT: B.RESET };
+const keys = new Set(); let map = createKeyMap();
 addEventListener('keydown', e => { if (e.target.closest?.('input,select,textarea') || document.querySelector('.ach-panel-visible')) return; if (['Enter', 'Space'].includes(e.code) && e.target.closest?.('button,summary,[role=button]')) return; if (map[e.code]) { e.preventDefault(); keys.add(e.code); } if (e.code === 'KeyC' && !e.repeat) camera.setMode(); if (!roomMode && e.code === 'Enter' && current?.race.finished) location.reload(); });
 addEventListener('keyup', e => keys.delete(e.code)); addEventListener('blur', () => keys.clear());
 function simulate(bits) {
@@ -182,7 +184,7 @@ if (roomMode) {
   engine.render(); hideLoading(); car.root.visible = false;
   const clear = () => {
     raceMenu?.destroy(); raceMenu = null; hud?.destroy(); hud = null; car.root.visible = false;
-    for (const object of raceObjects) { object.removeFromParent(); object.traverse(child => { child.geometry?.dispose(); for (const material of [].concat(child.material || [])) { for (const value of Object.values(material)) if (value?.isTexture) value.dispose(); material.dispose(); } }); }
+    disposeRaceObjects(raceObjects);
     raceObjects = [];
     if (sceneRestore) { engine.scene.environmentIntensity = sceneRestore.environment; if (sceneRestore.sun) sceneRestore.sun.intensity = sceneRestore.intensity; engine.scene.onAfterRender = sceneRestore.afterRender; if (engine.scene.fog && sceneRestore.fog !== undefined) engine.scene.fog.density = sceneRestore.fog; sceneRestore = null; }
     seenEvents = 0; wheelAngle = 0; celebrated = false; keys.clear();
