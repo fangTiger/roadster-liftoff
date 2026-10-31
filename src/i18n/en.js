@@ -328,7 +328,6 @@ export default {
   "race.easy": "Easy",
   "race.normal": "Normal",
   "race.hard": "Hard",
-  "race.extreme": "Extreme",
   "race.sunset": "Sunset Sky",
   "race.dawn": "Valley Dawn",
   "race.track1": "Meadow Loop",

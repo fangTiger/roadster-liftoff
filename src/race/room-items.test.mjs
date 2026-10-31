@@ -5,8 +5,8 @@ const track={length:100,features:[],at:s=>({x:0,y:0,z:s,tx:0,tz:1,w:10,bank:0}),
 function fixture(random=()=>.5){assert.equal(typeof module.createRoomItems,'function');const sent=[],events=[],effects=[],items=module.createRoomItems({track,send:m=>sent.push(m),random,onEvent:e=>events.push(e)}),car={...items.boxes[0],yaw:0,grounded:true,near:{s:22}},actor={id:'a',car,race:{lap:1,frozen:false,finished:false},time:3,rankFraction:0,applyEffect:kind=>effects.push(kind)};return {items,sent,events,effects,actor};}
 function smartFixture(difficulty){const f=fixture(()=>0);Object.assign(f.actor,{bot:true,difficulty,cars:[]});f.actor.car={x:0,z:10,yaw:0,vx:0,vz:40,steer:0,grounded:true,near:{s:10,path:'main'}};Object.assign(f.items.slot('a'),{kind:'missile',pickedAt:3});return f;}
 
-test('困难和极限导弹必须对同一目标连续稳定瞄准，目标和槽中道具变化重置计时',()=>{
- for(const difficulty of ['hard','extreme'])for(const change of ['target','kind']){
+test('普通和困难导弹必须对同一目标连续稳定瞄准，目标和槽中道具变化重置计时',()=>{
+ for(const difficulty of ['normal','hard'])for(const change of ['target','kind']){
   const f=smartFixture(difficulty),b={id:'b',lap:1,s:40,x:0,z:40};f.actor.cars=[b];
   if(change==='kind'){f.items.slot('a').kind='shield';f.items.receive({kind:'missile',itemId:'x-1',target:'a',firedAt:3});}
   f.items.step(f.actor);f.actor.time=3.2;if(change==='target')f.actor.cars=[{...b,id:'c'}];else f.items.slot('a').kind='missile';f.items.step(f.actor);
@@ -14,8 +14,8 @@ test('困难和极限导弹必须对同一目标连续稳定瞄准，目标和�
   f.actor.time=3.7;f.items.step(f.actor);assert.equal(f.sent[0].target,change==='target'?'c':'b');
  }
 });
-test('困难和极限不会超时浪费护盾、在纯直道乱丢水雷，瞄准中断重新等待',()=>{
- for(const difficulty of ['hard','extreme']){
+test('普通和困难不会超时浪费护盾、在纯直道乱丢水雷，瞄准中断重新等待',()=>{
+ for(const difficulty of ['normal','hard']){
   const f=smartFixture(difficulty);f.items.slot('a').kind='shield';f.actor.time=30;f.items.step(f.actor);f.actor.time=31;f.items.step(f.actor);assert.deepEqual(f.effects,[]);assert.equal(f.items.slot('a').kind,'shield');
   f.items.slot('a').kind='mine';f.items.step(f.actor);f.actor.time=32;f.items.step(f.actor);assert.equal(f.sent.length,0);assert.equal(f.items.use(f.actor),false);assert.equal(f.items.slot('a').kind,'mine');
   f.items.slot('a').kind='missile';f.actor.cars=[{id:'b',lap:1,s:40,x:0,z:40}];f.items.step(f.actor);f.actor.time=32.2;f.actor.car.steer=.8;f.items.step(f.actor);f.actor.time=33;f.actor.car.steer=0;f.items.step(f.actor);assert.equal(f.sent.length,0);f.actor.time=33.5;f.items.step(f.actor);assert.equal(f.sent[0].target,'b');
@@ -23,10 +23,10 @@ test('困难和极限不会超时浪费护盾、在纯直道乱丢水雷，瞄�
 });
 test('高档实际水雷落点在前方主线弯心前，不追踪远处前车',()=>{
  const curved={...track,length:1000,at:s=>{const angle=.6/(1+Math.exp(-(s-40)/8));return {x:0,z:s,tx:Math.sin(angle),tz:Math.cos(angle),w:10};}},sent=[],items=module.createRoomItems({track:curved,send:m=>sent.push(m)});
- const actor={id:'a',bot:true,difficulty:'extreme',cars:[{id:'b',lap:1,s:150,x:0,z:150,vx:0,vz:50}],car:{x:0,z:0,yaw:0,near:{s:0,path:'main'}},race:{lap:1},time:20};items.slot('a').kind='mine';assert.equal(items.use(actor),true);assert.ok(sent[0].z>=8&&sent[0].z<40);assert.equal(sent[0].x,0);assert.equal(sent[0].ox,0);assert.equal(sent[0].oz,0);
+ const actor={id:'a',bot:true,difficulty:'hard',cars:[{id:'b',lap:1,s:150,x:0,z:150,vx:0,vz:50}],car:{x:0,z:0,yaw:0,near:{s:0,path:'main'}},race:{lap:1},time:20};items.slot('a').kind='mine';assert.equal(items.use(actor),true);assert.ok(sent[0].z>=8&&sent[0].z<40);assert.equal(sent[0].x,0);assert.equal(sent[0].ox,0);assert.equal(sent[0].oz,0);
 });
-test('简单和普通保留护盾超时使用、任意前方目标发弹的原策略',()=>{
- for(const difficulty of ['easy','normal']){
+test('简单保留护盾超时使用、任意前方目标发弹的原策略',()=>{
+ for(const difficulty of ['easy']){
   const f=fixture(()=>0);Object.assign(f.actor,{bot:true,difficulty,cars:[]});f.actor.car.x=1000;Object.assign(f.items.slot('a'),{kind:'shield',pickedAt:3});f.actor.time=20;f.items.step(f.actor);f.actor.time=21.2;f.items.step(f.actor);assert.deepEqual(f.effects,['shield']);
   f.items.slot('a').kind='missile';f.actor.cars=[{id:'b',lap:1,s:40}];f.items.step(f.actor);f.actor.time=22.4;f.items.step(f.actor);assert.equal(f.sent[0].target,'b');
  }
@@ -37,7 +37,7 @@ test('箱子本地隐藏四秒，满槽仍消费但不替换，一秒后才可�
 });
 test('机器人保留道具直到规则成立并经过反应时间，导弹无目标继续持有',()=>{
  for(const [value,kind] of [[.01,'missile'],[.2,'mine'],[.5,'nitro'],[.9,'shield']]){
-  const f=fixture(()=>value);Object.assign(f.actor,{bot:true,difficulty:'normal'});f.items.step(f.actor);assert.equal(f.items.slot('a').kind,kind);
+  const f=fixture(()=>value);Object.assign(f.actor,{bot:true,difficulty:'easy'});f.items.step(f.actor);assert.equal(f.items.slot('a').kind,kind);
   f.actor.time=kind==='mine'?9.1:kind==='shield'?11.1:3.1;f.items.step(f.actor);assert.equal(f.items.slot('a').kind,kind);
   f.actor.time+=1.3;f.items.step(f.actor);assert.equal(f.items.slot('a').kind,kind==='missile'?kind:null);
   if(kind==='mine'){assert.equal(f.sent[0].botId,'a');assert.equal(f.sent[0].itemId,'a-1');}else if(kind!=='missile')assert.deepEqual(f.effects,[kind]);
@@ -75,7 +75,7 @@ test('目标掉线、离开、完赛、stale 或 ghost 导弹永久失效，到�
  const f=fixture();for(const target of [null,'gone'])f.items.receive({kind:'missile',itemId:'b-'+(target?2:1),target,firedAt:3});f.items.tick(4.5,[]);assert.equal(f.items.missiles.size,0);assert.equal(f.sent.length,0);
 });
 test('机器人锁定后延迟开盾，失去条件取消计时，有目标才延迟发弹',()=>{
- const f=fixture(()=>0);Object.assign(f.actor,{bot:true,difficulty:'normal',cars:[]});f.actor.car.near={s:10};f.items.slot('a').kind='shield';f.items.slot('a').pickedAt=3;f.items.receive({kind:'missile',itemId:'b-1',target:'a',firedAt:3});f.items.step(f.actor);assert.equal(f.items.slot('a').kind,'shield');f.actor.time=3.5;f.items.step(f.actor);assert.deepEqual(f.effects,['shield']);
+ const f=fixture(()=>0);Object.assign(f.actor,{bot:true,difficulty:'easy',cars:[]});f.actor.car.near={s:10};f.items.slot('a').kind='shield';f.items.slot('a').pickedAt=3;f.items.receive({kind:'missile',itemId:'b-1',target:'a',firedAt:3});f.items.step(f.actor);assert.equal(f.items.slot('a').kind,'shield');f.actor.time=3.5;f.items.step(f.actor);assert.deepEqual(f.effects,['shield']);
  f.items.slot('a').kind='missile';f.actor.time=5;f.items.step(f.actor);assert.equal(f.sent.length,0);f.actor.cars=[{id:'b',lap:1,s:30}];f.items.step(f.actor);f.actor.time=5.1;f.actor.cars=[];f.items.step(f.actor);f.actor.time=6;f.actor.cars=[{id:'b',lap:1,s:30}];f.items.step(f.actor);assert.equal(f.sent.length,0);f.actor.time=6.5;f.items.step(f.actor);assert.equal(f.sent[0].target,'b');assert.equal(f.sent[0].botId,'a');
 });
 

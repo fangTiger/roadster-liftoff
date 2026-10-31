@@ -52,9 +52,9 @@ test('超车避开被占侧，排除身后、远车和无效车辆，并平滑�
  const before=a.laneOffset(120,track);cars=[];a(snapshot,track);assert.ok(Math.abs(a.laneOffset(120,track)-before)<.02);
  for(const car of [{...front,ghost:true},{...front,finished:true},{...front,connected:false},{...front,air:true},{...front,stale:true},{...front,x:p.x-p.tx*10,z:p.z-p.tz*10},{...front,x:p.x+p.tx*26,z:p.z+p.tz*26}]){const d=bots.createBotDriver('hard',{random:()=>.5,cars:()=>[car]});for(let i=0;i<240;i++)d(snapshot,track);assert.equal(d.laneOffset(120,track),b.laneOffset(120,track));}
 });
-test('简单每圈一次有限小失误、普通很少、困难无故意失误',()=>{
+test('简单很少出现有限小失误、普通和困难无故意失误',()=>{
  for(const difficulty of ['easy','normal','hard']){const d=bots.createBotDriver(difficulty,{random:seeded(17)}),track=tracks[0];let count=0;for(let lap=1;lap<=100;lap++){const mistake=d.personality.mistake(lap,track);if(mistake){count++;assert.ok(mistake.s>=0&&mistake.s<track.length);assert.ok(mistake.brakeBias>=-3&&mistake.brakeBias<0);}}
-  if(difficulty==='easy')assert.equal(count,100);if(difficulty==='normal')assert.ok(count>0&&count<25);if(difficulty==='hard')assert.equal(count,0);
+  if(difficulty==='easy')assert.ok(count>0&&count<25);else assert.equal(count,0);
  }
 });
 
@@ -77,4 +77,13 @@ test('制动预测和刹车偏置确实改变入弯时机，较晚制动保持�
 test('六车混合同场超车不在弯中持续顶墙卡死',async()=>{
  const {runPack}=await import('../../scripts/race/benchmark-bots.mjs');
  for(const track of tracks.slice(1))for(const reverse of [false]){const result=runPack(track,{seed:2026,reverse});for(const car of result.cars){assert.ok(car.finished);assert.equal(car.resets,0);assert.ok(car.maxStall<2,`地图 ${track.id} 反转 ${reverse} ${car.id} 低速 ${car.maxStall}`);}}
+});
+
+
+test('简单档接近水泥墩时让行近距离前车，避免并排碰撞顶墩',()=>{
+ const track=tracks[2],cones=track.features.find(f=>f.type==='cones'),s=cones.items[0].s-100,p=track.at(s),q=track.at(s+5);
+ const snapshot={car:{...createSession(track).car,...p,yaw:Math.atan2(p.tx,p.tz),near:null},race:{lap:1,frozen:true}};
+ const driver=bots.createBotDriver('easy',{random:()=>.5,id:'self',cars:()=>[{id:'front',...q}]});
+ const bits=driver(snapshot,track);assert.ok(bits&2);assert.equal(bits&1,0);
+ const solo=bots.createBotDriver('easy',{random:()=>.5});assert.ok(solo(snapshot,track)&1);
 });

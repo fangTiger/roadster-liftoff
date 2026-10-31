@@ -1,7 +1,7 @@
 import { itemBoxes,rollItem,mineHits,mineAlive,mineThrowTarget,pickMissileTarget,itemTargetValid } from './sim/items.js';
 import { botShouldUseItem,botItemDelay } from './bot-driver.js';
 import { smartBotShouldUseItem,smartBotMineTarget } from './bot-item-strategy.js';
-const smartBot=actor=>actor.bot&&['hard','extreme'].includes(actor.difficulty);
+const smartBot=actor=>actor.bot&&['normal','hard'].includes(actor.difficulty);
 // 每台本地模拟的车独立持有一个槽和箱子刷新时间；远端只同步道具实体。
 export function createRoomItems({track,send,random=Math.random,onEvent=()=>{}}) {
  const boxes=itemBoxes(track),actors=new Map(),mines=new Map(),missiles=new Map(),removed=new Set(),hits=new Set();

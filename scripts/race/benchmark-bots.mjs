@@ -30,7 +30,7 @@ export function runSolo(track,difficulty,{seed=1,laps=2,items=false}={}){
  return metrics(bot.session,{maxStall,maxLateral,maxRoadFraction,branchProjectionSteps,branchInteriorSteps,nitroUses});
 }
 export function runPack(track,{seed=2026,reverse=false,items=false}={}){
- const difficulties=['easy','normal','hard','extreme','normal','hard'],players=difficulties.map((difficulty,i)=>({id:`bot${i}`,seat:reverse?5-i:i,bot:true,ownerId:'host',difficulty,connected:true}));
+ const difficulties=['easy','normal','hard','easy','normal','hard'],players=difficulties.map((difficulty,i)=>({id:`bot${i}`,seat:reverse?5-i:i,bot:true,ownerId:'host',difficulty,connected:true}));
  let bots;
  const traffic=id=>[...bots].filter(([other])=>other!==id).map(([id,b])=>({id,...carState(b.session.car,b.session.race,b.session.ghost),air:!b.session.car.grounded}));
  bots=createRoomBots({players,ownerId:'host',track,laps:3,random:seeded(seed),contacts:id=>traffic(id).filter(c=>!c.ghost&&!c.air),traffic});
@@ -64,7 +64,7 @@ export function runPack(track,{seed=2026,reverse=false,items=false}={}){
   }
   s.step(bot.driver({car:s.car,race:s.race},track));bot.step++;
   const stall=stalls.get(id);stall.now=!s.race.frozen&&Math.hypot(s.car.vx,s.car.vz)<1?stall.now+DT:0;
-  if(stall.now>stall.max){stall.max=stall.now;if(items)stall.at={time:itemTime,lap:s.race.lap,s:s.car.near.s,path:s.car.near.path,trapTime:s.car.trapTime??0,spinTime:s.car.spinTime??0,steer:s.car.steer,x:s.car.x,z:s.car.z};}
+  if(stall.now>stall.max){stall.max=stall.now;stall.at={time:itemTime,lap:s.race.lap,s:s.car.near.s,path:s.car.near.path,trapTime:s.car.trapTime??0,spinTime:s.car.spinTime??0,steer:s.car.steer,x:s.car.x,z:s.car.z};}
   if(items){
    // 强制禁锢和打转保留在原始低速指标中；只在可以控制车辆时判断驾驶是否卡死。
    const controlled=!(s.car.trapTime>0)&&!(s.car.spinTime>0);
@@ -77,7 +77,7 @@ export function runPack(track,{seed=2026,reverse=false,items=false}={}){
   }
   if(itemSystem)itemSystem.tick(itemTime,[...bots].map(([id,b])=>({id,connected:true,...carState(b.session.car,b.session.race,b.session.ghost)})));
  }
- const cars=players.map(p=>({...p,...metrics(bots.get(p.id).session,{maxStall:stalls.get(p.id).max,branchInteriorSteps:stalls.get(p.id).branchInteriorSteps,...(items?{maxStallAt:stalls.get(p.id).at,maxControlStall:stalls.get(p.id).controlMax,maxControlStallAt:stalls.get(p.id).controlAt}: {})}),elapsed:bots.get(p.id).session.race.elapsed})),order=[...cars].sort((a,b)=>a.elapsed-b.elapsed).map(c=>c.id);
+ const cars=players.map(p=>({...p,...metrics(bots.get(p.id).session,{maxStall:stalls.get(p.id).max,maxStallAt:stalls.get(p.id).at,branchInteriorSteps:stalls.get(p.id).branchInteriorSteps,...(items?{maxControlStall:stalls.get(p.id).controlMax,maxControlStallAt:stalls.get(p.id).controlAt}: {})}),elapsed:bots.get(p.id).session.race.elapsed})),order=[...cars].sort((a,b)=>a.elapsed-b.elapsed).map(c=>c.id);
  let total=0,count=0;const pairDifferences=[];
  for(let i=0;i<players.length;i++)for(let j=i+1;j<players.length;j++){
   let sum=0,n=0;for(const [bin,a] of samples.get(players[i].id)){const b=samples.get(players[j].id).get(bin);if(b){sum+=Math.abs(a.sum/a.count-b.sum/b.count);n++;}}
@@ -100,23 +100,23 @@ async function main(){
    const session=createSession(track,{laps:2});let nitroUses=0;
    const items=mode==='nitro'?createRoomItems({track,random:()=>.5,send:()=>{},onEvent:e=>{if(e.type==='itemUsed'&&e.kind==='nitro')nitroUses++;}}):null;
    for(let step=0;step<120*400&&!session.race.finished;step++){
-    if(items)items.step({id:'probe',bot:true,difficulty:'extreme',car:session.car,race:session.race,time:session.race.elapsed,rankFraction:0,rank:1,count:1,cars:[],applyEffect:kind=>session.applyEffect(kind)});
+    if(items)items.step({id:'probe',bot:true,difficulty:'hard',car:session.car,race:session.race,time:session.race.elapsed,rankFraction:0,rank:1,count:1,cars:[],applyEffect:kind=>session.applyEffect(kind)});
     session.step(racingInput({car:session.car},track,{line,cruise:1.8,cornerGrip,braking:27,lookahead:.3,drift:mode==='drift'}));
    }
    console.log(JSON.stringify({地图:name,弯速倍率:cornerGrip,模式:mode,性能:{engine:1,topSpeed:1,grip:1},nitroUses,...metrics(session)}));
   }}return;
  }
  const timing=[],endurance=[],packs=[],itemRuns=[];
- for(const {name,track} of tracks)for(const difficulty of ['easy','normal','hard','extreme']){
+ for(const {name,track} of tracks)for(const difficulty of ['easy','normal','hard']){
   const runs=[11,29,47].map(seed=>runSolo(track,difficulty,{seed}));for(const r of runs)verify(r);
   const laps=runs.map(r=>r.lapTimes[1]);timing.push({地图:name,难度:difficulty,性能:botPerformance(difficulty,track),三次单圈:laps,平均:laps.reduce((a,b)=>a+b,0)/3,最快:Math.min(...laps),runs});
  }
- for(const {name,track} of tracks){const result=runSolo(track,'extreme',{seed:73,laps:10});verify(result);endurance.push({地图:name,...result});}
+ for(const {name,track} of tracks){const result=runSolo(track,'hard',{seed:73,laps:10});verify(result);endurance.push({地图:name,...result});}
  for(const {name,track} of tracks)for(const reverse of [false,true]){const result=runPack(track,{seed:2026,reverse});for(const car of result.cars)verify(car);assert.ok(result.meanLateralDifference>.15);assert.notDeepEqual(result.seats,[0,1,2,3,4,5]);packs.push({地图:name,...result});}
- for(const {name,track} of tracks)for(const difficulty of ['hard','extreme']){const result=runSolo(track,difficulty,{seed:91,laps:3,items:true});verify(result);itemRuns.push({地图:name,难度:difficulty,...result});}
- console.log(JSON.stringify({测速口径:'每种子独立两圈取第二圈；三次平均与最快。极限每图十圈；六车三图正反出生位，软碰撞和尾流；道具单独验证。',timing,endurance,packs,itemRuns},null,2));
+ for(const {name,track} of tracks)for(const difficulty of ['normal','hard']){const result=runSolo(track,difficulty,{seed:91,laps:3,items:true});verify(result);itemRuns.push({地图:name,难度:difficulty,...result});}
+ console.log(JSON.stringify({测速口径:'每种子独立两圈取第二圈；三次平均与最快。困难每图十圈；六车三图正反出生位，软碰撞和尾流；道具单独验证。',timing,endurance,packs,itemRuns},null,2));
  // 按旧普通三图比值检查进阶速度，容许机关、起伏和动态落石造成 3 个百分点差异。
- const baseLaps=[44.236,46.761,83.103],ranges={easy:[43.5,45],normal:[40.5,42],hard:[37,38],extreme:[34,35]};
- for(const difficulty of ['easy','normal','hard','extreme']){const rows=timing.filter(t=>t.难度===difficulty),[min,max]=ranges[difficulty];assert.ok(rows[0].平均>=min&&rows[0].平均<=max,`草甸 ${difficulty} 圈速必须达到目标：${rows[0].平均}`);for(let i=1;i<rows.length;i++)assert.ok(Math.abs(rows[i].平均/baseLaps[i]-rows[0].平均/baseLaps[0])<.03,`三图 ${difficulty} 应同比例提速`);}
+ const baseLaps=[44.236,46.761,83.103],ranges={easy:[40.5,42],normal:[37,38],hard:[34,35]};
+ for(const difficulty of ['easy','normal','hard']){const rows=timing.filter(t=>t.难度===difficulty),[min,max]=ranges[difficulty];assert.ok(rows[0].平均>=min&&rows[0].平均<=max,`草甸 ${difficulty} 圈速必须达到目标：${rows[0].平均}`);for(let i=1;i<rows.length;i++)assert.ok(Math.abs(rows[i].平均/baseLaps[i]-rows[0].平均/baseLaps[0])<.03,`三图 ${difficulty} 应同比例提速`);}
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)await main();
