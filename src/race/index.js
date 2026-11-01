@@ -4,6 +4,7 @@ import './room.css';
 import './lobby/room-browser.css';
 import './lobby/garage.css';
 import { mountRoomRace } from './room-race.js';
+import { roomsEnabled } from '../net/rooms-flag.js';
 import { gridSpawn } from './grid.js';
 import { createCarOpacity } from './car-opacity.js';
 import { t, onLangChange, mountLangToggle } from '../i18n/i18n.js';
@@ -41,7 +42,7 @@ import { mountRaceMenu, mountGhostOptions } from './menu.js';
 import { createGhost, checkpointCount, checkpointDelta, timeDelta } from './ghost.js';
 import { readBestGhost, saveBestGhost } from './ghost-store.js';
 import { prepareGhostCar } from './ghost-car.js';
-const params = new URLSearchParams(location.search), roomMode = params.has('room'), capture = !roomMode && params.has('capture');
+const params = new URLSearchParams(location.search), roomMode = roomsEnabled && params.has('room'), capture = !roomMode && params.has('capture');
 let e2eDriver = null;
 if (import.meta.env.DEV && !roomMode && params.get('e2eAutopilot') === '1') {
   const { createE2eDriver } = await import('./e2e-driver.js');
