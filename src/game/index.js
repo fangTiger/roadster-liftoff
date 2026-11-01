@@ -355,7 +355,8 @@ if (CAPTURE) {
     const elapsed = (now - last) / 1000; last = now;
     const playing = started && !ui.paused && !sharing && !document.hidden;
     touch?.setEnabled(playing);
-    if (!playing) { perf?.reset(); if (!started && !document.hidden) homeCamera.update(Math.min(.05, elapsed)); engine.render(); return; }    // 开始前与暂停时只渲染画面
+    if (!playing) { perf?.reset(); if (!started) coins.setVisible(false);   // 首页展示不出现金币
+    if (!started && !document.hidden) homeCamera.update(Math.min(.05, elapsed)); engine.render(); return; }    // 开始前与暂停时只渲染画面
     perf?.update(elapsed);
     rig.shake = ui.shakeEnabled;
     frame(Math.min(.05, elapsed), input.state());
