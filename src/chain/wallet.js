@@ -119,6 +119,8 @@ export function createRecordsWallet({ publicClient = createPublicClient({ chain,
   };
 }
 export const wallet = createRecordsWallet({ connectProvider: walletConnection.connect, subscribeSession: walletConnection.subscribe, disconnectProvider: walletConnection.disconnect });
+// 浏览器里整页跳转后自动恢复上次的钱包连接（仅当上次已连接）。
+if (typeof window !== 'undefined') void walletConnection.restore?.().catch(() => {});
 export const connect = (...args) => wallet.connect(...args);
 export const readRecord = (...args) => wallet.readRecord(...args);
 export const submit = (...args) => wallet.submit(...args);

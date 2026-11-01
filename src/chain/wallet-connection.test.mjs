@@ -79,3 +79,17 @@ test('主动断开使用已加载的界面桥，之后可重新连接', async ()
   await connection.connect(); await connection.disconnect();
   assert.equal(disconnected, 1); assert.equal(connection.getProvider(), null);
 });
+
+test('上次已连接时静默恢复会话，主动断开后不再恢复', async () => {
+  const store = new Map(), storage = { getItem: k => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: k => store.delete(k) };
+  let loads = 0, opened = 0; const provider = {};
+  const loadUI = async ({ onSession }) => { loads++; return { getSession: async () => ({ provider, account: '0xabc', chainId: 1 }), open() { opened++; }, disconnect: async () => {} }; };
+  const first = createWalletConnection({ loadUI, storage });
+  assert.equal(await first.restore(), null); assert.equal(loads, 0, '没有记忆时不加载钱包组件');
+  await first.connect(); assert.equal(store.get('roadster.wallet.connected'), '1');
+  const second = createWalletConnection({ loadUI, storage });
+  assert.equal(await second.restore(), provider); assert.equal(opened, 0, '恢复不弹窗');
+  await second.disconnect(); assert.equal(store.has('roadster.wallet.connected'), false);
+  const third = createWalletConnection({ loadUI, storage }), before = loads;
+  assert.equal(await third.restore(), null); assert.equal(loads, before);
+});
