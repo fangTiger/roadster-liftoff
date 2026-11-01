@@ -9,14 +9,19 @@ import { createRacingLine,racingInput } from '../../src/race/bot-racing-line.js'
 import { botPerformance } from '../../src/race/bot-driver.js';
 import { createRoomItems } from '../../src/race/room-items.js';
 import { DT } from '../../src/race/sim/physics.js';
+import { createWallMonitor } from './bot-wall-monitor.mjs';
 
 export const seeded=seed=>()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
 function metrics(session,extra={}){
  const snap=session.snapshot,count=type=>snap.events.filter(e=>e.type===type).length;
- return {finished:session.race.finished,lapTimes:[...session.race.lapTimes],penalty:session.race.penalty,walls:count('wall'),resets:count('reset'),falls:count('fell'),...extra};
+ // 相邻墙事件间隔不超过 0.1 秒视作同一串，避免零星连续贴墙被事件总数掩盖。
+ let first=0,last=-Infinity,maxWallStreak=0,wallEpisodes=0;
+ for(const e of snap.events.filter(e=>e.type==='wall')){if(e.step-last>12){first=e.step;wallEpisodes++;}last=e.step;maxWallStreak=Math.max(maxWallStreak,(last-first+1)*DT);}
+ return {finished:session.race.finished,lapTimes:[...session.race.lapTimes],penalty:session.race.penalty,walls:count('wall'),wallEpisodes,contacts:count('contact'),cones:count('cone'),rocks:count('rock'),maxWallStreak,resets:count('reset'),falls:count('fell'),...extra};
 }
-export function runSolo(track,difficulty,{seed=1,laps=2,items=false}={}){
+export function runSolo(track,difficulty,{seed=1,laps=3,items=false}={}){
  const players=[{id:'bot',seat:0,bot:true,ownerId:'host',difficulty,connected:true}],bot=createRoomBots({players,ownerId:'host',track,laps,random:seeded(seed),contacts:()=>[]}).get('bot');
+ const wallMonitor=createWallMonitor(track);
  let stall=0,maxStall=0,branchProjectionSteps=0,branchInteriorSteps=0,maxLateral=0,maxRoadFraction=0,nitroUses=0;
  const itemSystem=items?createRoomItems({track,random:seeded(seed+100),send:m=>itemSystem.receive({...m,from:'bot'}),onEvent:e=>{if(e.type==='itemUsed'&&e.kind==='nitro')nitroUses++;}}):null;
  for(let step=0;step<120*(180*laps+30)&&!bot.session.race.finished;step++){
@@ -24,10 +29,11 @@ export function runSolo(track,difficulty,{seed=1,laps=2,items=false}={}){
   if(itemSystem)itemSystem.step({id:'bot',bot:true,difficulty,car:s.car,race:s.race,time:s.race.elapsed,rankFraction:0,rank:1,count:1,cars:[],applyEffect:kind=>s.applyEffect(kind)});
   s.step(bot.driver({car:s.car,race:s.race},track));bot.step++;
   if(s.race.frozen)continue;
+  wallMonitor.sample(s.car);
   stall=Math.hypot(s.car.vx,s.car.vz)<1?stall+DT:0;maxStall=Math.max(maxStall,stall);maxLateral=Math.max(maxLateral,Math.abs(s.car.near.lateral));maxRoadFraction=Math.max(maxRoadFraction,Math.abs(s.car.near.lateral)/Math.max(1,s.car.near.w/2));
   if(s.car.near.path!=='main'){branchProjectionSteps++;const b=track.branches.find(b=>b.id===s.car.near.path);if(s.car.near.s>20&&s.car.near.s<b.length-20)branchInteriorSteps++;}
  }
- return metrics(bot.session,{maxStall,maxLateral,maxRoadFraction,branchProjectionSteps,branchInteriorSteps,nitroUses});
+ return metrics(bot.session,{...wallMonitor.metrics,maxStall,maxLateral,maxRoadFraction,branchProjectionSteps,branchInteriorSteps,nitroUses});
 }
 export function runPack(track,{seed=2026,reverse=false,items=false}={}){
  const difficulties=['easy','normal','hard','easy','normal','hard'],players=difficulties.map((difficulty,i)=>({id:`bot${i}`,seat:reverse?5-i:i,bot:true,ownerId:'host',difficulty,connected:true}));
@@ -52,6 +58,7 @@ export function runPack(track,{seed=2026,reverse=false,items=false}={}){
   if(event.type==='pickup'){itemStats.pickups++;itemStats.byCar[event.id].pickups++;}
   if(event.type==='itemUsed'){itemStats.uses[event.kind]++;itemStats.byCar[event.id].uses[event.kind]++;}
  }});
+ const wallMonitors=new Map(players.map(p=>[p.id,createWallMonitor(track)]));
  const samples=new Map(players.map(p=>[p.id,new Map()])),stalls=new Map(players.map(p=>[p.id,{now:0,max:0,controlNow:0,controlMax:0,branchInteriorSteps:0}]));
  for(let step=0;step<120*600&&[...bots.values()].some(b=>!b.session.race.finished);step++){
   itemTime=step*DT;
@@ -63,6 +70,7 @@ export function runPack(track,{seed=2026,reverse=false,items=false}={}){
    itemSystem.step({id,bot:true,difficulty:players.find(p=>p.id===id).difficulty,car:s.car,race:s.race,ghost:s.ghost,time:itemTime,cars,rank,count:players.length,rankFraction:(rank-1)/(players.length-1),applyEffect:kind=>s.applyEffect(kind)});
   }
   s.step(bot.driver({car:s.car,race:s.race},track));bot.step++;
+  if(!s.race.frozen)wallMonitors.get(id).sample(s.car);
   const stall=stalls.get(id);stall.now=!s.race.frozen&&Math.hypot(s.car.vx,s.car.vz)<1?stall.now+DT:0;
   if(stall.now>stall.max){stall.max=stall.now;stall.at={time:itemTime,lap:s.race.lap,s:s.car.near.s,path:s.car.near.path,trapTime:s.car.trapTime??0,spinTime:s.car.spinTime??0,steer:s.car.steer,x:s.car.x,z:s.car.z};}
   if(items){
@@ -77,7 +85,7 @@ export function runPack(track,{seed=2026,reverse=false,items=false}={}){
   }
   if(itemSystem)itemSystem.tick(itemTime,[...bots].map(([id,b])=>({id,connected:true,...carState(b.session.car,b.session.race,b.session.ghost)})));
  }
- const cars=players.map(p=>({...p,...metrics(bots.get(p.id).session,{maxStall:stalls.get(p.id).max,maxStallAt:stalls.get(p.id).at,branchInteriorSteps:stalls.get(p.id).branchInteriorSteps,...(items?{maxControlStall:stalls.get(p.id).controlMax,maxControlStallAt:stalls.get(p.id).controlAt}: {})}),elapsed:bots.get(p.id).session.race.elapsed})),order=[...cars].sort((a,b)=>a.elapsed-b.elapsed).map(c=>c.id);
+ const cars=players.map(p=>({...p,...metrics(bots.get(p.id).session,{...wallMonitors.get(p.id).metrics,maxStall:stalls.get(p.id).max,maxStallAt:stalls.get(p.id).at,branchInteriorSteps:stalls.get(p.id).branchInteriorSteps,...(items?{maxControlStall:stalls.get(p.id).controlMax,maxControlStallAt:stalls.get(p.id).controlAt}: {})}),elapsed:bots.get(p.id).session.race.elapsed})),order=[...cars].sort((a,b)=>a.elapsed-b.elapsed).map(c=>c.id);
  let total=0,count=0;const pairDifferences=[];
  for(let i=0;i<players.length;i++)for(let j=i+1;j<players.length;j++){
   let sum=0,n=0;for(const [bin,a] of samples.get(players[i].id)){const b=samples.get(players[j].id).get(bin);if(b){sum+=Math.abs(a.sum/a.count-b.sum/b.count);n++;}}
@@ -85,7 +93,7 @@ export function runPack(track,{seed=2026,reverse=false,items=false}={}){
  }
  return {seed,reverse,order,seats:order.map(id=>cars.find(c=>c.id===id).seat),meanLateralDifference:count?total/count:0,pairDifferences,cars,...(items?{items:itemStats}:{})};
 }
-function verify(result){assert.ok(result.finished,'机器人必须完赛');assert.equal(result.resets,0);assert.equal(result.falls,0);assert.equal(result.penalty,0);assert.equal(result.branchInteriorSteps,0);assert.ok((result.maxControlStall??result.maxStall)<2,'机器人不能卡死');}
+function verify(result){assert.ok(result.finished,'机器人必须完赛');assert.equal(result.resets,0);assert.equal(result.falls,0);assert.equal(result.penalty,0);assert.equal(result.branchInteriorSteps,0);assert.ok((result.maxControlStall??result.maxStall)<2,'机器人不能卡死');assert.ok(result.maxWallContactDuration<1,`机器人不能长时间贴墙：${result.maxWallContactDuration} 秒`);}
 async function main(){
  const tracks=TRACKS.map(({def})=>({name:def.name.zh,track:buildTrack(def)}));
  if(process.argv.includes('--items-pack')){
@@ -109,14 +117,18 @@ async function main(){
  const timing=[],endurance=[],packs=[],itemRuns=[];
  for(const {name,track} of tracks)for(const difficulty of ['easy','normal','hard']){
   const runs=[11,29,47].map(seed=>runSolo(track,difficulty,{seed}));for(const r of runs)verify(r);
-  const laps=runs.map(r=>r.lapTimes[1]);timing.push({地图:name,难度:difficulty,性能:botPerformance(difficulty,track),三次单圈:laps,平均:laps.reduce((a,b)=>a+b,0)/3,最快:Math.min(...laps),runs});
+  const laps=runs.flatMap(r=>r.lapTimes.slice(1));timing.push({地图:name,难度:difficulty,性能:botPerformance(difficulty,track),飞驰圈:laps,平均:laps.reduce((a,b)=>a+b,0)/laps.length,最快:Math.min(...laps),runs});
  }
  for(const {name,track} of tracks){const result=runSolo(track,'hard',{seed:73,laps:10});verify(result);endurance.push({地图:name,...result});}
  for(const {name,track} of tracks)for(const reverse of [false,true]){const result=runPack(track,{seed:2026,reverse});for(const car of result.cars)verify(car);assert.ok(result.meanLateralDifference>.15);assert.notDeepEqual(result.seats,[0,1,2,3,4,5]);packs.push({地图:name,...result});}
  for(const {name,track} of tracks)for(const difficulty of ['normal','hard']){const result=runSolo(track,difficulty,{seed:91,laps:3,items:true});verify(result);itemRuns.push({地图:name,难度:difficulty,...result});}
- console.log(JSON.stringify({测速口径:'每种子独立两圈取第二圈；三次平均与最快。困难每图十圈；六车三图正反出生位，软碰撞和尾流；道具单独验证。',timing,endurance,packs,itemRuns},null,2));
- // 按旧普通三图比值检查进阶速度，容许机关、起伏和动态落石造成 3 个百分点差异。
- const baseLaps=[44.236,46.761,83.103],ranges={easy:[40.5,42],normal:[37,38],hard:[34,35]};
- for(const difficulty of ['easy','normal','hard']){const rows=timing.filter(t=>t.难度===difficulty),[min,max]=ranges[difficulty];assert.ok(rows[0].平均>=min&&rows[0].平均<=max,`草甸 ${difficulty} 圈速必须达到目标：${rows[0].平均}`);for(let i=1;i<rows.length;i++)assert.ok(Math.abs(rows[i].平均/baseLaps[i]-rows[0].平均/baseLaps[0])<.03,`三图 ${difficulty} 应同比例提速`);}
+ console.log(JSON.stringify({测速口径:'每档每图种子 11/29/47，各独立三圈；第二、三圈共六个飞驰圈平均与最快，全部九圈统计碰撞。困难每图十圈；六车三图正反出生位，软碰撞和尾流；道具单独验证。',timing,endurance,packs,itemRuns},null,2));
+ // 使用逐图绝对目标，三档在每张图上都必须严格递进。
+ const targets={easy:[34.8,36.1,63.7],normal:[32,33.2,58.5],hard:[29.5,30.5,54]};
+ for(const [difficulty,values] of Object.entries(targets)){
+  const rows=timing.filter(t=>t.难度===difficulty);
+  for(const [i,row] of rows.entries())assert.ok(Math.abs(row.平均-values[i])<=(i===2?1.5:.8),`${row.地图} ${difficulty} 平均 ${row.平均}，目标 ${values[i]}`);
+ }
+ for(const {name} of tracks){const rows=timing.filter(t=>t.地图===name);assert.ok(rows[0].平均>rows[1].平均&&rows[1].平均>rows[2].平均,`${name} 三档必须严格递进`);}
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)await main();

@@ -40,7 +40,8 @@ export function racingInput(snapshot,track,{line=createRacingLine(track),cornerG
  const side=clamp(p.offset+offset,-room,room),center=track.at(s+look);
  const dx=center.x-center.tz*side-c.x,dz=center.z+center.tx*side-c.z,right=dx*Math.cos(c.yaw)-dz*Math.sin(c.yaw);
  const mu=(T.grip[c.surface]||1.6)*grip;
- const desired=2*right/Math.max(1,dx*dx+dz*dz),control=clamp(desired*(6+speed*speed/(mu*T.gravity)),-1,1);
+ // 落石的偏航冲击已在车身状态中，立即反打抵消，避免等横向偏离后才开始纠正。
+ const desired=2*right/Math.max(1,dx*dx+dz*dz)-(c.yawKick??0)/Math.max(1,speed),control=clamp(desired*(6+speed*speed/(mu*T.gravity)),-1,1);
  let bits=control>c.steer+.025?LEFT:control<c.steer-.025?RIGHT:0,target=T.botCruise*cruise;
  for(let d=0;d<=180;d+=4){const p=line.at(s+d+brakeBias),corner=Math.sqrt(Math.max(9,T.botCornerGrip*cornerGrip*(1/Math.max(.0001,p.curve)-6)));target=Math.min(target,Math.sqrt(corner*corner+2*braking*d));}
  const gap=track.features.find(f=>f.type==='gap');if(gap&&s>gap.from-95&&s<gap.to+12){target=Math.max(target,62);if(s>gap.from-14&&s<gap.to-2)bits|=JET;}

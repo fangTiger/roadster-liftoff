@@ -4,6 +4,8 @@ import { buildTrack } from './track/build.js';
 import meadow from './track/data/meadow.js';
 import alpine from './track/data/alpine.js';
 import T from './sim/tuning.js';
+import { createSession } from './sim/session.js';
+import { LEFT,RIGHT } from './sim/input-bits.js';
 import * as racing from './bot-racing-line.js';
 
 const track=buildTrack(meadow);
@@ -44,4 +46,11 @@ test('阿尔卑斯赛车线为水泥墩保留车身宽度及安全余量',()=>{
 test('断桥归中约束也限制额外超车偏移',async()=>{
  const alpine=(await import('./track/data/alpine.js')).default,road=buildTrack(alpine),gap=road.features.find(f=>f.type==='gap'),s=gap.from-40,p=road.at(s),snapshot={car:{...p,yaw:Math.atan2(p.tx,p.tz),vx:0,vz:0,steer:0,near:{path:'main',s,index:Math.floor(s)},grounded:true}};
  assert.equal(racing.racingInput(snapshot,road,{laneOffset:100}),racing.racingInput(snapshot,road,{laneOffset:0}));
+});
+
+
+test('高速受落石偏航冲击时立即反打，避免等偏离路线后才纠正',()=>{
+ const p=track.at(100),base=createSession(track).car;
+ const car={...base,...p,near:null,yaw:Math.atan2(p.tx,p.tz),vx:p.tx*65,vz:p.tz*65,yawKick:2.5};
+ for(const [yawKick,expected,opposite] of [[2.5,RIGHT,LEFT],[-2.5,LEFT,RIGHT]]){const bits=racing.racingInput({car:{...car,yawKick}},track,{grip:2.2});assert.ok(bits&expected);assert.equal(bits&opposite,0);}
 });

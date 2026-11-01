@@ -1,15 +1,18 @@
 import { pickMissileTarget,raceProgress,itemTargetValid } from './sim/items.js';
 import { racingInput } from './bot-racing-line.js';
 import { smartBotShouldUseItem } from './bot-item-strategy.js';
-import { autopilot } from './sim/autopilot.js';
 import { LEFT,RIGHT,THROTTLE,BRAKE } from './sim/input-bits.js';
 import { clamp,smoothstep } from './sim/fmath.js';
 import { DT } from './sim/physics.js';
 import T from './sim/tuning.js';
-// 三档依次继承前版普通、困难、最高档；普通和困难使用赛车线，倍率显式传入。
-const LEVELS={easy:{cruise:1.8,cornerGrip:2.15,braking:24,reaction:2},normal:{cruise:1.8,cornerGrip:1.7,braking:27,reaction:2},hard:{cruise:1.8,cornerGrip:2.3,braking:27,reaction:1}};
-// 赛道紧弯和障碍密度不同，分别校准驾驶预算；倍率由房主明确传入会话。
-const CALIBRATION={normal:{1:{cornerGrip:1.7},2:{cornerGrip:2.15},3:{cornerGrip:2.3,engine:1.2,topSpeed:1.08,grip:1.2}},hard:{1:{cornerGrip:2.3,cornerCap:2.3},2:{cornerGrip:2.75,engine:1.25,topSpeed:1.12,grip:1.3},3:{cornerGrip:2.9,engine:1.5,topSpeed:1.15,grip:1.6}}};
+// 简单继承旧困难赛车线预算；高档按地图同时提高性能和弯速，避免只加引擎造成推头。
+const LEVELS={easy:{cruise:1.8,cornerGrip:2.3,braking:27,reaction:1},normal:{cruise:1.8,cornerGrip:2.3,braking:27,reaction:1},hard:{cruise:1.8,cornerGrip:2.3,braking:27,reaction:1}};
+// 极速、抓地和制动分别校准；这些倍率仅由房主显式传入机器人的独立会话。
+const CALIBRATION={
+ easy:{1:{cornerGrip:2.3,cornerCap:2.3},2:{cornerGrip:2.75,engine:1.25,topSpeed:1.12,grip:1.3},3:{cornerGrip:2.9,engine:1.5,topSpeed:1.15,grip:1.6}},
+ normal:{1:{cornerGrip:2.7,engine:1.3,topSpeed:1.15,grip:1.4},2:{cornerGrip:3.3,engine:1.6,topSpeed:1.22,grip:1.75},3:{cornerGrip:3.5,engine:1.9,topSpeed:1.3,grip:2.2}},
+ hard:{1:{cornerGrip:3.25,engine:1.65,topSpeed:1.3,grip:1.85},2:{cornerGrip:3.95,engine:2,topSpeed:1.35,grip:2.3},3:{cornerGrip:4.2,engine:2.4,topSpeed:1.45,grip:2.8}},
+};
 export function botPerformance(difficulty,track){const level=CALIBRATION[difficulty]?.[track?.id];return Object.freeze({engine:level?.engine??1,topSpeed:level?.topSpeed??1,grip:level?.grip??1});}
 export function createBotPersonality(difficulty,random=Math.random) {
  const level=LEVELS[difficulty];if(!level)throw new RangeError('机器人难度无效');
@@ -46,7 +49,7 @@ export function createBotDriver(difficulty,{random=Math.random,cars=()=>[],id,pe
    if(space(passSide)>1.8)target=passSide*3.2;
   }else passSide=0;
   // 横移要约两秒才能收回：在锥桶/水泥墩前提前结束超车，防止到归中窗口才开始回撤。
-  if((difficulty==='normal'||difficulty==='hard')&&track.features.some(f=>f.type==='cones'&&f.items?.length&&n.s>f.items[0].s-200&&n.s<f.items.at(-1).s+65))target=0;
+  if(track.features.some(f=>f.type==='cones'&&f.items?.length&&n.s>f.items[0].s-200&&n.s<f.items.at(-1).s+65))target=0;
   // 每秒最多横移 1.8 米，离开超车场景后同样平滑归位。
   passing+=clamp(target-passing,-1.8*DT,1.8*DT);
   const mistake=state.race?.frozen?null:personality.mistake(state.race?.lap??1,track);
@@ -55,10 +58,9 @@ export function createBotDriver(difficulty,{random=Math.random,cars=()=>[],id,pe
   // 新指令要等队列耗尽才执行，比较那时的方向盘，避免延迟反馈导致持续欠转。
   let futureSteer=c.steer;
   for(let i=0;i<queue.length;i++){const bits=queue[(cursor+i)%queue.length],target=(bits&LEFT?1:0)-(bits&RIGHT?1:0),rate=target?T.steerRate:T.steerReturn;futureSteer+=clamp(target-futureSteer,-rate*DT,rate*DT);}
-  const racing=difficulty==='normal'||difficulty==='hard';
-  const input=racing?racingInput:autopilot,calibration=CALIBRATION[difficulty]?.[track.id];
+  const calibration=CALIBRATION[difficulty]?.[track.id];
   const cornerGrip=Math.min(opts.cornerGrip*(calibration?.cornerGrip??LEVELS[difficulty].cornerGrip)/LEVELS[difficulty].cornerGrip,calibration?.cornerCap??Infinity);
-  let bits=input({...state,car:{...c,steer:futureSteer}},track,racing?{...opts,cornerGrip,lookahead:.3,grip:performance.grip,laneOffset:(s,track)=>laneOffset(s,track)*.12}:opts);
+  let bits=racingInput({...state,car:{...c,steer:futureSteer}},track,{...opts,cornerGrip,braking:calibration?.braking??opts.braking,lookahead:track.features.some(f=>f.type==='cones'&&n.s>f.items[0].s-70&&n.s<f.items.at(-1).s+30)?.18:.3,grip:performance.grip,laneOffset:(s,track)=>laneOffset(s,track)*.12});
   // 中心线车在障碍弯保持单列，避免软碰撞将并排车辆推向水泥墩。
   if(difficulty==='easy'&&front&&front.along<18&&track.features.some(f=>f.type==='cones'&&f.items?.length&&n.s>f.items[0].s-200&&n.s<f.items.at(-1).s+65))bits=(bits&~THROTTLE)|BRAKE;
   // 困难档可能抽到零步反应；这时直接执行，不能对空队列取模。
