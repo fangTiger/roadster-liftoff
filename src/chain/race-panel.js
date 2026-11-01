@@ -43,7 +43,8 @@ export function mountRaceChain(container, { trackId, trackName, bestLap, bits, r
     if (connected && data && !['mint', 'update'].includes(value)) {
       button.disabled = true;
       const labels = { closed: t('race.chain.closed'), tooFast: t('race.chain.tooFast'), upToDate: t('race.chain.latest'), notQualified: t('race.chain.notQualified', { line: (Number(data.track.qualifyMs) / 1000).toFixed(3), gap: ((lapMs - Number(data.track.qualifyMs)) / 1000).toFixed(3) }) };
-      status.append(el('span', labels[value]));
+      // 成功状态已说明结果，不再叠加「已是最新」等按钮状态文字。
+      if (!success) status.append(el('span', labels[value]));
     }
     if (tx && !success) status.append(link(t('race.chain.success'), `${chain.blockExplorers.default.url}/tx/${tx}`));
     if (verifyError) status.append(el('span', verifyError, 'rc-error'));

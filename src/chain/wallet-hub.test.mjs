@@ -96,15 +96,22 @@ test('NFT 面板在第三方钱包弹窗打开时让出 Esc 与 Tab', () => {
   assert.equal(env.listeners.size, 1); modal.destroy(); document.querySelector = old;
 });
 test('成功提示按成就提示缩放后的实际边界避让', () => {
-  const old = document.querySelector; document.querySelector = () => ({ getBoundingClientRect: () => ({ bottom: 158 }) });
+  const old = document.querySelector; document.querySelector = selector => selector === '#race-hud' ? null : ({ getBoundingClientRect: () => ({ bottom: 158 }) });
   const root = new Node(), toast = createSuccessToast(root, { schedule: () => 1, cancel() {} });
   toast.show('minted', 7); assert.equal(find(root, 'section')[0].style.top, '170px');
+  toast.destroy(); document.querySelector = old;
+});
+test('赛车页成功提示放在底部，避开完赛成就提示与成绩卡', () => {
+  const old = document.querySelector; document.querySelector = selector => selector === '#race-hud' ? {} : ({ getBoundingClientRect: () => ({ bottom: 158 }) });
+  const root = new Node(), toast = createSuccessToast(root, { schedule: () => 1, cancel() {} });
+  toast.show('minted', 7); const section = find(root, 'section')[0];
+  assert.equal(section.style.top, 'auto'); assert.equal(section.style.bottom, '96px');
   toast.destroy(); document.querySelector = old;
 });
 test('提示逐帧跟随成就入场，3.6 秒结束会取消动画帧', () => {
   const previous = { query: document.querySelector, request: globalThis.requestAnimationFrame, cancel: globalThis.cancelAnimationFrame };
   let bottom = 158, expire; const frames = [], cancelled = [];
-  document.querySelector = () => ({ getBoundingClientRect: () => ({ bottom }) });
+  document.querySelector = selector => selector === '#race-hud' ? null : ({ getBoundingClientRect: () => ({ bottom }) });
   globalThis.requestAnimationFrame = fn => { frames.push(fn); return frames.length; };
   globalThis.cancelAnimationFrame = id => cancelled.push(id);
   const root = new Node(), toast = createSuccessToast(root, { schedule(fn) { expire = fn; return 1; }, cancel() {} });

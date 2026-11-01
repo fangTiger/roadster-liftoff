@@ -9,6 +9,8 @@ export function createSuccessToast(container, { schedule = setTimeout, cancel = 
   function stopFrame() { if (frame != null) globalThis.cancelAnimationFrame?.(frame); frame = null; }
   function place() {
     // 移动端会缩放成就提示，按动画中的实际边界避让，避免硬编码其高度。
+    // 赛车页完赛时成就提示占据顶部且成绩卡居中，成功提示改放底部操作说明上方。
+    if (globalThis.document?.querySelector?.('#race-hud')) { root.style.top = 'auto'; root.style.bottom = '96px'; return; }
     const achievement = document.querySelector?.('#ach-toast.ach-toast-show, #ach-toast.ach-toast-hide');
     root.style.top = `${Math.max(76, (achievement?.getBoundingClientRect().bottom ?? 0) + 12)}px`;
     if (!root.hidden && globalThis.requestAnimationFrame) frame = requestAnimationFrame(place);

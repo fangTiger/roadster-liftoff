@@ -108,7 +108,7 @@ export async function runGhostE2e({ account, publicClient, walletClient, address
       await page.getByRole('button', { name: 'MetaMask', exact: true }).click({ timeout: 60000 });
       await waitForGhostWallet(page, account.address);
       await page.locator('[data-rk][role="dialog"]').waitFor({ state: 'hidden', timeout: 60000 });
-      await page.locator('#race-pick').click({ position: { x: 5, y: 5 } });
+      await page.locator('.rc-board-layer').click({ position: { x: 5, y: 5 } });
       log(`钱包已连接：${account.address}`);
     }
     step('选择草甸资格赛，hard 驾驶器完成正式三圈录像');
@@ -143,6 +143,18 @@ export async function runGhostE2e({ account, publicClient, walletClient, address
     const best = await publicClient.readContract({ address, abi: recordsAbi, functionName: 'bestOf', args: [account.address, 1] });
     assert.equal(best.verified, true); assert.ok(Number(best.bestMs) <= lapMs);
     log(`链上 bestOf verified=true，最快 ${best.bestMs} ms`);
+    step('检查成功状态、我的 NFT 面板与右上角钱包');
+    const record = await publicClient.readContract({ address, abi: recordsAbi, functionName: 'recordOf', args: [account.address] });
+    await mkdir(screenshots, { recursive: true });
+    await panel.locator('.rc-success').waitFor({ state: 'visible', timeout: 60000 });
+    await page.screenshot({ path: join(screenshots, 'mint-success.png') });
+    await panel.getByRole('button', { name: '查看我的 NFT', exact: true }).click();
+    const dialog = page.locator('.wh-dialog');
+    await dialog.getByText(`#${String(record.tokenId).padStart(4, '0')}`).first().waitFor({ timeout: 60000 });
+    await page.screenshot({ path: join(screenshots, 'my-nft.png') });
+    await page.keyboard.press('Escape');
+    assert.ok((await page.locator('#wallet-hub').innerText()).includes(shortAddr(account.address)), '右上角应显示已连接地址');
+    log(`成功状态与我的 NFT #${record.tokenId} 检查通过`);
 
     step('在独立无钱包页面下载排行榜影子');
     const guestContext = await browser.newContext(contextOptions);
@@ -174,8 +186,10 @@ export async function runGhostE2e({ account, publicClient, walletClient, address
     await guest.screenshot({ path: join(screenshots, 'ghost-together.png'), fullPage: true });
     log('端到端通过：已核实上链，独立无钱包页面已下载影子并同场显示。');
     return { hash, best };
-  } catch {
+  } catch (err) {
     log(`失败步骤：${stage}`);
+    // 仅 Playwright 超时输出首行定位信息，其余错误可能携带签名请求，不输出。
+    if (err?.name === 'TimeoutError') log(String(err.message).split('\n').slice(0, 4).join(' | ').slice(0, 400));
     await mkdir(screenshots, { recursive: true });
     for (const [index, page] of pages.entries()) {
       const path = join(screenshots, `failure-${Date.now()}-${index}.png`);

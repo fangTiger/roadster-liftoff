@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { readFileSync } from 'node:fs';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { pathToFileURL } from 'node:url';
@@ -10,7 +11,8 @@ import { createViewHandler } from '../../api/nft/view/[id].js';
 import { jsonResponse } from '../../api/_lib/chain.js';
 
 export function createApiServer(options = {}) {
-  const local = { siteUrl: process.env.SITE_URL || 'http://localhost:8932' };
+  // 图片渲染的防 SSRF 检查会拦截 localhost，本地底图改用 data URL。
+  const local = { siteUrl: process.env.SITE_URL || 'http://localhost:8932', baseImage: `data:image/jpeg;base64,${readFileSync(new URL('../../public/assets/nft/base.jpg', import.meta.url)).toString('base64')}` };
   const routes = [
     [/^\/api\/verify$/, 'POST', options.verify || POST],
     [/^\/api\/ghost$/, 'GET', options.ghost || ghostGET],
