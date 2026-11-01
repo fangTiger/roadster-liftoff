@@ -423,8 +423,13 @@
 
 /* ─── 链上直播条 ─────────────────────────────────────────────────────────── */
 .hh-live-strip {
-  position: relative;
-  z-index: 1;
+  /* 贴住视口底部：首屏放不下时也能看到实况 */
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  z-index: 2;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   width: 100%;
   margin-top: auto;
   padding: 10px 20px;
@@ -433,9 +438,14 @@
   letter-spacing: 0.3px;
   white-space: nowrap;
   overflow: hidden;
-  background: linear-gradient(0deg, rgba(8, 10, 16, 0.55) 0%, transparent 100%);
+  background: rgba(8, 10, 16, 0.6);
   /* 分隔线 */
   border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* 实况条固定在底部时，给页脚留出位置 */
+.hh-root:has(.hh-live-strip:not([hidden])) .hh-slot-footer {
+  padding-bottom: 48px;
 }
 
 .hh-live-strip[hidden] {

@@ -565,6 +565,8 @@ export function createHomeHero({
       addSeg(`${t('home.liveLatest')} ${holderStr} ${kindText}${l.trackName ? ' ' + l.trackName : ''}${l.ms ? ' ' + formatLap(l.ms) : ''} ${relStr}`);
     }
 
+    // 去掉末尾多余的分隔点
+    if (inner.lastElementChild?.classList.contains('hh-strip-dot')) inner.lastElementChild.remove();
     strip.appendChild(inner);
 
     // 检测是否需要 marquee（下一帧量宽度）

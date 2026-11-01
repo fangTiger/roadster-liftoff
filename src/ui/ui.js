@@ -76,7 +76,7 @@ export function createUI({ engine, audio = null, onStart = () => {}, onHomeChang
     disabled: id === 'season',
     preview: id === 'space'
       ? { type: 'video', src: '/assets/nft/loop.mp4', poster: '/assets/nft/base.jpg' }
-      : { type: 'image', src: '/assets/race/previews/easy.webp' },
+      : { type: 'image', src: `/assets/race/previews/${({ race: 'easy', room: 'normal', season: 'hard' })[id]}.webp` },   // 三张卡片用不同赛道实景
   }));
   function paintLive() {
     hero?.setLive(liveData ? { ...liveData,
