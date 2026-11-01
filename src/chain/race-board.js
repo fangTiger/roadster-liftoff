@@ -35,7 +35,7 @@ export function mountRaceBoard(container, { wallet = defaultWallet } = {}) {
       rows.forEach((row, i) => {
         const tr = el('tr');
         for (const text of [i + 1, shortAddr(row.address), formatMs(row.bestMs), dateText(row.updatedAt), row.verified ? t('race.chain.verified') : t('race.chain.selfReported')]) tr.append(el('td', text));
-        tr.children[1].title = row.address; body.append(tr);
+        const player = el('a', shortAddr(row.address), 'rc-link'); player.href = '/?profile&address=' + encodeURIComponent(row.address); player.title = row.address; tr.children[1].replaceChildren(player); body.append(tr);
       });
       table.append(head, body); scroll.append(table); board.replaceChildren(scroll);
     } catch (err) {

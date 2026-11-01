@@ -124,7 +124,7 @@ test('首次铸造与已有 NFT 更新分别显示成功状态和顶部提示', 
     const root = new Node(), panel = mountRaceChain(root, { trackId: 1, bestLap: 35, bits: 7 }, env); await flush();
     await find(root, 'button')[0].onclick(); await flush();
     assert.match(root.text, minted ? /链上记录已更新/ : /首圈纪念 NFT 已铸造 #1/);
-    assert.equal(find(root, 'img').length, 1); assert.match(find(root, 'a')[0].className, /rc-button/); assert.ok(find(root, 'button').some(n => n.textContent === '查看我的 NFT'));
+    assert.equal(find(root, 'img').length, 1); assert.match(find(root, 'a')[0].className, /rc-button/); assert.ok(find(root, 'button').some(n => n.textContent === '查看个人主页'));
     assert.deepEqual(env.notices, [[minted ? 'updated' : 'minted', minted ? 9 : 1]]); panel.destroy();
   }
 });

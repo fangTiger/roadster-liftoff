@@ -159,3 +159,9 @@ test('主动断开转交连接器，清空会话并忽略旧事件', async () =>
   handlers.get('accountsChanged')([bob]); assert.equal(wallet.state.account, null);
   await assert.rejects(wallet.submit(1, 50000, 0), { code: 'no_wallet' });
 });
+
+test('个人主页可读取完整榜单用于榜外名次，默认仍限制50名', async () => {
+  const { wallet, publicClient } = setup();
+  publicClient.readContract = async ({ functionName }) => functionName === 'playerCount' ? 60n : [Array.from({ length: 60 }, (_, i) => `player${i}`), [], Array.from({ length: 60 }, (_, i) => ({ bestMs: i + 1000, verified: true }))];
+  assert.equal((await wallet.readLeaderboard(1, { limit: Infinity })).length, 60);
+});

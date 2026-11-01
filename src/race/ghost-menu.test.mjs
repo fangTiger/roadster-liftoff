@@ -189,3 +189,37 @@ test('手动我的最佳失效回退后恢复自动模式，后续钱包可重�
     assert.match(env.trigger.textContent, /我的最佳/); assert.deepEqual(env.options.replay, replay);
   } finally { env.destroy(); }
 });
+
+test('个人主页可指定榜外影子，下载成功后加入选项并记忆，覆盖本地默认', async () => {
+  const env = setup({ record: local, requestedAddress: other });
+  try {
+    await env.options.ready;
+    assert.deepEqual(env.options.replay, replay); assert.equal(env.options.name, '0x9876…7890');
+    assert.ok(env.calls.some(url => url.includes('address=' + other)));
+    assert.equal(env.data.get('race.ghost.choice.1'), other);
+  } finally { env.destroy(); }
+});
+
+test('指定影子下载失败不回退其他玩家，保留目标供手动重试且禁止自动发车', async () => {
+  let failed = true;
+  const env = setup({ record: local, requestedAddress: other, fetcher: async url => {
+    if (url.includes('address=') && failed) return new Response('', { status: 503 });
+    return Response.json(url.includes('address=') ? replay : [entry]);
+  } });
+  try {
+    await env.options.ready;
+    assert.equal(env.options.requestedReady, false); assert.equal(env.options.replay, null);
+    assert.match(env.trigger.textContent, /失败/);
+    failed = false; await env.choose(other);
+    assert.equal(env.options.requestedReady, true); assert.deepEqual(env.options.replay, replay);
+  } finally { env.destroy(); }
+});
+
+test('指定目标下载中标记加载，不暴露旧本地录像供提前发车', async () => {
+  let release;
+  const env = setup({ record: local, requestedAddress: other, source: { list: async () => [], replay: () => new Promise(resolve => { release = resolve; }) } });
+  try {
+    await flush(); assert.equal(env.options.loading, true); assert.equal(env.options.replay, null);
+    release(replay); await env.options.ready; assert.equal(env.options.loading, false);
+  } finally { env.destroy(); }
+});

@@ -64,48 +64,28 @@ test('切换账户与卸载会丢弃旧读取，错误可重试', async () => {
   env.wallet.readRecord = async () => record; await find(root, 'button')[0].onclick(); await flush(); assert.match(root.text, /#0007/);
   card.destroy(); assert.equal(env.listeners.size, 0);
 });
-test('入口连接后直接打开资料，切链、语言与断开同步', async () => {
-  const env = setup(), root = new Node(), hub = mountWalletHub(root, env);
+test('入口连接后导航个人主页，菜单保留切链与断开，语言同步', async () => {
+  const env = setup(), root = new Node(), destinations = [];
+  const hub = mountWalletHub(root, { ...env, navigate: href => destinations.push(href) });
   await find(root, 'button')[0].onclick(); assert.match(root.text, /0x1234…7890/);
-  find(root, 'button')[0].onclick(); await flush();
-  assert.match(document.body.text, /个人资料/); assert.match(document.body.text, /我的/); assert.match(document.body.text, /排行榜/);
-  assert.ok(find(document.body, 'a').some(n => n.href.endsWith('/address/' + env.wallet.state.account)));
-  env.change({ chainId: 1 }); assert.match(document.body.text, /切换到 Arc Testnet/);
-  await find(document.body, 'button').find(n => n.textContent.includes('切换到')).onclick(); assert.ok(env.calls.includes('switch'));
-  setLang('en'); assert.match(document.body.text, /Profile/); setLang('zh');
-  await find(document.body, 'button').find(n => n.textContent === '断开连接').onclick(); assert.match(root.text, /连接钱包/);
-  find(document.body, 'button').find(n => n.textContent === '×').onclick();
+  find(root, 'button')[0].onclick(); assert.deepEqual(destinations, ['/?profile']);
+  env.change({ chainId: 1 });
+  await find(root, 'button').find(n => n.textContent.includes('切换到')).onclick(); assert.ok(env.calls.includes('switch'));
+  assert.ok(find(root, 'a').some(n => n.href === '/?profile&tab=leaderboard'));
+  setLang('en'); assert.match(root.text, /Disconnect/); setLang('zh');
+  await find(root, 'button').find(n => n.textContent === '断开连接').onclick(); assert.match(root.text, /连接钱包/);
   hub.destroy(); assert.equal(env.listeners.size, 0);
 });
-test('访客可直接打开排行榜，切到我的显示连接；openMyNFT 总是打开我的', async () => {
-  const env = setup(); let reads = 0;
-  env.wallet.readLeaderboard = async () => { reads++; return []; };
-  let modal = openProfile({ ...env, tab: 'leaderboard' }); await flush();
-  assert.equal(reads, 1); assert.match(document.body.text, /暂无/);
-  const tabs = find(document.body, 'button').filter(n => n.attrs.role === 'tab');
-  assert.equal(tabs[1].attrs['aria-selected'], 'true'); tabs[0].onclick();
-  assert.match(document.body.text, /连接钱包/); modal.destroy();
-  modal = openMyNFT({ ...env, tab: 'leaderboard' });
-  assert.equal(find(document.body, 'button').find(n => n.attrs.role === 'tab').attrs['aria-selected'], 'true'); modal.destroy();
-});
-test('我的 NFT 对话框关闭按钮、背景、Esc 与焦点恢复', async () => {
-  const env = setup(), focus = new Node(); focus.focus();
-  let modal = openMyNFT(env); assert.match(document.body.text, /个人资料/);
-  find(document.body, 'button').find(n => n.textContent === '×').onclick(); assert.equal(document.activeElement, focus); assert.equal(env.listeners.size, 0);
-  modal = openMyNFT(env); const event = { key: 'Escape', preventDefault() {}, stopImmediatePropagation() {} }; document.events.keydown(event); assert.equal(env.listeners.size, 0);
-  modal = openMyNFT(env); modal.root.onclick({ target: modal.root }); assert.equal(env.listeners.size, 0);
+test('旧资料入口与铸造成功入口分别导航榜单和个人主页', () => {
+  const paths = [], navigate = href => paths.push(href);
+  openProfile({ tab: 'leaderboard', navigate }); openMyNFT({ tab: 'leaderboard', navigate });
+  assert.deepEqual(paths, ['/?profile&tab=leaderboard', '/?profile']);
 });
 test('成功提示持续 3.6 秒且新提示重置计时，销毁清理', () => {
   const delays = [], cleared = [], timers = [];
   const root = new Node(), toast = createSuccessToast(root, { schedule(fn, ms) { delays.push(ms); timers.push(fn); return timers.length; }, cancel(id) { cleared.push(id); } });
   toast.show('minted', 7); assert.match(root.text, /#7/); assert.deepEqual(delays, [3600]);
   toast.show('updated', 7); assert.match(root.text, /已更新/); assert.deepEqual(cleared, [1]); timers.at(-1)(); assert.equal(find(root, 'section')[0].hidden, true); toast.destroy();
-});
-test('NFT 面板在第三方钱包弹窗打开时让出 Esc 与 Tab', () => {
-  const old = document.querySelector; document.querySelector = () => ({});
-  const env = setup(), modal = openMyNFT(env);
-  document.events.keydown({ key: 'Escape', preventDefault() { assert.fail('应交给第三方弹窗'); }, stopImmediatePropagation() { assert.fail('应交给第三方弹窗'); } });
-  assert.equal(env.listeners.size, 2); modal.destroy(); document.querySelector = old;
 });
 test('成功提示按成就提示缩放后的实际边界避让', () => {
   const old = document.querySelector; document.querySelector = selector => selector === '#race-hud' ? null : ({ getBoundingClientRect: () => ({ bottom: 158 }) });

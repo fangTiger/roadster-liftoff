@@ -5,13 +5,13 @@
  */
 import { t, onLangChange } from '../i18n/i18n.js';
 
-import { raceAchievements } from './race.js';
+import { raceAchievements, RACE_ACHIEVEMENTS } from './race.js';
 export { PRO_LAP_SECONDS } from './race.js';
 
 // ─── 常量 ────────────────────────────────────────────────────────────────────
 
 /** 所有成就定义（按展示顺序排列） */
-const DEFS = [
+export const DEFS = [
   {
     id: 'first_drive',
     index: 1,
@@ -92,7 +92,7 @@ const DEFS = [
     id: 'coin_hunter',
     index: 20,
   },
-  ...['first_lap', 'qualified', 'canyon_jump', 'slot_pass', 'clean_lap', 'drift_king', 'valley_speed', 'pro_lap'].map((id, i) => ({ id, index: 21 + i })),
+  ...RACE_ACHIEVEMENTS.map((id, i) => ({ id, index: 21 + i })),
 ];
 // 名称与描述按当前语言取词（词条 ach.<id>.name / ach.<id>.desc）
 for (const d of DEFS) Object.defineProperties(d, { name: { get: () => t(`ach.${d.id}.name`), enumerable: true }, desc: { get: () => t(`ach.${d.id}.desc`), enumerable: true } });

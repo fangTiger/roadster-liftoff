@@ -96,7 +96,7 @@ export function createRecordsWallet({ publicClient = createPublicClient({ chain,
       return receipt.transactionHash || hash;
     } finally { state.phase = ''; emit(); }
   }
-  async function readLeaderboard(trackId, { verifiedOnly = false } = {}) {
+  async function readLeaderboard(trackId, { verifiedOnly = false, limit = 50 } = {}) {
     const count = BigInt(await read('playerCount')), addrs = [], bests = [];
     for (let start = 0n; start < count; start += 100n) {
       const size = count - start < 100n ? count - start : 100n;
@@ -105,7 +105,7 @@ export function createRecordsWallet({ publicClient = createPublicClient({ chain,
       if (!pageAddrs.length) break;
     }
     const rows = sortLeaderboard(addrs, bests, Infinity);
-    return rows.filter(row => !verifiedOnly || row.verified === true).slice(0, 50);
+    return rows.filter(row => !verifiedOnly || row.verified === true).slice(0, limit);
   }
   return {
     get state() { return { ...state }; },

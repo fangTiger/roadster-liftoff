@@ -223,7 +223,7 @@ if (roomMode) {
 <div><h2 data-i18n="race.pick">${t('race.pick')}</h2><div class="cards">${TRACKS.map((entry, i) => { const th = thumb(entry.def); return `<section class="track-card"><button data-k="${entry.difficulty}" class="${entry.difficulty === DEFAULT_DIFFICULTY ? 'on' : ''}"><kbd>${i + 1}</kbd><b><span data-i18n="race.${entry.difficulty}">${t('race.' + entry.difficulty)}</span></b><i><span data-i18n="race.track${entry.def.id}">${t('race.track' + entry.def.id)}</span> · ${(th.len / 1000).toFixed(1)} <span data-i18n="race.km">${t('race.km')}</span></i><svg width="120" height="120" viewBox="0 0 120 120"><path d="${th.d}" fill="none" stroke="#e8e2d4" stroke-width="3" stroke-linejoin="round"/></svg><small><span data-i18n="race.desc.${entry.difficulty}">${t('race.desc.' + entry.difficulty)}</span></small></button><div data-ghost-options="${entry.difficulty}"></div></section>`; }).join('')}</div><div class="skies"><a href="/" data-home data-i18n="race.home">${t('race.home')}</a><span style="margin-left:14px" data-i18n="race.background">${t('race.background')}</span>${Object.entries(SKIES).map(([k, s]) => `<a data-sky="${k}" class="${k === skyKey ? 'on' : ''}"><span data-i18n="race.${k}">${t('race.' + k)}</span></a>`).join('')}</div></div>`;
   document.body.append(pick);
   const ghostSource = createGhostSource();
-  const ghostOptions = new Map(TRACKS.map(entry => [entry.difficulty, mountGhostOptions(pick.querySelector(`[data-ghost-options="${entry.difficulty}"]`), entry.def, { source: ghostSource })]));
+  const ghostOptions = new Map(TRACKS.map(entry => [entry.difficulty, mountGhostOptions(pick.querySelector(`[data-ghost-options="${entry.difficulty}"]`), entry.def, { source: ghostSource, requestedAddress: params.get('map') === entry.difficulty ? params.get('ghostAddress') : null })]));
   let chosen = false;
   const choose = async k => {
     if (chosen || document.querySelector('.wh-layer, [data-rk] [role="dialog"], w3m-modal.open')) return; unlockAudio(); chosen = true; removeEventListener('keydown', onPick);
@@ -240,6 +240,10 @@ if (roomMode) {
   let accumulator = 0, lastTime;
   const auto = params.has('autopilot');   // ?race&autopilot&map=…：机器人开完全程（测试网端到端脚本用）
   if (auto) choose(params.get('map') || DEFAULT_DIFFICULTY);
+  else if (/^0x[0-9a-f]{40}$/i.test(params.get('ghostAddress') || '') && ghostOptions.has(params.get('map'))) {
+    const target = ghostOptions.get(params.get('map'));
+    void target.ready.then(() => { if (target.requestedReady) choose(params.get('map')); });
+  }
   function frame(time) {
     const elapsed = lastTime === undefined ? 0 : Math.min(.1, (time - lastTime) / 1000); lastTime = time;
     // 暂停时不推进车辆、计时或录制；逐帧更新时间，恢复时不补跑暂停期间的时间。

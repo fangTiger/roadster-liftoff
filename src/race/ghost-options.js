@@ -43,7 +43,7 @@ export function createGhostSource({ fetcher = globalThis.fetch, timeoutMs = 8000
   };
 }
 
-export function mountGhostOptions(container, def, { record = readBestGhost(def), wallet = defaultWallet, storage, fetcher, timeoutMs, source = createGhostSource({ fetcher, timeoutMs }) } = {}) {
+export function mountGhostOptions(container, def, { record = readBestGhost(def), wallet = defaultWallet, storage, fetcher, timeoutMs, requestedAddress = null, source = createGhostSource({ fetcher, timeoutMs }) } = {}) {
   const group = document.createElement('div'), trigger = document.createElement('button'), list = document.createElement('div'), status = document.createElement('p');
   group.className = 'race-ghost-options'; trigger.type = 'button'; trigger.className = 'race-ghost-trigger'; list.className = 'race-ghost-list';
   trigger.setAttribute('role', 'combobox'); trigger.setAttribute('aria-haspopup', 'listbox'); trigger.setAttribute('aria-controls', `ghost-list-${def.id}`);
@@ -51,11 +51,12 @@ export function mountGhostOptions(container, def, { record = readBestGhost(def),
   group.append(trigger, list, status); container.append(group);
   let selected = record ? 'best' : 'none', selectedReplay = record?.replay ?? null, name = '', mine = record, entries = [], listLoading = true, loading = false, expanded = false, active = 0;
   let error = '', listError = '', skipped = false, dead = false, manual = false, version = 0, pending = Promise.resolve(), account = wallet.state.account;
+  const requested = /^0x[0-9a-f]{40}$/i.test(requestedAddress || '') ? requestedAddress.toLowerCase() : null;
   let remembered = null;
   try { remembered = (storage ?? globalThis.localStorage).getItem(`race.ghost.choice.${def.id}`); } catch {}
   const bestLabel = () => t('race.ghost.best') + (mine ? ` · ${mine.bestLap.toFixed(3)} s` : '');
   function choices() {
-    return [{ value: 'none', label: t('race.ghost.none') }, { value: 'best', label: bestLabel(), disabled: !mine }, ...entries.map((entry, index) => ({ value: entry.address.toLowerCase(), label: `${index + 1} · ${shortAddr(entry.address)} · ${(Number(entry.bestMs) / 1000).toFixed(3)} s` }))];
+    return [{ value: 'none', label: t('race.ghost.none') }, { value: 'best', label: bestLabel(), disabled: !mine }, ...entries.map((entry, index) => ({ value: entry.address.toLowerCase(), label: `${index + 1} · ${shortAddr(entry.address)}` + (Number(entry.bestMs) > 0 ? ` · ${(Number(entry.bestMs) / 1000).toFixed(3)} s` : '') }))];
   }
   function paint() {
     if (dead) return;
@@ -116,15 +117,28 @@ export function mountGhostOptions(container, def, { record = readBestGhost(def),
   function evaluate() {
     const id = ++version, owner = wallet.state.account;
     error = ''; skipped = false; mine = record;
-    const immediate = remembered === 'none' || remembered === 'best' && record;
+    const immediate = !requested && (remembered === 'none' || remembered === 'best' && record);
     if (immediate) manual = true;
-    selected = remembered || (record ? 'best' : 'none'); selectedReplay = selected === 'best' && record ? record.replay : null; name = '';
-    loading = !immediate && (!!remembered || !record && !!owner); paint();
+    selected = requested || remembered || (record ? 'best' : 'none'); selectedReplay = selected === 'best' && record ? record.replay : null; name = '';
+    loading = !!requested || !immediate && (!!remembered || !record && !!owner); paint();
     pending = (async () => {
       const personal = readMine(owner, id);
       const [best] = await Promise.all([personal, leaders]);
       if (dead || id !== version) return;
       mine = best; loading = false;
+      if (requested && !manual) {
+        loading = true; selected = requested; selectedReplay = null; paint();
+        try {
+          const replay = await source.replay(def, requested);
+          if (dead || id !== version) return;
+          if (!entries.some(row => row.address.toLowerCase() === requested)) entries.push({ address: requested, bestMs: replay.bestMs });
+          loading = false; selected = requested; selectedReplay = replay; name = shortAddr(requested); manual = true; remembered = requested; persist(requested); paint(); return;
+        } catch {
+          if (dead || id !== version) return;
+          if (!entries.some(row => row.address.toLowerCase() === requested)) entries.push({ address: requested });
+          loading = false; selected = requested; selectedReplay = null; name = shortAddr(requested); error = 'race.ghost.failed'; paint(); return;
+        }
+      }
       if (immediate) { paint(); return; }
       const rememberedValue = remembered?.toLowerCase(), available = choices().find(row => row.value === rememberedValue && !row.disabled);
       if (available && await apply(available.value, id)) { if (!dead && id === version) manual = true; return; }
@@ -166,7 +180,7 @@ export function mountGhostOptions(container, def, { record = readBestGhost(def),
   }), unlang = onLangChange(paint);
   void evaluate();
   return {
-    get replay() { return selectedReplay; }, get name() { return name; }, get ready() { return pending; }, get loading() { return loading; },
+    get requestedReady() { return !!requested && selected === requested && !!selectedReplay; }, get replay() { return selectedReplay; }, get name() { return name; }, get ready() { return pending; }, get loading() { return loading; },
     takeReplay() { if (loading) { skipped = true; paint(); } return selectedReplay; },
     destroy() { dead = true; ++version; unsubscribe(); unlang(); document.removeEventListener('pointerdown', outside); group.remove(); },
   };
