@@ -25,3 +25,9 @@ test('道具槽四种内联 SVG 随轮盘切换，稳定后与道具一致',()=>
  for(let i=0;i<4;i++){state.step=i*10;hud.update(state,{itemSlot:{kind:'nitro',readyAt:4}});const svg=elements.get('.rh-item-icon').innerHTML;assert.match(svg,/<svg/);icons.add(svg);}assert.equal(icons.size,4);
  for(const kind of ['missile','mine','nitro','shield']){state.step=600;hud.update(state,{itemSlot:{kind,readyAt:4}});assert.match(elements.get('.rh-item-icon').innerHTML,new RegExp(`data-item="${kind}"`));}hud.destroy();
 }));
+test('进入实赛后 HUD 隐藏规则保留钱包、NFT 与交易反馈入口',()=>fixture((elements,created)=>{
+ const hud=createHud(buildTrack(TRACKS[0].def),'',{trackId:1});
+ const css=created[0].textContent;
+ for(const id of ['wallet-hub-host','wallet-nft-layer','wallet-success-host'])assert.ok(css.includes(`:not(#${id})`),`HUD 必须保留 ${id}`);
+ hud.destroy();
+}));

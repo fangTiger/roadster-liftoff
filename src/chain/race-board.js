@@ -1,14 +1,17 @@
 import { t, onLangChange } from '../i18n/i18n.js';
 import { RACE_TRACKS } from './tracks.js';
 import { wallet as defaultWallet } from './wallet.js';
-import { chain, enabled } from './config.js';
-import { bitsToCount, formatMs, shortAddr, errorKind } from './records.js';
-import { el, raceRoot, sessionKey, dateText } from './race-ui.js';
+import { enabled } from './config.js';
+import { formatMs, shortAddr, errorKind } from './records.js';
+import { mountNFTCard } from './nft-card.js';
+import { el, raceRoot, dateText } from './race-ui.js';
 
 export function mountRaceBoard(container, { wallet = defaultWallet } = {}) {
   const root = raceRoot(container), mine = el('section', null, 'rc-mine'), tabs = el('nav', null, 'rc-tabs'), board = el('section', null, 'rc-board'), filters = el('nav', null, 'rc-tabs');
+  root.className = 'rc-panel rc-leaderboard';
   root.append(el('h2', t('race.chain.title'), 'rc-title'), el('p', t('race.chain.intro'), 'rc-dim'), mine, tabs, filters, board);
-  let verifiedOnly = true, trackId = 1, boardVersion = 0, mineVersion = 0, key = sessionKey(wallet), dead = false, connecting = false;
+  let verifiedOnly = true, trackId = 1, boardVersion = 0, dead = false;
+  const card = mountNFTCard(mine, { wallet });
   const buttons = RACE_TRACKS.map(track => {
     const button = el('button', t('race.track' + track.id), 'rc-button'); button.type = 'button';
     button.onclick = () => { trackId = track.id; return loadBoard(); }; tabs.append(button); return button;
@@ -44,48 +47,12 @@ export function mountRaceBoard(container, { wallet = defaultWallet } = {}) {
       }
     }
   }
-  async function loadMine() {
-    if (dead) return;
-    const id = ++mineVersion, session = sessionKey(wallet);
-    mine.replaceChildren(el('h3', t('race.chain.mine'), 'rc-title'));
-    if (!enabled) { mine.append(el('p', t('race.chain.unconfigured'), 'rc-dim')); return; }
-    if (!wallet.state.account || wallet.state.chainId !== chain.id) {
-      const button = el('button', connecting ? t('race.chain.connecting') : t('race.chain.connect'), 'rc-button'); button.type = 'button'; button.disabled = connecting;
-      button.onclick = async () => {
-        if (connecting) return;
-        connecting = true; button.disabled = true;
-        let failure = '';
-        try { await wallet.connect(); }
-        catch (err) { failure = t('race.error.' + errorKind(err)); }
-        finally {
-          connecting = false;
-          await loadMine();
-          if (!dead && failure) mine.append(el('p', failure, 'rc-error'));
-        }
-      }; mine.append(button); return;
-    }
-    mine.append(el('p', t('race.chain.loadingMine'), 'rc-dim'));
-    try {
-      const account = wallet.state.account, record = await wallet.readRecord(account);
-      const bests = Number(record.tokenId) ? await Promise.all(RACE_TRACKS.map(track => wallet.readBest(account, track.id))) : [];
-      if (dead || id !== mineVersion || session !== sessionKey(wallet)) return;
-      mine.replaceChildren(el('h3', t('race.chain.mine'), 'rc-title'));
-      if (!Number(record.tokenId)) { mine.append(el('p', t('race.chain.noNFT'), 'rc-dim')); return; }
-      const track = RACE_TRACKS.find(t => t.id === Number(record.firstTrack));
-      mine.append(el('b', `#${String(record.tokenId).padStart(4, '0')}`, 'rc-number'), el('p', t('race.chain.first', { track: t('race.track' + record.firstTrack), time: formatMs(record.firstLapMs) }), 'rc-first'), el('p', t('race.chain.achievements', { count: bitsToCount(record.achievements) }), 'rc-dim'));
-      bests.forEach((best, i) => mine.append(el('p', `${t('race.track' + RACE_TRACKS[i].id)} · ${Number(best.bestMs) ? formatMs(best.bestMs) : t('race.chain.noLap')}${best.verified ? ` · ${t('race.chain.verified')}` : ''}`, 'rc-best')));
-    } catch (err) { if (!dead && id === mineVersion) mine.replaceChildren(el('p', t('race.error.' + errorKind(err)), 'rc-error')); }
-  }
-  const unsubscribe = wallet.subscribe(() => {
-    const next = sessionKey(wallet);
-    if (next !== key) { key = next; void loadMine(); }
-  });
   const unlang = onLangChange(() => {
     root.children[0].textContent = t('race.chain.title'); root.children[1].textContent = t('race.chain.intro');
     buttons.forEach((button, i) => { button.textContent = t('race.track' + RACE_TRACKS[i].id); });
     filterButtons.forEach((button, index) => { button.textContent = t(index === 0 ? 'race.chain.verifiedOnly' : 'race.chain.all'); });
-    void loadMine(); void loadBoard();
+    void loadBoard();
   });
-  void loadMine(); void loadBoard();
-  return { refresh: () => Promise.all([loadMine(), loadBoard()]), destroy() { dead = true; ++mineVersion; ++boardVersion; unsubscribe(); unlang(); root.remove(); } };
+  void loadBoard();
+  return { refresh: () => Promise.all([card.refresh(), loadBoard()]), destroy() { dead = true; ++boardVersion; card.destroy(); unlang(); root.remove(); } };
 }

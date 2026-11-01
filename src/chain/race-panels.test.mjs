@@ -17,7 +17,7 @@ const flush = async () => { for (let i = 0; i < 15; i++) await new Promise(resol
 const find = (root, tag) => root.children.flatMap(n => [n, ...find(n, tag)]).filter(n => n.tagName === tag);
 function setup() {
   let state = { account: null, chainId: null, phase: '' }, record = { tokenId: 0, achievements: 0 };
-  const listeners = new Set(), sent = [];
+  const listeners = new Set(), sent = [], notices = [];
   const wallet = {
     get state() { return state; },
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
@@ -28,7 +28,7 @@ function setup() {
     async submit(...args) { sent.push(args); record = { tokenId: 1, firstTrack: 1, firstLapMs: 50000, achievements: 7 }; return '0xhash'; },
     async readLeaderboard(trackId) { return [{ address: '0x1234567890', bestMs: trackId * 1000, verified: true, updatedAt: 1n }]; },
   };
-  return { wallet, sent, listeners, changeState(next) { state = { ...state, ...next }; for (const fn of listeners) fn(state); } };
+  return { wallet, sent, listeners, notices, notifySuccess: (...args) => notices.push(args), changeState(next) { state = { ...state, ...next }; for (const fn of listeners) fn(state); } };
 }
 test('连接、铸造、成功链接和重复挂载卸载', async () => {
   const env = setup(), container = new Node();
@@ -124,4 +124,31 @@ test('排行榜默认只看核实，切换全部可见自报成绩', async () =>
   env.wallet.readLeaderboard = async () => [{ address: '0x111111111111', bestMs: 1000, verified: false }, { address: '0x222222222222', bestMs: 2000, verified: true }];
   const board = mountRaceBoard(root, env); await flush(); assert.doesNotMatch(root.text, /1\.00 s/); assert.match(root.text, /2\.00 s/);
   await find(root, 'button').find(node => node.textContent === '全部').onclick(); await flush(); assert.match(root.text, /1\.00 s/); board.destroy();
+});
+
+test('首次铸造与已有 NFT 更新分别显示成功状态和顶部提示', async () => {
+  for (const minted of [false, true]) {
+    const env = setup(); await env.wallet.connect();
+    if (minted) env.wallet.readRecord = async () => ({ tokenId: 9, updatedAt: 2 });
+    const root = new Node(), panel = mountRaceChain(root, { trackId: 1, bestLap: 35, bits: 7 }, env); await flush();
+    await find(root, 'button')[0].onclick(); await flush();
+    assert.match(root.text, minted ? /链上记录已更新/ : /首圈纪念 NFT 已铸造 #1/);
+    assert.equal(find(root, 'img').length, 1); assert.match(find(root, 'a')[0].className, /rc-button/); assert.ok(find(root, 'button').some(n => n.textContent === '查看我的 NFT'));
+    assert.deepEqual(env.notices, [[minted ? 'updated' : 'minted', minted ? 9 : 1]]); panel.destroy();
+  }
+});
+test('交易失败或确认后切换账户不会显示成功状态', async () => {
+  for (const changed of [false, true]) {
+    const env = setup(); await env.wallet.connect();
+    env.wallet.submit = async () => { if (changed) { env.changeState({ account: '0xdef' }); return '0xhash'; } throw { code: 4001 }; };
+    const root = new Node(), panel = mountRaceChain(root, { trackId: 1, bestLap: 35, bits: 7 }, env); await flush();
+    await find(root, 'button')[0].onclick(); assert.equal(env.notices.length, 0); assert.equal(find(root, 'img').length, 0); panel.destroy();
+  }
+});
+test('已确认交易遇到 RPC 刷新失败仍反馈成功并保留交易链接', async () => {
+  const env = setup(); await env.wallet.connect();
+  const submit = env.wallet.submit; env.wallet.submit = async (...args) => { const hash = await submit(...args); env.wallet.readRecord = async () => { throw new Error('RPC timeout'); }; return hash; };
+  const root = new Node(), panel = mountRaceChain(root, { trackId: 1, bestLap: 35, bits: 7 }, env); await flush();
+  await find(root, 'button')[0].onclick();
+  assert.equal(env.notices.length, 1); assert.match(root.text, /交易已确认/); assert.ok(find(root, 'a').some(n => n.href.endsWith('/tx/0xhash'))); panel.destroy();
 });

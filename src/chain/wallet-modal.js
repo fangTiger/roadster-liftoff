@@ -4,7 +4,7 @@ import { getDefaultConfig, RainbowKitProvider, darkTheme, useConnectModal } from
 import '@rainbow-me/rainbowkit/styles.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider, useAccount } from 'wagmi';
-import { getAccount } from 'wagmi/actions';
+import { getAccount, disconnect } from 'wagmi/actions';
 import { chain } from './config.js';
 import { getLang, onLangChange } from '../i18n/i18n.js';
 
@@ -35,7 +35,7 @@ export async function mountWalletUI({ onSession, onClose }) {
         openModal = openConnectModal;
         if (!ready && (openConnectModal || status === 'connected')) {
           ready = true;
-          resolve({ getSession, open() {
+          resolve({ getSession, disconnect: () => disconnect(config), open() {
             if (!openModal) throw Object.assign(new Error('钱包连接尚未就绪'), { code: 'no_wallet' });
             openModal();
           } });

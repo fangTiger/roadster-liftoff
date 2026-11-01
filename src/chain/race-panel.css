@@ -18,3 +18,20 @@
 .rc-panel .rc-table th,.rc-panel .rc-table td{text-align:left;padding:8px 10px;border-bottom:1px solid #ffffff14}
 .rc-panel .rc-table th{color:#9fb0b8;font-weight:400}
 @media(max-width:600px){.rc-panel{padding:14px 12px;max-width:100%}.rc-panel .rc-table th,.rc-panel .rc-table td{padding:7px 6px}.rc-panel .rc-tabs .rc-button{flex:1;padding:7px}}
+/* 钱包入口沿用竞速玻璃材质；窄屏保留图标与短标签。 */
+#liftoff-ui .wh-hub,.wh-hub{position:fixed;top:max(16px,env(safe-area-inset-top));right:max(18px,env(safe-area-inset-right));z-index:220;margin:0;padding:0;border:0;background:none;backdrop-filter:none;box-shadow:none;max-width:calc(100vw - 24px)}
+.wh-hub .wh-button{display:flex;align-items:center;gap:9px;background:#101a20e6;backdrop-filter:blur(14px);min-height:44px;white-space:nowrap}
+.wh-hub .wh-button[data-warning=true]{border-color:#f8d28d;color:#f8d28d}
+.wh-hub .wh-network{color:#9fb0b8;font-size:11px;border-left:1px solid #ffffff26;padding-left:9px}.wh-hub .wh-short{display:none}.wh-icon{font-size:19px;color:#8ef0c8}
+.wh-hub .wh-menu{position:absolute;right:0;top:calc(100% + 8px);display:grid;gap:6px;padding:10px;min-width:220px;background:#101a20f5;border:1px solid #ffffff30;border-radius:10px;box-shadow:0 16px 36px #0006;backdrop-filter:blur(14px)}
+.wh-hub .wh-menu .rc-button,.wh-hub .wh-menu .rc-link{text-align:left;font-size:13px}.wh-hub .wh-menu .rc-link{padding:10px 14px}.wh-hub .rc-error{max-width:260px;padding:8px 12px;background:#101a20f5;border-radius:6px}
+.wh-hub [hidden],.wh-layer [hidden],.wh-toast[hidden],.rc-panel [hidden]{display:none!important}
+.wh-layer{position:fixed;inset:0;z-index:10020;display:grid;place-items:center;padding:24px;box-sizing:border-box;background:#0b0f14cc;backdrop-filter:blur(10px);overflow:auto;overscroll-behavior:contain;color:#f4eee1}
+.wh-layer>div{width:min(560px,100%);min-width:0}.wh-layer .wh-dialog{margin:0;max-height:calc(100dvh - 48px);overflow:auto;background:#101a20ed}.wh-header{display:flex;align-items:center;justify-content:space-between;gap:16px}.wh-header .rc-button{font-size:24px;line-height:1;padding:6px 13px}.wh-header .rc-title{margin:0}
+.wh-dialog .rc-nft{border:0;padding:0;background:none;backdrop-filter:none;margin-top:16px}.rc-nft .rc-art{position:relative;max-width:240px;aspect-ratio:1;background:#0b0f14;border:1px solid #ffffff26;border-radius:8px;overflow:hidden;margin-bottom:12px}.rc-art img{display:block;width:100%;height:100%;object-fit:cover}.rc-art .rc-image-fallback{padding:24px;color:#9fb0b8;text-align:center}.rc-nft .rc-nft-actions{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:16px}.rc-nft-actions a{min-height:32px}
+.rc-success{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-top:12px}.rc-success .rc-success-check{font-size:48px;line-height:1;color:#8ef0c8}.rc-success img{width:84px;height:84px;object-fit:cover;border-radius:7px}.rc-success .rc-best{flex-basis:100%}
+/* 默认靠上显示；出现成就提示时由组件按实际边界顺延。 */
+.wh-toast{position:fixed;top:76px;left:50%;transform:translateX(-50%);z-index:10021;width:max-content;max-width:calc(100vw - 28px);max-height:88px;overflow:auto;margin:0;padding:12px 18px;color:#8ef0c8;border-color:#8ef0c855;background:#101a20ed;pointer-events:none;text-align:center}
+body:has(#wallet-hub) #tools{top:76px}
+@media(max-width:420px){#liftoff-ui .wh-hub,.wh-hub{top:max(10px,env(safe-area-inset-top));right:10px}.wh-hub .wh-label,.wh-hub .wh-network{display:none}.wh-hub .wh-short{display:inline}.wh-hub .wh-button{padding:8px 10px;font-size:12px}.wh-layer{padding:12px}.wh-layer .wh-dialog{max-height:calc(100dvh - 24px)}.rc-nft .rc-art{max-width:200px}.wh-toast{font-size:13px}}
+.rc-leaderboard{max-height:calc(100dvh - 48px);overflow:auto;overscroll-behavior:contain;margin-top:0}.rc-leaderboard .rc-nft{background:none;border:0;padding:0;backdrop-filter:none}

@@ -145,3 +145,17 @@ test('已核实榜单在截取50名之前过滤，避免自报成绩挤占', asy
   publicClient.readContract = async ({ functionName }) => functionName === 'playerCount' ? 60n : [Array.from({length:60}, (_, i) => `player${i}`), [], Array.from({length:60}, (_, i) => ({ bestMs: i + 1000, verified: i >= 55 }))];
   const rows = await wallet.readLeaderboard(1, { verifiedOnly: true }); assert.equal(rows.length, 5); assert.equal(rows[0].address, 'player55');
 });
+
+test('独立切链复用缺失网络处理并同步状态', async () => {
+  const env = setup({ missingChain: true }); await env.wallet.connect(); env.changeChain(1);
+  await env.wallet.switchNetwork(); assert.equal(env.wallet.state.chainId, chain.id);
+});
+test('主动断开转交连接器，清空会话并忽略旧事件', async () => {
+  let disconnected = 0, changed; const handlers = new Map();
+  const provider = { on: (name, fn) => handlers.set(name, fn), removeListener() {}, request: async ({ method }) => method === 'eth_chainId' ? chain.id : [alice] };
+  const wallet = createRecordsWallet({ address, getProvider: () => provider, publicClient: {}, getWalletClient: () => ({}), disconnectProvider: async () => { disconnected++; }, subscribeSession: fn => { changed = fn; } });
+  changed({ provider, account: alice, chainId: chain.id });
+  await wallet.disconnect(); assert.equal(disconnected, 1); assert.equal(wallet.state.account, null); assert.equal(wallet.state.chainId, null);
+  handlers.get('accountsChanged')([bob]); assert.equal(wallet.state.account, null);
+  await assert.rejects(wallet.submit(1, 50000, 0), { code: 'no_wallet' });
+});

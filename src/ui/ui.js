@@ -2,6 +2,7 @@
 const STORE = 'liftoff.ui.v1';
 import { QUALITY_PRESETS as PRESETS, getDefaultPreset } from '../mobile/perf.js';
 import { t, applyI18n, onLangChange, mountLangToggle } from '../i18n/i18n.js';
+import { mountWalletHub } from '../chain/wallet-hub.js';
 import { roomsEnabled } from '../net/rooms-flag.js';
 // 文字都走多语言词条：L(key) 生成带 data-i18n 的片段，切换语言时由 applyI18n 原地刷新
 const L = key => `<span data-i18n="${key}">${t(key)}</span>`;
@@ -54,6 +55,7 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
     </section>
     <div class="ui-flash" aria-hidden="true"></div><div class="g ui-toast" role="status" hidden></div>`;
   document.body.append(root);
+  mountWalletHub(root);
   mountLangToggle(root.querySelector('.ui-start-lang'), { injectCss: false });
   // 主入口没有移动端视口声明时补充，避免更改现有标记。
   if (!document.querySelector('meta[name="viewport"]')) {
@@ -66,7 +68,7 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
   function syncBackground() {
     const blocked = !started || !!panel;
     for (const el of document.body.children) {
-      if (el === root || el.tagName === 'SCRIPT') continue;
+      if (el === root || ['wallet-nft-layer', 'wallet-success-host', 'roadster-wallet'].includes(el.id) || el.hasAttribute?.('data-rk') || el.tagName === 'SCRIPT') continue;
       if (blocked && !background.has(el)) { background.set(el, el.inert); el.inert = true; }
     }
     if (!blocked) { for (const [el, inert] of background) el.inert = inert; background.clear(); }
@@ -211,6 +213,7 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
     el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); el.click(); } });
   });
   window.addEventListener('keydown', e => {
+    if (document.querySelector('.wh-layer, .wh-menu:not([hidden]), [data-rk] [role="dialog"]')) return;
     if (e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
     if (!started) {
       if (e.key === 'Tab') return;

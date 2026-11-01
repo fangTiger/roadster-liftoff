@@ -71,3 +71,11 @@ test('恢复旧会话期间的新会话优先，不被过期读取清空', async
   assert.equal(await connecting, provider);
   assert.equal(opens, 0); assert.equal(sessions.length, 1);
 });
+
+test('主动断开使用已加载的界面桥，之后可重新连接', async () => {
+  let disconnected = 0, restored = true;
+  const provider = {}, connection = createWalletConnection({ loadUI: async () => ({ getSession: async () => restored ? { provider, account: alice, chainId: 5042002 } : null, disconnect: async () => { disconnected++; restored = false; }, open() {} }) });
+  await connection.disconnect(); assert.equal(disconnected, 0);
+  await connection.connect(); await connection.disconnect();
+  assert.equal(disconnected, 1); assert.equal(connection.getProvider(), null);
+});

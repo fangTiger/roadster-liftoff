@@ -17,7 +17,7 @@ export function createHud(track, title = '', { trackId, roomMode = false, itemsM
   const jetEnabled = trackId === 3;
   const controls = () => t('race.controls') + (jetEnabled ? t('race.controlsJet') : '') + (roomMode ? (itemsMode ? t('race.controlsItems') : '') + t('race.controlsRoom') : '');
   const style = document.createElement('style');
-  style.textContent = `body{margin:0;overflow:hidden;background:#0b0f14}body> :not(canvas):not(#race-hud):not(#race-pick):not(#race-loading):not(#race-tools):not(.rm-root):not(#ach-toast):not(#ach-panel-wrap):not(#roadster-wallet):not(w3m-modal):not(:has([data-rk])):not(script):not(style){display:none!important}
+  style.textContent = `body{margin:0;overflow:hidden;background:#0b0f14}body> :not(canvas):not(#race-hud):not(#race-pick):not(#race-loading):not(#race-tools):not(.rm-root):not(#ach-toast):not(#ach-panel-wrap):not(.rc-board-layer):not(#wallet-hub-host):not(#wallet-nft-layer):not(#wallet-success-host):not(#roadster-wallet):not(w3m-modal):not(:has([data-rk])):not(script):not(style){display:none!important}
 #race-hud{position:fixed;inset:0;color:#f4eee1;font:16px 'Helvetica Neue','PingFang SC',sans-serif;pointer-events:none;z-index:10;font-variant-numeric:tabular-nums}
 #race-hud .rh-panel{background:#101a20c4;border:1px solid #ffffff1f;border-radius:10px;backdrop-filter:blur(6px)}
 #race-hud header{position:absolute;top:22px;left:24px;padding:14px 18px;min-width:210px}

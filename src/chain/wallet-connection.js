@@ -39,6 +39,12 @@ export function createWalletConnection({ loadUI = async handlers => {
   }
   return {
     connect,
+    async disconnect() {
+      if (!initialization) return;
+      const ui = await initialization;
+      await ui.disconnect();
+      onSession(null); onClose();
+    },
     getProvider: () => session?.provider || null,
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
   };

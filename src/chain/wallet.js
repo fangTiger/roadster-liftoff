@@ -4,7 +4,7 @@ import { sortLeaderboard } from './records.js';
 import { walletConnection } from './wallet-connection.js';
 
 // 可注入客户端以验证钱包流程；默认读取始终走公共 HTTP RPC。
-export function createRecordsWallet({ publicClient = createPublicClient({ chain, transport: http() }), getProvider = walletConnection.getProvider, connectProvider = getProvider, subscribeSession = null, address = recordsAddress, getWalletClient = provider => createWalletClient({ chain, transport: custom(provider) }) } = {}) {
+export function createRecordsWallet({ publicClient = createPublicClient({ chain, transport: http() }), getProvider = walletConnection.getProvider, connectProvider = getProvider, subscribeSession = null, disconnectProvider = async () => {}, address = recordsAddress, getWalletClient = provider => createWalletClient({ chain, transport: custom(provider) }) } = {}) {
   let provider = null, walletClient = null, providerListeners = {};
   const state = { account: null, chainId: null, phase: '' };
   const listeners = new Set();
@@ -40,20 +40,31 @@ export function createRecordsWallet({ publicClient = createPublicClient({ chain,
     attach(selected);
     accountsChanged(await provider.request({ method: 'eth_accounts' }));
     if (!state.account) throw fail('no_wallet');
-    const chainId = `0x${chain.id.toString(16)}`;
-    if (Number(await provider.request({ method: 'eth_chainId' })) !== chain.id) {
-      try { await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId }] }); }
-      catch (err) {
-        if (Number(err.code ?? err.cause?.code ?? err.data?.originalError?.code) !== 4902) throw err;
-        await provider.request({ method: 'wallet_addEthereumChain', params: [{ chainId, chainName: chain.name, nativeCurrency: chain.nativeCurrency, rpcUrls: chain.rpcUrls.default.http, blockExplorerUrls: [chain.blockExplorers.default.url] }] });
-        await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId }] });
-      }
-    }
-    chainChanged(await provider.request({ method: 'eth_chainId' }));
-    if (state.chainId !== chain.id) throw fail('wrong_network');
+    await switchNetwork();
     accountsChanged(await provider.request({ method: 'eth_accounts' }));
     if (!state.account) throw fail('no_wallet');
     return state.account;
+  }
+  async function switchNetwork() {
+    if (!provider || !state.account) throw fail('no_wallet');
+    const selected = provider;
+    const chainId = `0x${chain.id.toString(16)}`;
+    if (Number(await selected.request({ method: 'eth_chainId' })) !== chain.id) {
+      try { await selected.request({ method: 'wallet_switchEthereumChain', params: [{ chainId }] }); }
+      catch (err) {
+        if (Number(err.code ?? err.cause?.code ?? err.data?.originalError?.code) !== 4902) throw err;
+        await selected.request({ method: 'wallet_addEthereumChain', params: [{ chainId, chainName: chain.name, nativeCurrency: chain.nativeCurrency, rpcUrls: chain.rpcUrls.default.http, blockExplorerUrls: [chain.blockExplorers.default.url] }] });
+        await selected.request({ method: 'wallet_switchEthereumChain', params: [{ chainId }] });
+      }
+    }
+    const id = await selected.request({ method: 'eth_chainId' });
+    if (selected !== provider) throw fail('account_changed');
+    chainChanged(id);
+    if (state.chainId !== chain.id) throw fail('wrong_network');
+  }
+  async function disconnect() {
+    await disconnectProvider();
+    attach(null); disconnected();
   }
   function read(functionName, args = []) {
     requireContract();
@@ -99,7 +110,7 @@ export function createRecordsWallet({ publicClient = createPublicClient({ chain,
   return {
     get state() { return { ...state }; },
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
-    connect, submit, readLeaderboard,
+    connect, disconnect, switchNetwork, submit, readLeaderboard,
     readVerifier: () => read('verifier'),
     readRecord: addr => read('recordOf', [addr]),
     readBest: (addr, trackId) => read('bestOf', [addr, trackId]),
@@ -107,7 +118,7 @@ export function createRecordsWallet({ publicClient = createPublicClient({ chain,
     readTokenURI: id => read('tokenURI', [BigInt(id)]),
   };
 }
-export const wallet = createRecordsWallet({ connectProvider: walletConnection.connect, subscribeSession: walletConnection.subscribe });
+export const wallet = createRecordsWallet({ connectProvider: walletConnection.connect, subscribeSession: walletConnection.subscribe, disconnectProvider: walletConnection.disconnect });
 export const connect = (...args) => wallet.connect(...args);
 export const readRecord = (...args) => wallet.readRecord(...args);
 export const submit = (...args) => wallet.submit(...args);

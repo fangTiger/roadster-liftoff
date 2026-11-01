@@ -31,3 +31,12 @@
 #race-pick .cards .race-ghost-ranked button{width:100%}
 #race-pick .race-ghost-options p{font-size:12px;line-height:1.5;margin:0;color:#aab7bd;text-wrap:pretty}
 #race-pick .race-ghost-options p:empty{display:none}
+/* 右上角第一行留给钱包，地图和房间控件从第二行开始。 */
+body:has(#wallet-hub) #race-hud .rh-map{top:78px}
+body:has(#wallet-hub) .grg-layout [data-rm-lobby].rm-overlay{top:78px}
+body:has(#wallet-hub) .rm-browser-page{padding-top:84px}
+@media(max-width:699px){body:has(#wallet-hub) .grg-layout [data-rm-lobby].rm-overlay{top:auto}body:has(#wallet-hub) .grg-heading{padding-top:44px}}
+@media(max-width:600px){body:has(#wallet-hub) #race-pick{padding-top:78px}body:has(#wallet-hub) .rm-browser-page{padding-top:74px}}
+
+/* 地址缩写比未连接标签更宽；窄屏计时栏避开钱包和小地图。 */
+@media(max-width:420px){body:has(#wallet-hub) #race-hud header{width:calc(100vw - 180px);min-width:0;box-sizing:border-box;overflow-wrap:anywhere}}

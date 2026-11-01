@@ -10,6 +10,7 @@ import { createCarOpacity } from './car-opacity.js';
 import { t, onLangChange, mountLangToggle } from '../i18n/i18n.js';
 import { createAchievements } from '../achievements/achievements.js';
 import { achievementsToBits } from '../chain/records.js';
+import { mountWalletHub } from '../chain/wallet-hub.js';
 import { wallet } from '../chain/wallet.js';
 import { createAudio } from '../audio/audio.js';
 import { createRaceAudio } from '../audio/race.js';
@@ -53,7 +54,8 @@ const loading = document.createElement('div'); loading.id = 'race-loading'; load
 Object.assign(loading.style, { position: 'fixed', inset: '0', zIndex: '50', display: 'grid', placeItems: 'center', background: '#0b0f14', color: '#cfd8e3', font: '500 15px/1 system-ui,sans-serif', letterSpacing: '.2em', transition: 'opacity .6s' });
 document.body.append(loading);
 // 竞速模式不用第一版的界面：一开始就藏起来（HUD 要等选完地图才创建）
-const hideOld = document.createElement('style'); hideOld.textContent = 'body> :not(canvas):not(#race-hud):not(#race-pick):not(#race-loading):not(#race-tools):not(.rm-root):not(.rb-modal-backdrop):not(#ach-toast):not(#ach-panel-wrap):not(#roadster-wallet):not(w3m-modal):not(:has([data-rk])):not(script):not(style){display:none!important}'; document.head.append(hideOld);
+const hideOld = document.createElement('style'); hideOld.textContent = 'body> :not(canvas):not(#race-hud):not(#race-pick):not(#race-loading):not(#race-tools):not(.rm-root):not(.rb-modal-backdrop):not(#ach-toast):not(#ach-panel-wrap):not(.rc-board-layer):not(#wallet-hub-host):not(#wallet-nft-layer):not(#wallet-success-host):not(#roadster-wallet):not(w3m-modal):not(:has([data-rk])):not(script):not(style){display:none!important}'; document.head.append(hideOld);
+mountWalletHub(document.body);
 // 与第一版共用存储和音量总线，大厅曲目只在进入房间后加载。
 const audio = createAudio({ music: false, urls: { lobby: '/assets/music/lobby-rock.m4a' } }), raceAudio = createRaceAudio(audio), achievements = createAchievements();
 let audioSettings = {};
@@ -132,7 +134,7 @@ async function setup(difficulty, replay = null, ghostName = '', roomStart = null
         if (paused) saveAudio();
         audio.setMuted(paused || muteInput.checked);
       },
-      isOverlayOpen: () => !!document.querySelector('.ach-panel-visible, [data-rk] [role="dialog"], w3m-modal.open'),
+      isOverlayOpen: () => !!document.querySelector('.wh-layer, .wh-menu:not([hidden]), .ach-panel-visible, [data-rk] [role="dialog"], w3m-modal.open'),
     });
   }
 }
@@ -224,16 +226,34 @@ if (roomMode) {
   const ghostOptions = new Map(TRACKS.map(entry => [entry.difficulty, mountGhostOptions(pick.querySelector(`[data-ghost-options="${entry.difficulty}"]`), entry.def)]));
   let chosen = false;
   const choose = async k => {
-    if (chosen) return; unlockAudio(); chosen = true; removeEventListener('keydown', onPick);
+    if (chosen || document.querySelector('.rc-board-layer')) return; unlockAudio(); chosen = true; removeEventListener('keydown', onPick);
     pick.querySelector('h2').textContent = t('race.generating'); await new Promise(r => setTimeout(r, 30));
     const options = ghostOptions.get(k); await options?.ready;
     await setup(k, options?.replay, options?.name); ghostOptions.forEach(options => options.destroy()); pick.remove(); requestAnimationFrame(frame);
   };
-  const onPick = e => { const k = TRACKS[Number(e.key) - 1]?.difficulty; if (k) choose(k); else if (e.key === 'Enter' && !e.target.closest?.('button,a,input,select')) choose(DEFAULT_DIFFICULTY); };
+  const onPick = e => { if (document.querySelector('.rc-board-layer')) return; const k = TRACKS[Number(e.key) - 1]?.difficulty; if (k) choose(k); else if (e.key === 'Enter' && !e.target.closest?.('button,a,input,select')) choose(DEFAULT_DIFFICULTY); };
   addEventListener('keydown', onPick); pick.querySelectorAll('button[data-k]').forEach(b => b.addEventListener('click', () => choose(b.dataset.k)));
   // 换背景：记住选择后带着 sky 参数重新加载
   // 链上记录：在选图界面上叠一层排行榜，点空白处关闭
-  pick.querySelector('[data-board]').addEventListener('click', e => { e.stopPropagation(); const layer = document.createElement('div'); Object.assign(layer.style, { position: 'fixed', inset: '0', zIndex: '45', display: 'grid', placeItems: 'center', background: '#0b0f14cc' }); const box = document.createElement('div'); box.style.width = 'min(560px, 94vw)'; box.addEventListener('click', ev => ev.stopPropagation()); layer.append(box); layer.addEventListener('click', () => { board.destroy?.(); layer.remove(); }); pick.append(layer); const board = mountRaceBoard(box); });
+  pick.querySelector('[data-board]').addEventListener('click', e => {
+    e.stopPropagation(); const layer = document.createElement('div'); layer.className = 'rc-board-layer';
+    Object.assign(layer.style, { position: 'fixed', inset: '0', zIndex: '225', display: 'grid', placeItems: 'center', background: '#0b0f14cc', padding: '24px', boxSizing: 'border-box' });
+    const box = document.createElement('div'); box.style.width = 'min(560px, 94vw)'; box.addEventListener('click', ev => ev.stopPropagation()); layer.append(box);
+    // 选图页有毛玻璃与滚动，会改变 fixed 的包含块；榜单直接挂在 body。
+    const restoreFocus = document.activeElement; pick.inert = true;
+    const close = () => { board.destroy(); layer.remove(); pick.inert = false; document.removeEventListener('keydown', onKey, true); restoreFocus?.focus?.({ preventScroll: true }); };
+    const onKey = event => {
+      if (document.querySelector('.wh-layer, [data-rk] [role="dialog"], w3m-modal.open')) return;
+      if (event.key === 'Escape') { event.preventDefault(); close(); }
+      if (event.key === 'Tab') {
+        const items = [...box.querySelectorAll('button,a')].filter(node => !node.disabled && !node.closest('[hidden]')), first = items[0], last = items.at(-1);
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
+      event.stopImmediatePropagation();
+    };
+    layer.addEventListener('click', close); document.addEventListener('keydown', onKey, true); document.body.append(layer); const board = mountRaceBoard(box); box.querySelector('button')?.focus({ preventScroll: true });
+  });
   pick.querySelectorAll('.skies a[data-sky]').forEach(a => a.addEventListener('click', () => { if (a.dataset.sky === skyKey) return; try { localStorage.setItem('race.sky', a.dataset.sky); } catch {} const q = new URLSearchParams(location.search); q.set('sky', a.dataset.sky); location.search = q.toString(); }));
   let accumulator = 0, lastTime;
   const auto = params.has('autopilot');   // ?race&autopilot&map=…：机器人开完全程（测试网端到端脚本用）
