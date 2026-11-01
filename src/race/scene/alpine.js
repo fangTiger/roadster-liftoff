@@ -3,12 +3,14 @@ import { createGreybox } from './greybox.js';
 import { createTerrain } from './terrain.js';
 import { createProps } from './props.js';
 import { createObstacles } from './obstacles.js';
+import { createRaceCoins } from './coins.js';
 
 // 所有资源就绪后才返回，让入口现有的预编译与加载遮罩涵盖新场景。
 export async function createAlpine(scene, track, { tint, renderer } = {}) {
   if (scene.fog?.isFogExp2) scene.fog.density = .0011;
   const mobile = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
-  const road = createGreybox(scene, track, { tint, scenery: false });
+  const road = createGreybox(scene, track, { tint, scenery: false, coins: false });
+  const coins = createRaceCoins(scene, track);
   const terrain = createTerrain(scene, track, { tint, mobile });
   const [props, obstacles] = await Promise.all([createProps(scene, track, { mobile, renderer }), createObstacles(scene, track)]);
   const sun = scene.children.find(o => o.isDirectionalLight), environment = scene.environmentIntensity, sunlight = sun?.intensity;
@@ -24,7 +26,7 @@ export async function createAlpine(scene, track, { tint, renderer } = {}) {
     }
   };
   return { update(snapshot) {
-    road.update(snapshot); terrain.update(snapshot.car); props.update(snapshot.car); obstacles.update(snapshot);
+    road.update(snapshot); coins.update(snapshot); terrain.update(snapshot.car); props.update(snapshot.car); obstacles.update(snapshot);
     scene.userData.alpineStep = snapshot.step;
     const near = snapshot.car.near;
     let darkness = 0;

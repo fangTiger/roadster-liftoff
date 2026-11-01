@@ -5,6 +5,7 @@ import { setLang } from '../i18n/i18n.js';
 import { buildTrack } from './track/build.js';
 import { TRACKS } from './track/data/index.js';
 import { createSession } from './sim/session.js';
+import T from './sim/tuning.js';
 function fixture(run){
  const previous={document:globalThis.document,innerWidth:globalThis.innerWidth,devicePixelRatio:globalThis.devicePixelRatio},elements=new Map(),created=[],context=new Proxy({},{get:()=>()=>{}});
  const element=()=>{const e={style:{},dataset:{},remove(){},getContext:()=>context,querySelector(q){if(!elements.has(q))elements.set(q,element());return elements.get(q);}};created.push(e);return e;};
@@ -30,5 +31,23 @@ test('进入实赛后 HUD 隐藏规则保留钱包、NFT 与交易反馈入口',
  const css=created[0].textContent;
  assert.ok(css.includes(':not(.race-ghost-note)'),'HUD 必须保留发车降级提示');
  for(const id of ['wallet-hub-host','wallet-profile-layer','wallet-success-host'])assert.ok(css.includes(`:not(#${id})`),`HUD 必须保留 ${id}`);
+ hud.destroy();
+}));
+test('金币在燃料条附近显示 tuning 百分比，连续拾取刷新单条提示且不覆盖赛道事件',()=>fixture((elements,created)=>{
+ const track=buildTrack(TRACKS[2].def),state=createSession(track).snapshot,hud=createHud(track,'',{trackId:3});
+ const markup=created.find(e=>e.id==='race-hud').innerHTML;
+ assert.equal((markup.match(/class="rh-coin"/g)||[]).length,1);
+ assert.match(markup, /class="rh-fuel-wrap"><meter class="rh-fuel"[^>]*><\/meter><span class="rh-coin"[^>]*><\/span><\/div>/);
+ assert.match(markup, /rh-fuel[\s\S]*rh-coin/);
+ for(const lang of ['zh','en']){
+  setLang(lang);state.step+=100;state.events.push({type:'coin',step:state.step});hud.update(state);
+  assert.equal(elements.get('.rh-coin').textContent,`+${Math.round(T.coinFuel/T.fuelMax*100)}%`);
+  assert.equal(elements.get('.rh-coin').hidden,false);assert.equal(elements.get('.rh-speed').dataset.coin,'true');
+  state.step+=60;state.events.push({type:'coin',step:state.step},{type:'boost',step:state.step});hud.update(state);
+  assert.equal(elements.get('.rh-coin').hidden,false);assert.ok(elements.get('.rh-flash').textContent);
+  state.step+=30;hud.update(state);assert.equal(elements.get('.rh-coin').hidden,false);
+  state.step+=60;hud.update(state);assert.equal(elements.get('.rh-coin').hidden,true);assert.equal(elements.get('.rh-speed').dataset.coin,'false');
+ }
+ assert.match(created[0].textContent, /prefers-reduced-motion:\s*reduce/);
  hud.destroy();
 }));

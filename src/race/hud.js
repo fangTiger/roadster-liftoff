@@ -1,5 +1,6 @@
 import { t } from '../i18n/i18n.js';
 import { DT } from './sim/physics.js';
+import T from './sim/tuning.js';
 const formatDelta = value => `${value < 0 ? '−' : '+'}${Math.abs(value).toFixed(2)}`;
 // 竞速 HUD：左上圈数与计时、右上小地图（整条赛道、车的位置与朝向、下一道检查点）、本圈进度条、右下速度与推进剂、中部事件提示
 const format = t => t === null ? '—' : `${Math.floor(t / 60)}:${(t % 60).toFixed(3).padStart(6, '0')}`;
@@ -11,7 +12,7 @@ const ITEM_ICONS={
  nitro:icon('nitro','<path d="M19 32q-7 19 3 26 9-10 4-26M38 32q-5 20 4 26 10-9 4-26" fill="#ed9a4b"/><path d="m21 33 1 17 3-17m15 0 2 17 2-17" stroke="#c9f7ff" stroke-width="3"/><path d="M15 13h15v23H15Zm20 0h15v23H35Z" fill="#677c87" stroke="#d8e6ea" stroke-width="2"/><path d="M18 18h9m11 0h9M18 29h9m11 0h9" stroke="#72deff" stroke-width="3"/>'),
  shield:icon('shield','<path d="m32 5 23 13v28L32 59 9 46V18Z" fill="#2a8baf" fill-opacity=".3" stroke="#9fefff" stroke-width="2"/><path d="m32 17 12 7v15l-12 8-12-8V24Zm0 0V5m12 19 11-6m-11 21 11 7M32 47v12M20 39 9 46m11-22L9 18" stroke="#74d9ef"/><path d="m25 32 5 5 10-12" stroke="#e5fcff" stroke-width="3"/>')
 };
-const EVENT_TEXT = { lap: e => e.lap >= LAPS ? '' : e.lap === LAPS - 1 ? t('race.lastLap') : t('race.nextLap', { n: e.lap + 1 }), driftBoost: e => t('race.driftBoost', { tier: 'Ⅰ Ⅱ Ⅲ'.split(' ')[e.tier - 1] }), counterBoost: () => t('race.counterBoost'), draft: () => t('race.draft'), driftSwitch: () => t('race.driftSwitch'), boost: () => t('race.boost'), coin: () => '', wall: () => '', land: () => '' };
+const EVENT_TEXT = { lap: e => e.lap >= LAPS ? '' : e.lap === LAPS - 1 ? t('race.lastLap') : t('race.nextLap', { n: e.lap + 1 }), driftBoost: e => t('race.driftBoost', { tier: 'Ⅰ Ⅱ Ⅲ'.split(' ')[e.tier - 1] }), counterBoost: () => t('race.counterBoost'), draft: () => t('race.draft'), driftSwitch: () => t('race.driftSwitch'), boost: () => t('race.boost'), coin: () => `+${Math.round(T.coinFuel / T.fuelMax * 100)}%`, wall: () => '', land: () => '' };
 export function createHud(track, title = '', { trackId, roomMode = false, itemsMode = false } = {}) {
   // 房间模式补充表情键，道具赛再补充道具键
   const jetEnabled = trackId === 3;
@@ -28,6 +29,10 @@ export function createHud(track, title = '', { trackId, roomMode = false, itemsM
 #race-hud .rh-map{position:absolute;top:22px;right:24px;padding:10px}#race-hud canvas{display:block}
 #race-hud .rh-speed{position:absolute;right:24px;bottom:60px;padding:16px 22px}#race-hud .rh-speed strong{font-size:50px;font-weight:500}
 #race-hud meter{display:block;width:180px;height:10px;accent-color:#4bc8e5;margin-top:10px}#race-hud .rh-drift{margin-top:8px;font-size:13px;color:#ffd38a;min-height:18px}
+#race-hud .rh-fuel-wrap{position:relative;margin-top:10px}#race-hud .rh-coin{position:absolute;right:0;top:14px;color:#ffd36a;font-size:18px;font-weight:700;text-shadow:0 0 10px #ffbf4b99}
+#race-hud .rh-fuel{margin-top:0;transition:filter .12s,box-shadow .12s}#race-hud .rh-speed[data-coin=true] .rh-fuel{accent-color:#ffd36a;filter:brightness(1.5);box-shadow:0 0 14px #ffc94a88}
+#race-hud .rh-speed[data-coin=true] .rh-fuel::-webkit-meter-optimum-value{background:#ffd36a}#race-hud .rh-speed[data-coin=true] .rh-fuel::-moz-meter-bar{background:#ffd36a}
+@media(prefers-reduced-motion:reduce){#race-hud .rh-fuel{transition:none}#race-hud .rh-speed[data-coin=true] .rh-fuel{filter:none;box-shadow:none}}
 #race-hud .rh-draft{margin-top:8px;font-size:13px;color:#8ef0ff}#race-hud .rh-draft meter{accent-color:#8ef0ff;margin-top:4px}#race-hud .rh-draft[data-flash=true]{filter:brightness(1.8);text-shadow:0 0 10px #8ef0ff}
 #race-hud .rh-notice{position:absolute;top:22%;width:100%;text-align:center;font-size:36px;font-weight:600;text-shadow:0 2px 10px #000}
 #race-hud .rh-flash{position:absolute;top:32%;width:100%;text-align:center;font-size:26px;color:#8ef0ff;text-shadow:0 2px 10px #000;transition:opacity .25s}
@@ -41,7 +46,7 @@ export function createHud(track, title = '', { trackId, roomMode = false, itemsM
   document.head.append(style);
   const root = document.createElement('div'); root.id = 'race-hud';
   root.innerHTML = `<header class="rh-panel"><small>MARS ROADSTER · ${typeof title === 'function' ? title() : title}</small><div class="rh-lap"><b>1</b>/ 3 ${t('race.laps')}</div><div class="rh-progress"><i></i></div><div class="rh-timing"></div></header>
-<div class="rh-map rh-panel"><canvas></canvas></div><div class="rh-speed rh-panel"><strong>0</strong> km/h${jetEnabled?'<meter class="rh-fuel" min="0" max="1" value="1"></meter>':''}<div class="rh-drift"></div><div class="rh-draft" hidden><span></span><meter min="0" max="1" value="0"></meter></div></div>
+<div class="rh-map rh-panel"><canvas></canvas></div><div class="rh-speed rh-panel"><strong>0</strong> km/h${jetEnabled?'<div class="rh-fuel-wrap"><meter class="rh-fuel" min="0" max="1" value="1"></meter><span class="rh-coin" role="status" hidden></span></div>':''}<div class="rh-drift"></div><div class="rh-draft" hidden><span></span><meter min="0" max="1" value="0"></meter></div></div>
 ${itemsMode?'<div class="rh-missile-warning" role="status" hidden></div><div class="rh-item rh-panel"><span class="rh-item-icon"></span><span class="rh-item-label"></span><kbd></kbd><span class="rh-shield-time"></span></div>':''}<div class="rh-delta" hidden></div><div class="rh-notice"></div><div class="rh-flash"></div><div class="rh-result rh-panel" hidden></div>
 <footer>${controls()}</footer>`;
   document.body.append(root);
@@ -63,7 +68,7 @@ ${itemsMode?'<div class="rh-missile-warning" role="status" hidden></div><div cla
     const s = track.checkpointGates.at(-1); g.fillStyle = '#fff'; const [fx, fz] = P(s.x, s.z); g.fillRect(fx - 4 * dpr, fz - 1.5 * dpr, 8 * dpr, 3 * dpr);
   }
   const lapProgress = c => { const n = c.near; if (!n) return 0; if (n.path === 'main') return n.s / track.length; const b = track.branches.find(b => b.id === n.path); return (b.from + (b.to - b.from) * n.s / b.length) / track.length; };
-  let flashEvent = null, flashUntil = 0, draftUntil = 0, seen = 0, shownItem;
+  let flashEvent = null, flashUntil = 0, draftUntil = 0, coinUntil = 0, seen = 0, shownItem;
   function update(s, { delta = null, deltaStep = 0, totalDelta = null, itemSlot = null, missileLocked = false, rivals = [] } = {}) {
     const comparison = $('.rh-delta');
     comparison.hidden = delta === null || s.step >= deltaStep + Math.ceil(2 / DT);
@@ -93,7 +98,8 @@ ${itemsMode?'<div class="rh-missile-warning" role="status" hidden></div><div cla
     ctx.save(); ctx.translate(cx, cz); ctx.rotate(a); ctx.fillStyle = '#4bd2ff'; ctx.strokeStyle = '#002'; ctx.lineWidth = 1.5 * dpr;
     ctx.beginPath(); ctx.moveTo(0, -8 * dpr); ctx.lineTo(5 * dpr, 6 * dpr); ctx.lineTo(-5 * dpr, 6 * dpr); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
     // 事件提示
-    for (; seen < s.events.length; seen++) { const e = s.events[seen], t = EVENT_TEXT[e.type]?.(e); if (e.type === 'draft') draftUntil = e.step + Math.ceil(.3 / DT); if (t) { flashEvent = e; flashUntil = s.step + 100; } }
+    for (; seen < s.events.length; seen++) { const e = s.events[seen], t = EVENT_TEXT[e.type]?.(e); if (e.type === 'coin') { coinUntil = s.step + Math.ceil(.65 / DT); continue; } if (e.type === 'draft') draftUntil = e.step + Math.ceil(.3 / DT); if (t) { flashEvent = e; flashUntil = s.step + 100; } }
+    if (jetEnabled) { const active = s.step < coinUntil, badge = $('.rh-coin'), label = EVENT_TEXT.coin(); if (badge.textContent !== label) badge.textContent = label; badge.hidden = !active; $('.rh-speed').dataset.coin = String(active); }
     const draft = $('.rh-draft'), draftFlash = s.step < draftUntil;
     draft.hidden = !roomMode; draft.dataset.flash = String(draftFlash);
     if (roomMode) { $('.rh-draft span').textContent = t('race.draft'); $('.rh-draft meter').value = draftFlash ? 1 : Math.max(0, Math.min(1, c.draft ?? 0)); }

@@ -37,3 +37,8 @@ test('尾流事件单独播放上扬音效，重复快照不重播，新局可�
 test('道具效果和护盾破碎按事件游标播放一次',()=>{
  const sounds=[],a=createRaceAudio({event:name=>sounds.push(name),update(){}}),s={car:{vx:0,vz:0,yaw:0},race:{frozen:false},events:[{type:'effect',kind:'nitro'},{type:'effect',kind:'shield'},{type:'shieldBreak'},{type:'effect',kind:'trap'}]};a.update(s,0,.01);a.update(s,0,.01);assert.deepEqual(sounds,['raceNitro','raceShield','raceShieldBreak','raceBubble']);
 });
+test('金币拾取复用现有轻量短音，同一快照不重复播放',()=>{
+ const sounds=[],audio=createRaceAudio({event:name=>sounds.push(name),update(){}}),state={car:{vx:0,vz:0,yaw:0},race:{frozen:false},events:[{type:'coin',step:10}]};
+ audio.update(state,0,.01);audio.update(state,0,.01);assert.deepEqual(sounds,['coin']);
+ state.events.push({type:'coin',step:20});audio.update(state,0,.01);assert.deepEqual(sounds,['coin','coin']);
+});
