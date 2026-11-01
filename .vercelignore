@@ -12,3 +12,6 @@ recordings
 log
 *.log
 **/*.test.*
+.arc-studio
+.local-data
+output
