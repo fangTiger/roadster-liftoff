@@ -81,5 +81,13 @@ export function createGrass({ count = 18000, edge = 5.6, width = 50, span = 380,
   // 画质：低档少画一些（实例按随机顺序生成，取前 n 个就是均匀抽稀）
   function setDensity(k) { inst.count = Math.max(1, Math.round(count * Math.max(0, Math.min(1, k)))); }
   function tick(dt) { uTime.value += dt; }
-  return { mesh: inst, init, advance, setDensity, tick };
+  // 首页演出结束后恢复实例与风场，避免倒退单向回收队列。
+  function captureDisplayState() {
+    const positions = items.map(({ x, z }) => [x, z]), time = uTime.value;
+    return () => {
+      items.forEach((item, i) => { [item.x, item.z] = positions[i]; });
+      uTime.value = time; write();
+    };
+  }
+  return { mesh: inst, init, advance, setDensity, tick, captureDisplayState };
 }

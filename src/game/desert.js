@@ -280,6 +280,19 @@ export async function createDesert(scene, renderer) {
     scrollGround(trackD);
     bendRibbons(trackD); placeProps();
   }
+  // 首页只临时滚动展示；保留草丛、路边物体与贴图的完整初始状态。
+  function captureDisplayState() {
+    const initialD = trackD;
+    const positions = [...movers].map(item => [item, item.x, item.z]);
+    const offsets = [...Object.values(asphalt), ...Object.values(gravel), dashTex].map(texture => [texture, texture.offset.y]);
+    const restoreGrass = grass.captureDisplayState();
+    return () => {
+      trackD = initialD;
+      for (const [item, x, z] of positions) { item.x = x; item.z = z; }
+      for (const [texture, offset] of offsets) texture.offset.y = offset;
+      restoreGrass(); scrollGround(trackD); bendRibbons(trackD); placeProps();
+    };
+  }
   bendRibbons(0); placeProps();
 
   // 高空的空气透视：地面融进天空穹顶地平线的雾霭色，路面与路边物体的雾随高度变稀（看得见的距离随高度变远）
@@ -301,5 +314,5 @@ export async function createDesert(scene, renderer) {
   }
   // 显示/隐藏整个沙漠：同时切换环境光照贴图与雾
   function setVisible(on) { root.visible = on; sceneRef.fog = on ? fog : null; if (on) { sceneRef.environment = hdr; sceneRef.environmentRotation.y = ROT; sceneRef.background = null; } }
-  return { root, advance, follow, setAltitude, setVisible, setGrassDensity: grass.setDensity, fog, sunDir, centerAt, slopeAt, ROAD_X, ROAD_HALF, get trackD() { return trackD; } };
+  return { root, advance, captureDisplayState, follow, setAltitude, setVisible, setGrassDensity: grass.setDensity, fog, sunDir, centerAt, slopeAt, ROAD_X, ROAD_HALF, get trackD() { return trackD; } };
 }

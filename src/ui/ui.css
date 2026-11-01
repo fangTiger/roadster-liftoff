@@ -3,17 +3,17 @@
 #liftoff-ui *,#tools *{box-sizing:border-box}
 #liftoff-ui [hidden],.ui-hints-hidden{display:none!important}
 #liftoff-ui .g{position:relative;background:var(--glass);backdrop-filter:blur(14px) saturate(150%);-webkit-backdrop-filter:blur(14px) saturate(150%);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.25)}
-#liftoff-ui button{font:inherit;color:inherit;cursor:pointer;border:1px solid var(--line);background:rgba(255,255,255,.06);border-radius:10px;min-height:44px;padding:10px 18px;transition:background .18s,border-color .18s,transform .18s}
-#liftoff-ui button:hover{background:rgba(255,255,255,.13);border-color:rgba(255,255,255,.35)}
-#liftoff-ui button:active{transform:translateY(1px)}
+#liftoff-ui button:not(.hh-card){font:inherit;color:inherit;cursor:pointer;border:1px solid var(--line);background:rgba(255,255,255,.06);border-radius:10px;min-height:44px;padding:10px 18px;transition:background .18s,border-color .18s,transform .18s}
+#liftoff-ui button:not(.hh-card):hover{background:rgba(255,255,255,.13);border-color:rgba(255,255,255,.35)}
+#liftoff-ui button:not(.hh-card):active{transform:translateY(1px)}
 #liftoff-ui :focus-visible,#tools span:focus-visible{outline:2px solid #7fe3ff;outline-offset:4px}
 #liftoff-ui .ui-overlay{position:fixed;inset:0;overflow:auto;overscroll-behavior:contain;display:flex;align-items:safe center;justify-content:center;padding:32px 24px;background:rgba(8,10,16,.64);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
 #liftoff-ui .ui-loading{z-index:3;background:linear-gradient(180deg,rgba(8,10,16,.72),rgba(14,16,22,.42) 52%,rgba(8,10,16,.9));transition:opacity .6s ease,visibility .6s}
 #liftoff-ui .ui-loading.ui-leaving{opacity:0;visibility:hidden;pointer-events:none}
 #liftoff-ui .ui-start-content{width:min(100%,720px);text-align:center;margin:auto}
 #liftoff-ui .ui-eyebrow{font-size:11px;letter-spacing:3px;color:var(--cy);margin:0 0 14px}
-#liftoff-ui h1{font-size:clamp(42px,6.4vw,80px);letter-spacing:6px;line-height:1.1;margin:0;font-weight:800}
-#liftoff-ui h1 span{font-weight:650;letter-spacing:7px}
+#liftoff-ui .ui-loading-title{font-size:clamp(42px,6.4vw,80px);letter-spacing:6px;line-height:1.1;margin:0;font-weight:800}
+#liftoff-ui .ui-loading-title span{font-weight:650;letter-spacing:7px}
 #liftoff-ui .ui-subtitle{font-size:16px;letter-spacing:2px;color:var(--dim);margin:20px 0 0}
 #liftoff-ui .ui-launch-status{height:100px;display:flex;align-items:center;justify-content:center}
 #liftoff-ui .ui-progress-wrap{width:min(100%,360px)}
@@ -21,10 +21,6 @@
 #liftoff-ui .ui-percent{color:var(--cy);font-variant-numeric:tabular-nums}
 #liftoff-ui .ui-progress{height:3px;background:rgba(255,255,255,.12);overflow:hidden;border-radius:4px}
 #liftoff-ui .ui-progress i{display:block;height:100%;width:100%;transform:scaleX(0);transform-origin:left;background:linear-gradient(90deg,#ff8a5c,#ff4d3a);transition:transform .3s ease}
-#liftoff-ui .ui-start{border:0;background:transparent;color:#fff;letter-spacing:3px;font-weight:600;animation:ui-pulse 2s ease-in-out infinite}
-/* 悬停只点亮当前按钮，不点亮整排容器。 */
-#liftoff-ui .ui-start button{transition:background .15s,border-color .15s}
-#liftoff-ui .ui-start button:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.4)}
 #liftoff-ui .ui-control-panel{text-align:left;padding:22px 28px}
 #liftoff-ui .ui-control-panel h2{font-size:13px;font-weight:600;margin:0 0 18px;display:flex;justify-content:space-between}
 #liftoff-ui .ui-control-panel h2 span{color:var(--dim);font-size:11px;font-weight:400}
@@ -72,12 +68,11 @@
 #tools{pointer-events:auto!important;cursor:pointer;z-index:10}
 #tools span{pointer-events:auto;display:inline-flex;align-items:center;justify-content:center;min-width:32px;min-height:32px;border-radius:8px;transition:background .18s,color .18s;user-select:none}
 #tools span:hover{color:#fff;background:rgba(255,255,255,.12)}
-@keyframes ui-pulse{0%,100%{opacity:.55}50%{opacity:1}}
 @keyframes ui-enter{from{opacity:0}to{opacity:1}}
 @keyframes ui-flash{from{opacity:.9}to{opacity:0}}
 @media(max-width:600px){
  #liftoff-ui .ui-overlay{padding:24px 18px}
- #liftoff-ui h1{font-size:40px;letter-spacing:2px}#liftoff-ui h1 span{letter-spacing:3px}
+ #liftoff-ui .ui-loading-title{font-size:40px;letter-spacing:2px}#liftoff-ui .ui-loading-title span{letter-spacing:3px}
  #liftoff-ui .ui-subtitle{font-size:12px;letter-spacing:1px;margin-top:16px}
  #liftoff-ui .ui-eyebrow{font-size:10px;letter-spacing:2px}
  #liftoff-ui .ui-launch-status{height:88px}
@@ -90,10 +85,31 @@
 }
 @media(prefers-reduced-motion:reduce){#liftoff-ui *,#tools *{animation:none!important;transition:none!important}}
 
-/* 模式入口沿用第一版玻璃质感和暖色电门提示。 */
-#liftoff-ui .ui-start{display:flex;gap:12px;animation:none;letter-spacing:1px}
-#liftoff-ui .ui-start button[data-mode="race"]{border-color:#ff8a5c88;background:#ff6b3a22}
-#liftoff-ui .ui-start button[data-mode="race"]:hover{border-color:#ff8a5c;background:#ff6b3a40}
-#liftoff-ui .ui-start .ui-season:hover{background:#ffffff0a}
-#liftoff-ui .ui-start .ui-season{color:var(--dim);background:#ffffff03}
 #liftoff-ui .ui-start-lang{display:flex;justify-content:center;margin-bottom:20px}
+
+/* 首页就绪后让实时场景透出，加载阶段仍使用原进度与遮罩。 */
+#liftoff-ui .ui-loading.ui-home-ready{display:block;padding:0;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none}
+#liftoff-ui .ui-home-ready .ui-start-content{width:100%;min-height:100%;margin:0}
+#liftoff-ui .ui-home-ready .ui-loading-heading,#liftoff-ui .ui-home-ready .ui-launch-status{display:none}
+#liftoff-ui .ui-loading:not(.ui-home-ready) .hh-root{display:none}
+#liftoff-ui .hh-root{min-height:100dvh}
+#liftoff-ui .hh-main{padding-top:28px;padding-bottom:24px}
+#liftoff-ui .hh-slot-footer{max-width:720px}
+#liftoff-ui .hh-title{font-size:clamp(40px,6.4vw,90px);letter-spacing:6px;line-height:1.05;font-weight:800;margin:0}
+#liftoff-ui .hh-title span{font-weight:inherit;letter-spacing:inherit}
+#liftoff-ui .ui-loading:not(.ui-home-ready) .ui-control-panel{margin-top:0}
+@media(max-width:600px){
+ #liftoff-ui .hh-title{font-size:clamp(28px,7.5vw,44px);letter-spacing:1px}
+ #liftoff-ui .hh-main{padding-top:72px}
+ #liftoff-ui .hh-title-block{margin-bottom:24px}
+}
+
+/* 首页使用独立标题与指引，隐藏场景 HUD，进入模式后自动恢复。 */
+body:has(.ui-home-ready:not(.ui-leaving))>:is(#brand,#cams,#tools,#launch,#gauge,#bag,#keys,#credit,#toast){visibility:hidden}
+#liftoff-ui .hh-vignette{background:linear-gradient(180deg,rgba(8,10,16,.7),rgba(8,10,16,.22) 40%,rgba(8,10,16,.78))}
+@media(min-width:601px){
+ #liftoff-ui .hh-title-block{margin-bottom:110px}
+ #liftoff-ui .hh-slot-footer .ui-controls{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 16px}
+ #liftoff-ui .hh-slot-footer .ui-control-panel{padding:18px 22px}
+ #liftoff-ui .hh-slot-footer .ui-control-panel h2{margin-bottom:12px}
+}

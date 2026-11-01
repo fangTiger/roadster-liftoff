@@ -23,10 +23,10 @@ try {
     }
     await page.goto('http://localhost:8932/', { waitUntil: 'domcontentloaded' });
     await page.locator('#wallet-hub .wh-button').waitFor();
-    await page.locator('.ui-start:not([hidden])').waitFor({ timeout: 60000 });
+    await page.locator('.hh-root[aria-hidden="false"]').waitFor({ timeout: 60000 });
     await check('home'); await shot('home');
     assert.equal(await page.locator('#wallet-hub .wh-short').isVisible(), width <= 420);
-    await page.locator('[data-mode=space]').click();
+    await page.locator('.hh-card').nth(1).click();
     await page.locator('.ui-loading').waitFor({ state: 'hidden' });
     await check('home-driving', ['#tools']); await shot('home-driving');
     await page.goto('http://localhost:8932/?race', { waitUntil: 'domcontentloaded' });

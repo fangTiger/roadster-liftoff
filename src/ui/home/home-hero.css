@@ -1,0 +1,568 @@
+/*
+ * home-hero.css — Mars Roadster 首屏英雄区样式
+ * 前缀：hh-，全部限定在 .hh-root 下。
+ * 不依赖构建工具，直接由 <link> 引入。
+ */
+
+/* ─── CSS 变量 ──────────────────────────────────────────────────────────── */
+.hh-root {
+  --glass:     rgba(14, 16, 22, 0.42);
+  --line:      rgba(255, 255, 255, 0.14);
+  --txt:       #f4f6fa;
+  --dim:       rgba(244, 246, 250, 0.6);
+  --cy:        #7fe3ff;
+  --gold:      #ffd27a;
+  --acc-from:  #ff8a5c;
+  --acc-to:    #ff4d3a;
+  --acc:       linear-gradient(135deg, #ff8a5c, #ff4d3a);
+  --radius:    16px;
+  --font:      -apple-system, "PingFang SC", "SF Pro Display", "Helvetica Neue", sans-serif;
+}
+
+/* ─── 根容器 ─────────────────────────────────────────────────────────────── */
+.hh-root {
+  position: relative;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  color: var(--txt);
+  font-family: var(--font);
+  box-sizing: border-box;
+  overflow: hidden;
+  /* 背景透明：3D 场景透出 */
+  background: transparent;
+}
+
+.hh-root *,
+.hh-root *::before,
+.hh-root *::after {
+  box-sizing: border-box;
+}
+
+/* ─── 渐晕 + 底部渐变（增强可读性） ─────────────────────────────────────── */
+.hh-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  /* 四边暗角 */
+  background:
+    radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(8, 10, 16, 0.55) 100%),
+    linear-gradient(180deg, rgba(8, 10, 16, 0.28) 0%, transparent 30%, transparent 55%, rgba(8, 10, 16, 0.72) 100%);
+}
+
+/* ─── 预览层 ─────────────────────────────────────────────────────────────── */
+.hh-preview-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.hh-preview-item {
+  position: absolute;
+  inset: 0;
+  will-change: opacity, transform;
+}
+
+.hh-preview-item img,
+.hh-preview-item video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ─── 主内容区 ───────────────────────────────────────────────────────────── */
+.hh-main {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  flex: 1;
+  padding: 10vh 24px 0;
+  gap: 0;
+}
+
+/* ─── 标题块 ─────────────────────────────────────────────────────────────── */
+.hh-title-block {
+  text-align: center;
+  position: relative;
+  margin-bottom: clamp(28px, 4vh, 52px);
+}
+
+/* 眉标 */
+.hh-eyebrow {
+  font-size: 11px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--cy);
+  margin: 0 0 16px;
+  font-weight: 500;
+}
+
+/* h1 */
+.hh-title {
+  font-size: clamp(48px, 8vw, 112px);
+  font-weight: 800;
+  letter-spacing: 6px;
+  line-height: 1.05;
+  margin: 0;
+  color: var(--txt);
+}
+
+/* "Roadster" 的 accent gradient 包裹 */
+/* 渐变放在每个字母上：父级 background-clip 遇到带 filter/opacity 的子元素会整段不绘制 */
+.hh-title-accent { display: inline; }
+.hh-title-accent .hh-letter,
+.hh-title-accent:not(:has(.hh-letter)) {
+  background: linear-gradient(135deg, #ff8a5c, #ff4d3a);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* 逐字动画元素 */
+.hh-letter {
+  display: inline-block;
+  will-change: opacity, filter;
+}
+
+/* 光扫元素 */
+.hh-title-sweep {
+  position: absolute;
+  inset: -8px -24px;
+  pointer-events: none;
+  overflow: hidden;
+  display: none;
+}
+
+.hh-title-sweep::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.0) 35%,
+    rgba(255, 255, 255, 0.18) 50%,
+    rgba(255, 255, 255, 0.0) 65%,
+    transparent 100%
+  );
+  transform: skewX(-15deg);
+}
+
+.hh-title-sweep--run::after {
+  animation: hh-sweep 0.72s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes hh-sweep {
+  from { left: -60%; }
+  to   { left: 120%;  }
+}
+
+/* 副标题 */
+.hh-subtitle {
+  font-size: clamp(13px, 1.4vw, 17px);
+  letter-spacing: 2px;
+  color: var(--dim);
+  margin: 18px 0 0;
+  line-height: 1.6;
+}
+
+/* ─── 卡片行 ─────────────────────────────────────────────────────────────── */
+.hh-card-row {
+  display: flex;
+  flex-direction: row;
+  gap: 18px;
+  justify-content: center;
+  flex-wrap: nowrap;
+  width: 100%;
+  max-width: 1160px;
+}
+
+.hh-card-wrap {
+  flex: 1 1 220px;
+  min-width: 0;
+  max-width: 300px;
+}
+
+/* ─── 单张卡片 ───────────────────────────────────────────────────────────── */
+.hh-card {
+  position: relative;
+  width: 100%;
+  height: clamp(220px, 26vh, 300px);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  overflow: hidden;
+  cursor: pointer;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--glass);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  color: var(--txt);
+  font: inherit;
+  text-align: left;
+  padding: 0;
+  transition: transform 280ms cubic-bezier(0.34, 1.46, 0.64, 1),
+              box-shadow 280ms ease,
+              border-color 280ms ease;
+  will-change: transform;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* 悬停：上浮 + 边框发光 */
+.hh-card:hover:not(.hh-card--disabled),
+.hh-card:focus-visible:not(.hh-card--disabled) {
+  transform: translateY(-6px);
+  border-color: transparent;
+  box-shadow:
+    0 14px 40px rgba(0, 0, 0, 0.4),
+    0 0 0 1.5px #ff8a5c,
+    0 0 18px rgba(255, 138, 92, 0.35);
+  outline: none;
+}
+
+/* 按下 */
+.hh-card:active:not(.hh-card--disabled) {
+  transform: translateY(-2px);
+}
+
+/* 焦点环（无悬停样式时） */
+.hh-card:focus-visible {
+  outline: 2px solid var(--cy);
+  outline-offset: 3px;
+}
+
+/* 禁用状态 */
+.hh-card--disabled {
+  filter: saturate(0.3) brightness(0.65);
+  cursor: not-allowed;
+}
+
+/* 摇晃动画（点击禁用卡片时） */
+.hh-card--shake {
+  animation: hh-shake 0.38s ease;
+}
+
+@keyframes hh-shake {
+  0%, 100% { transform: translateX(0); }
+  18%       { transform: translateX(-6px); }
+  36%       { transform: translateX(5px); }
+  54%       { transform: translateX(-4px); }
+  72%       { transform: translateX(3px); }
+  90%       { transform: translateX(-2px); }
+}
+
+/* ── 缩略图 ─────────────────────────────────────────────────────────────── */
+.hh-card-thumb {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: var(--radius);
+}
+
+.hh-card-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 6s ease-out;
+}
+
+.hh-card:hover .hh-card-thumb img {
+  transform: scale(1.05);
+}
+
+/* 缩略图之上的暗渐变，保证文字可读 */
+.hh-card-thumb::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    160deg,
+    rgba(8, 10, 16, 0.08) 0%,
+    rgba(8, 10, 16, 0.5) 100%
+  );
+}
+
+/* ── 内容 ────────────────────────────────────────────────────────────────── */
+.hh-card-content {
+  position: relative;
+  z-index: 1;
+  margin-top: auto;
+  padding: 16px 18px 14px;
+}
+
+.hh-card-title {
+  font-size: clamp(15px, 1.6vw, 18px);
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  line-height: 1.3;
+  margin-bottom: 5px;
+}
+
+.hh-card-desc {
+  font-size: 12px;
+  color: var(--dim);
+  line-height: 1.5;
+  letter-spacing: 0.3px;
+}
+
+/* badge（"即将推出"） */
+.hh-card-badge {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 10px;
+  letter-spacing: 1px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  background: rgba(255, 210, 122, 0.15);
+  border: 1px solid rgba(255, 210, 122, 0.3);
+  color: var(--gold);
+}
+
+/* 箭头 */
+.hh-card-arrow {
+  position: absolute;
+  z-index: 1;
+  top: 14px;
+  right: 16px;
+  color: rgba(255, 255, 255, 0.45);
+  transition: transform 200ms ease, color 200ms ease;
+  line-height: 0;
+}
+
+.hh-card:hover .hh-card-arrow,
+.hh-card:focus-visible .hh-card-arrow {
+  transform: translateX(3px);
+  color: var(--acc-from);
+}
+
+/* ── 扫光 ────────────────────────────────────────────────────────────────── */
+.hh-card-sheen {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.hh-card-sheen::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.0) 30%,
+    rgba(255, 255, 255, 0.13) 50%,
+    rgba(255, 255, 255, 0.0) 70%,
+    transparent 100%
+  );
+  transform: skewX(-15deg);
+  transition: left 0s;
+}
+
+.hh-card:hover .hh-card-sheen::after,
+.hh-card:focus-visible .hh-card-sheen::after {
+  animation: hh-card-sweep 0.65s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes hh-card-sweep {
+  from { left: -100%; }
+  to   { left: 160%;  }
+}
+
+/* ── tooltip（禁用卡片提示） ──────────────────────────────────────────────── */
+.hh-card-tooltip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%) translateY(6px);
+  white-space: nowrap;
+  font-size: 12px;
+  padding: 6px 12px;
+  background: rgba(14, 16, 22, 0.9);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--gold);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 180ms ease, transform 180ms ease;
+  z-index: 10;
+}
+
+.hh-card--disabled:hover .hh-card-tooltip,
+.hh-card--disabled:focus-visible .hh-card-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ─── 插槽 ───────────────────────────────────────────────────────────────── */
+.hh-slot-footer {
+  width: 100%;
+  max-width: 1160px;
+  margin-top: 20px;
+}
+
+/* ─── 链上直播条 ─────────────────────────────────────────────────────────── */
+.hh-live-strip {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  margin-top: auto;
+  padding: 10px 20px;
+  font-size: 11.5px;
+  color: var(--dim);
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  background: linear-gradient(0deg, rgba(8, 10, 16, 0.55) 0%, transparent 100%);
+  /* 分隔线 */
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.hh-live-strip[hidden] {
+  display: none !important;
+}
+
+.hh-strip-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  white-space: nowrap;
+}
+
+.hh-strip-seg {
+  display: inline-block;
+  padding: 0 4px;
+}
+
+.hh-strip-dot {
+  padding: 0 8px;
+  color: rgba(255, 255, 255, 0.2);
+}
+
+/* marquee 模式 */
+.hh-strip-marquee {
+  animation: hh-marquee 28s linear infinite;
+}
+
+@keyframes hh-marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* ─── 响应式：≤ 600px ─────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .hh-main {
+    padding: 7vh 16px 0;
+  }
+
+  .hh-eyebrow {
+    font-size: 10px;
+    letter-spacing: 3px;
+  }
+
+  .hh-subtitle {
+    font-size: 12px;
+    letter-spacing: 1px;
+  }
+
+  /* 卡片竖排：水平条目样式 */
+  .hh-card-row {
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  .hh-card-wrap {
+    flex: none;
+    max-width: 100%;
+  }
+
+  .hh-card {
+    height: 88px;
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .hh-card-thumb {
+    position: relative;
+    inset: auto;
+    width: 96px;
+    height: 88px;
+    flex-shrink: 0;
+    border-radius: var(--radius) 0 0 var(--radius);
+  }
+
+  .hh-card-thumb::after {
+    display: none;
+  }
+
+  .hh-card-content {
+    margin-top: 0;
+    padding: 10px 40px 10px 14px;
+  }
+
+  .hh-card-arrow {
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .hh-card:hover .hh-card-arrow,
+  .hh-card:focus-visible .hh-card-arrow {
+    transform: translateY(-50%) translateX(3px);
+  }
+
+  .hh-live-strip {
+    white-space: normal;
+    /* 最多 2 行 */
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .hh-strip-inner {
+    white-space: normal;
+    flex-wrap: wrap;
+    /* 取消 marquee */
+    animation: none !important;
+  }
+}
+
+/* ─── prefers-reduced-motion ─────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .hh-root *,
+  .hh-root *::before,
+  .hh-root *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  .hh-strip-marquee {
+    animation: none !important;
+  }
+
+  .hh-card:hover .hh-card-thumb img {
+    transform: none;
+  }
+}

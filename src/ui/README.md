@@ -4,9 +4,9 @@
 
 ## 方案、规范与验收清单
 
-项目尚未初始化 OpenSpec；本次按限定文件范围在此保留提案与需求增量。目标：统一加载、开始、暂停、设置、帮助、全屏和截图，保持现有玻璃 HUD 视觉。模块仅依赖传入的引擎、可空音频对象和回调，不接管渲染循环。
+首页接入遵循 `openspec/changes/redesign-home-hero`。目标：统一加载、开始、暂停、设置、帮助、全屏和截图，保持现有玻璃 HUD 视觉。模块仅依赖传入的引擎、可空音频对象和回调，不接管渲染循环。
 
-- [x] 加载进度限制在 0–1；加载完成前不开始，完成后首次按键或点击同步解锁音频，再调用开始回调一次，0.6 秒淡出。
+- [x] 加载进度限制在 0–1；加载完成前不开始，完成后选择太空卡片（或空白处按 Enter/空格）同步解锁音频，再调用开始回调一次，0.6 秒淡出。
 - [x] 暂停与后台自动暂停；清空驾驶按键，暂停静音并在恢复时还原用户选择。
 - [x] 暂停菜单提供返回首页入口；导航前说明本局未保存的进度不会保留。
 - [x] 四档画质、音量、静音、镜头抖动偏好、操作提示；存储读取与写入均容错。
@@ -14,13 +14,13 @@
 - [x] 弹层焦点循环与 Escape 返回；游戏运行时驾驶键正常透传。
 - [x] 桌面双列、手机单列，弹层可滚动，支持减少动画偏好。
 
-场景：加载到 42% 时显示进度与标签；调用 `hideLoading()` 后显示开始提示；空格开始时先解锁再回调，首次按键不传入车辆；P 打开暂停，设置中 Escape 返回暂停，再次 Escape 继续；游戏内 `/` 打开帮助，Escape 返回游戏；隐藏页面后保持暂停，返回页面仍需手动继续；切换低画质关闭真实阴影和泛光；K 下载带本地时间的 PNG。
+场景：加载到 42% 时显示进度与标签；调用 `hideLoading()` 后显示首页模式卡片；空格开始时先解锁再回调，首次按键不传入车辆；P 打开暂停，设置中 Escape 返回暂停，再次 Escape 继续；游戏内 `/` 打开帮助，Escape 返回游戏；隐藏页面后保持暂停，返回页面仍需手动继续；切换低画质关闭真实阴影和泛光；K 下载带本地时间的 PNG。
 
 ## API
 
 ```js
 import { createUI } from '../ui/ui.js';
-const ui = createUI({ engine, audio, onStart, onPauseChange, onQualityChange });
+const ui = createUI({ engine, audio, onStart, onHomeChange, onPauseChange, onQualityChange });
 ```
 
 每个页面创建一次。`engine` 为 `createEngine()` 返回对象；`audio` 为 `createAudio()` 返回对象或 `null`。回调均可省略。
@@ -28,7 +28,8 @@ const ui = createUI({ engine, audio, onStart, onPauseChange, onQualityChange });
 | 成员 | 说明 |
 | --- | --- |
 | `showLoading(progress0to1, label)` | 更新加载进度与文字；非法进度按 0，超界值截断。开始后不再重新打开加载页。 |
-| `hideLoading()` | 进入等待手势状态，并不立即关闭开始界面。 |
+| `hideLoading()` | 展示 `createHomeHero` 模式卡片，保留驾驶指南和 footer；链上实况异步只读一次。 |
+| `onHomeChange(bool)` | 资源就绪显示首页时为 true；重新加载或选择可进入模式时为 false，用于启动/停止首页相机。 |
 | `paused` | 只读布尔值，由游戏循环据此跳过模拟。开始前另用游戏自身的 `started` 标记。 |
 | `setPaused(bool)` | 设置暂停，状态未变时不重复回调。 |
 | `toggleHelp()` | 切换帮助；返回先前面板；游戏中打开帮助不暂停模拟，但阻止驾驶输入并清空按键。 |
@@ -119,7 +120,7 @@ npx vite build
 npx vite --host 127.0.0.1 --port 8941 --strictPort
 ```
 
-打开 `http://127.0.0.1:8941/src/ui/demo.html`。演示页使用普通 2D 画布和音频替身，不加载游戏资源；初始固定显示 42%，可在控制台调用 `ui.hideLoading()` 进入开始提示，之后正常操作。`window.demoCalls` 记录引擎、音频与回调调用，`window.demoEngine`、`window.demoAudio` 可用于交互检查。演示页不写入生产构建入口。
+打开 `http://127.0.0.1:8941/src/ui/demo.html`。演示页使用普通 2D 画布和音频替身，不加载游戏资源；初始固定显示 42%，可在控制台调用 `ui.hideLoading()` 展示模式卡片，之后正常操作。`window.demoCalls` 记录引擎、音频与回调调用，`window.demoEngine`、`window.demoAudio` 可用于交互检查。演示页不写入生产构建入口。
 
 `shots/` 保存 Chrome 无头验证的六张截图：加载、开始提示、暂停、设置、帮助、390×844 手机。验收包含快捷键透传/拦截、静音恢复、四档画质、音量与设置持久化、焦点循环、截图下载命名、页面隐藏暂停和空音频对象兼容。未执行真实设备音频听感或游戏镜头接入验证；它们需要主工程师完成入口接入后检查。
 

@@ -6,6 +6,7 @@ import { createDesert } from './desert.js';
 import { createCar } from './car.js';
 import { createVehicle, KMH } from './vehicle.js';
 import { createCameraRig } from './cameraRig.js';
+import { createHomeCamera } from './homeCamera.js';
 import { createHUD } from './hud.js';
 import { createInput } from './input.js';
 import { createSpace } from './space.js';
@@ -40,8 +41,8 @@ function setMobilePreset(preset) {
   grassK = base === '低' ? .3 : base === '中' ? .6 : 1; desertRef?.setGrassDensity(grassK);      // 路边草丛按画质抽稀
   perf?.refresh();
 }
-let started = CAPTURE, touch = null, sharing = false;
-const ui = CAPTURE ? null : createUI({ engine, audio, onQualityChange: setMobilePreset, onSummary: () => openShare(), isOverlayOpen: () => sharing, onStart() {
+let started = CAPTURE, touch = null, sharing = false, homeCamera = null;
+const ui = CAPTURE ? null : createUI({ engine, audio, onHomeChange: active => { if (active) homeCamera?.start(); else homeCamera?.stop(); }, onQualityChange: setMobilePreset, onSummary: () => openShare(), isOverlayOpen: () => sharing, onStart() {
   started = true;
   if (touch?.active) hud.toast(t('hint.touchStart'), t('hint.touchStartSub'), 4500);
   else hud.toast(t('hint.keyStart'), t('hint.keyStartSub'), 4500);
@@ -347,13 +348,14 @@ if (CAPTURE) {
   // 截图成就：K 键或 ◎ 图标
   addEventListener('keydown', e => { if (e.code === 'KeyK' && started) ach.report('screenshot'); if (e.code === 'KeyR' && !e.repeat && started && !ui.paused) tryRoll(input.state()); });
   document.querySelector('#tools span:nth-child(1)')?.addEventListener('click', () => ach.report('screenshot'));
+  homeCamera = createHomeCamera({ camera, car, desert, vehicle, rig });
   engine.render(); ui.showLoading(1, t('load.ready')); ui.hideLoading();
   let last = performance.now();
   renderer.setAnimationLoop(now => {
     const elapsed = (now - last) / 1000; last = now;
     const playing = started && !ui.paused && !sharing && !document.hidden;
     touch?.setEnabled(playing);
-    if (!playing) { perf?.reset(); engine.render(); return; }    // 开始前与暂停时只渲染画面
+    if (!playing) { perf?.reset(); if (!started && !document.hidden) homeCamera.update(Math.min(.05, elapsed)); engine.render(); return; }    // 开始前与暂停时只渲染画面
     perf?.update(elapsed);
     rig.shake = ui.shakeEnabled;
     frame(Math.min(.05, elapsed), input.state());

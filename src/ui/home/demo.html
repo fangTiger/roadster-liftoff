@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Home Hero — Demo · Mars Roadster</title>
+  <style>
+    /* 演示页基础样式：深色背景模拟游戏 3D 场景 */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: #080a10;
+      font-family: -apple-system, "PingFang SC", "SF Pro Display", sans-serif;
+      color: #f4f6fa;
+    }
+
+    /* 模拟游戏 3D 背景（动态渐变） */
+    #fake-bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background:
+        radial-gradient(ellipse 120% 80% at 30% 60%, #1a2540 0%, transparent 60%),
+        radial-gradient(ellipse 80% 100% at 80% 20%, #0d1a22 0%, transparent 55%),
+        linear-gradient(160deg, #0a0e16 0%, #0e1520 40%, #080c14 100%);
+      animation: bg-drift 20s ease-in-out infinite alternate;
+    }
+
+    @keyframes bg-drift {
+      0%   { filter: hue-rotate(0deg) brightness(1); }
+      50%  { filter: hue-rotate(8deg) brightness(1.05); }
+      100% { filter: hue-rotate(-4deg) brightness(0.95); }
+    }
+
+    /* 星星粒子层（canvas） */
+    #stars {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* hero 容器：full-viewport overlay */
+    #hero-container {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      overflow: hidden;
+    }
+
+    /* 演示控制台（右下角） */
+    #demo-controls {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 220px;
+    }
+
+    .demo-panel {
+      background: rgba(14, 16, 22, 0.82);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 12px;
+      color: rgba(244, 246, 250, 0.7);
+    }
+
+    .demo-panel h4 {
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: #7fe3ff;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .demo-btn {
+      display: block;
+      width: 100%;
+      padding: 7px 10px;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 8px;
+      color: #f4f6fa;
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.15s, border-color 0.15s;
+      margin-bottom: 4px;
+    }
+
+    .demo-btn:hover {
+      background: rgba(255, 255, 255, 0.13);
+      border-color: rgba(255, 255, 255, 0.35);
+    }
+
+    .demo-btn.primary {
+      background: linear-gradient(135deg, #ff8a5c, #ff4d3a);
+      border-color: transparent;
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .demo-btn.primary:hover {
+      filter: brightness(1.1);
+    }
+
+    #lang-toggle-wrap {
+      display: flex;
+      gap: 6px;
+    }
+
+    #lang-toggle-wrap .demo-btn {
+      flex: 1;
+      text-align: center;
+    }
+
+    #event-log {
+      max-height: 80px;
+      overflow-y: auto;
+      font-size: 11px;
+      color: rgba(244, 246, 250, 0.5);
+      font-variant-numeric: tabular-nums;
+      line-height: 1.6;
+    }
+
+    /* 断点模拟切换器 */
+    #bp-toggle {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      display: flex;
+      gap: 6px;
+      background: rgba(14, 16, 22, 0.8);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      padding: 5px 8px;
+    }
+
+    #bp-toggle button {
+      background: none;
+      border: none;
+      color: rgba(244, 246, 250, 0.5);
+      font: inherit;
+      font-size: 11px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      padding: 4px 10px;
+      border-radius: 5px;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    #bp-toggle button.on {
+      background: rgba(127, 227, 255, 0.15);
+      color: #7fe3ff;
+    }
+
+    /* 窄屏模拟：缩放容器 */
+    body.sim-narrow #hero-container {
+      width: 390px;
+      height: 844px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 40px;
+      overflow: hidden;
+    }
+  </style>
+  <link rel="stylesheet" href="./home-hero.css">
+</head>
+<body>
+
+<!-- 假背景：深色动画渐变，模拟游戏 3D 场景 -->
+<div id="fake-bg"></div>
+<canvas id="stars"></canvas>
+
+<!-- 断点切换器 -->
+<div id="bp-toggle">
+  <button class="on" data-bp="full" onclick="setBp('full')">全屏 1400</button>
+  <button data-bp="narrow" onclick="setBp('narrow')">手机 390</button>
+</div>
+
+<!-- Hero 容器 -->
+<div id="hero-container"></div>
+
+<!-- 演示控制台 -->
+<div id="demo-controls">
+  <div class="demo-panel">
+    <h4>生命周期</h4>
+    <button class="demo-btn primary" onclick="doShow()">show() 播放动画</button>
+    <button class="demo-btn" onclick="doHide()">hide() 隐藏</button>
+    <button class="demo-btn" onclick="doFocusFirst()">focusFirst()</button>
+  </div>
+
+  <div class="demo-panel">
+    <h4>链上数据</h4>
+    <button class="demo-btn" onclick="setLiveFull()">setLive(完整数据)</button>
+    <button class="demo-btn" onclick="setLiveNull()">setLive(null)</button>
+    <button class="demo-btn" onclick="setLiveEmpty()">setLive(空)</button>
+  </div>
+
+  <div class="demo-panel">
+    <h4>语言切换</h4>
+    <div id="lang-toggle-wrap">
+      <button class="demo-btn" onclick="switchLang('zh')">中文</button>
+      <button class="demo-btn" onclick="switchLang('en')">English</button>
+    </div>
+  </div>
+
+  <div class="demo-panel">
+    <h4>无障碍</h4>
+    <button class="demo-btn" onclick="toggleReducedMotion()">减少动效模拟</button>
+  </div>
+
+  <div class="demo-panel">
+    <h4>事件日志</h4>
+    <div id="event-log">等待交互…</div>
+  </div>
+</div>
+
+<script type="module">
+// ── 引入模块 ────────────────────────────────────────────────────────────
+
+import { createHomeHero } from './home-hero.js';
+
+// ── 星空背景（canvas，纯装饰） ──────────────────────────────────────────
+
+(function initStars() {
+  const canvas = document.getElementById('stars');
+  const ctx    = canvas.getContext('2d');
+  let stars    = [];
+  let W, H;
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    stars = Array.from({ length: 180 }, () => ({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      r: Math.random() * 1.2 + 0.2,
+      a: Math.random(),
+      da: (Math.random() - 0.5) * 0.004,
+    }));
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    for (const s of stars) {
+      s.a = Math.max(0.05, Math.min(1, s.a + s.da));
+      if (s.a <= 0.05 || s.a >= 1) s.da *= -1;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(200,220,255,${s.a * 0.6})`;
+      ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+  draw();
+})();
+
+// ── i18n 模拟（中英双语） ──────────────────────────────────────────────
+
+let _lang = 'zh';
+
+const DICT = {
+  zh: {
+    'home.eyebrow':       '推进器超跑 · 实时 3D',
+    'home.titleMars':     'Mars',
+    'home.titleRoadster': 'Roadster',
+    'home.subtitle':      '离地 · 从沙漠公路直冲轨道，再返回',
+    'home.comingSoon':    '即将推出',
+    'home.liveMinted':    '已铸造 {n}',
+    'home.liveLatest':    '最新：',
+    'home.liveKindMint':  '铸造',
+    'home.liveKindBest':  '最佳圈速',
+    'home.liveKindAch':   '解锁成就',
+    'home.timeJustNow':   '刚刚',
+    'home.timeMinAgo':    '{n} 分钟前',
+    'home.timeHrAgo':     '{n} 小时前',
+    'home.timeDayAgo':    '{n} 天前',
+    'race.track0':        '沙漠跑道',
+    'race.track1':        '盐湖赛道',
+    'race.track2':        '高山回旋',
+  },
+  en: {
+    'home.eyebrow':       'Thruster Supercar · Real-time 3D',
+    'home.titleMars':     'Mars',
+    'home.titleRoadster': 'Roadster',
+    'home.subtitle':      'Liftoff · Desert highway to orbit and back',
+    'home.comingSoon':    'Coming Soon',
+    'home.liveMinted':    '{n} minted',
+    'home.liveLatest':    'Latest:',
+    'home.liveKindMint':  'minted',
+    'home.liveKindBest':  'new best lap',
+    'home.liveKindAch':   'unlocked achievement',
+    'home.timeJustNow':   'just now',
+    'home.timeMinAgo':    '{n} min ago',
+    'home.timeHrAgo':     '{n} hr ago',
+    'home.timeDayAgo':    '{n} d ago',
+    'race.track0':        'Desert Circuit',
+    'race.track1':        'Salt Flats',
+    'race.track2':        'Alpine Hairpin',
+  },
+};
+
+function t(key, params = {}) {
+  const d = DICT[_lang] || DICT.zh;
+  let str = d[key] || DICT.zh[key] || key;
+  for (const [k, v] of Object.entries(params)) {
+    str = str.replaceAll(`{${k}}`, v);
+  }
+  return str;
+}
+
+// ── 模式列表 ───────────────────────────────────────────────────────────
+
+const MODES = [
+  {
+    id:    'race',
+    title: '竞速赛道',
+    desc:  '沙漠、盐湖、高山三条赛道，争夺最佳圈速。',
+    preview: {
+      type:   'image',
+      // 演示用纯色画布替代真实截图
+      src:    _makePreviewCanvas('#1a2540', '#ff8a5c', '🏁 RACE'),
+    },
+  },
+  {
+    id:    'space',
+    title: '飞往太空',
+    desc:  '踩下推进器，穿云破层，进入轨道与前辈同框。',
+    preview: {
+      type:   'image',
+      src:    _makePreviewCanvas('#0a0e1a', '#7fe3ff', '🚀 SPACE'),
+    },
+  },
+  {
+    id:    'room',
+    title: '联机房间',
+    desc:  '与好友同台竞速，实时排名。',
+    preview: {
+      type:   'image',
+      src:    _makePreviewCanvas('#1a1020', '#ffd27a', '🎮 ROOM'),
+    },
+  },
+  {
+    id:      'season',
+    title:   '赛季挑战',
+    desc:    '限时赛季任务，链上奖励。',
+    badge:   '即将推出',
+    disabled: true,
+    preview: {
+      type:   'image',
+      src:    _makePreviewCanvas('#0e1812', '#8ef0c8', '🏆 SEASON'),
+    },
+  },
+];
+
+// ── 生成演示预览（canvas dataURL） ─────────────────────────────────────
+
+function _makePreviewCanvas(bg, accent, label) {
+  const c = document.createElement('canvas');
+  c.width = 600; c.height = 400;
+  const ctx = c.getContext('2d');
+  // 渐变背景
+  const gr = ctx.createLinearGradient(0, 0, 600, 400);
+  gr.addColorStop(0, bg);
+  gr.addColorStop(1, '#080a10');
+  ctx.fillStyle = gr;
+  ctx.fillRect(0, 0, 600, 400);
+  // 斜向光带
+  const gr2 = ctx.createLinearGradient(0, 0, 600, 0);
+  gr2.addColorStop(0, 'transparent');
+  gr2.addColorStop(0.4, accent + '18');
+  gr2.addColorStop(0.6, accent + '28');
+  gr2.addColorStop(1, 'transparent');
+  ctx.fillStyle = gr2;
+  ctx.save();
+  ctx.rotate(-0.15);
+  ctx.fillRect(-100, -100, 800, 600);
+  ctx.restore();
+  // 标签
+  ctx.font = 'bold 36px -apple-system, sans-serif';
+  ctx.fillStyle = accent;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = accent;
+  ctx.shadowBlur = 20;
+  ctx.fillText(label, 300, 200);
+  return c.toDataURL();
+}
+
+// ── 事件日志 ───────────────────────────────────────────────────────────
+
+function log(msg) {
+  const el = document.getElementById('event-log');
+  const line = document.createElement('div');
+  line.textContent = `${new Date().toLocaleTimeString()} ${msg}`;
+  el.prepend(line);
+  while (el.children.length > 12) el.lastChild.remove();
+}
+
+// ── 链上测试数据 ───────────────────────────────────────────────────────
+
+const LIVE_FULL = {
+  minted: 142,
+  tracks: [
+    { id: 0, name: t('race.track0'), bestMs: 87423, holder: '0xAbCd1234EfGH5678abcdef1234567890abcdef01' },
+    { id: 1, name: t('race.track1'), bestMs: 73891, holder: '0x9900aAbBcCdDeEfF001122334455667788990011' },
+    { id: 2, name: t('race.track2'), bestMs: 102345, holder: '0x1111222233334444555566667777888899990000' },
+  ],
+  latest: {
+    kind:      'best',
+    holder:    '0xAbCd1234EfGH5678abcdef1234567890abcdef01',
+    trackName: t('race.track0'),
+    ms:        87423,
+    at:        Date.now() - 3 * 60 * 1000,
+    href:      '#',
+  },
+};
+
+// ── Hero 实例 ──────────────────────────────────────────────────────────
+
+let _reducedMotion = false;
+
+const hero = createHomeHero({
+  container: document.getElementById('hero-container'),
+  t,
+  modes: MODES,
+  onModeHover:  (id) => log(`onModeHover: ${id ?? 'null'}`),
+  onModeSelect: (id) => log(`onModeSelect: ${id} ← 选中`),
+  reducedMotion: _reducedMotion,
+});
+
+// 首次自动 show
+hero.show();
+
+// ── 全局演示函数 ───────────────────────────────────────────────────────
+
+window.doShow = () => { hero.show(); log('show()'); };
+window.doHide = () => { hero.hide(); log('hide()'); };
+window.doFocusFirst = () => { hero.focusFirst(); log('focusFirst()'); };
+
+window.setLiveFull = () => {
+  LIVE_FULL.latest.at = Date.now() - 3 * 60 * 1000;
+  hero.setLive(LIVE_FULL);
+  log('setLive(完整数据)');
+};
+
+window.setLiveNull = () => { hero.setLive(null); log('setLive(null) → 条带隐藏'); };
+
+window.setLiveEmpty = () => {
+  hero.setLive({ minted: 0, tracks: [], latest: null });
+  log('setLive(空) → 条带隐藏');
+};
+
+window.switchLang = (lang) => {
+  _lang = lang;
+  // 更新 MODES 的中文文字（演示用）
+  MODES[0].title = lang === 'zh' ? '竞速赛道' : 'Race Track';
+  MODES[0].desc  = lang === 'zh' ? '沙漠、盐湖、高山三条赛道，争夺最佳圈速。' : 'Three tracks — desert, salt flats, alpine. Race for the best lap.';
+  MODES[1].title = lang === 'zh' ? '飞往太空' : 'Fly to Space';
+  MODES[1].desc  = lang === 'zh' ? '踩下推进器，穿云破层，进入轨道与前辈同框。' : 'Hit the thrusters, pierce the clouds, reach orbit and meet the Legend.';
+  MODES[2].title = lang === 'zh' ? '联机房间' : 'Multiplayer';
+  MODES[2].desc  = lang === 'zh' ? '与好友同台竞速，实时排名。' : 'Race with friends in real time.';
+  MODES[3].badge = lang === 'zh' ? '即将推出' : 'Coming Soon';
+  hero.setLang();
+  log(`switchLang(${lang})`);
+};
+
+window.toggleReducedMotion = () => {
+  _reducedMotion = !_reducedMotion;
+  log(`reducedMotion → ${_reducedMotion}（需重建实例）`);
+  // 重建实例演示
+  hero.destroy();
+  const newHero = createHomeHero({
+    container: document.getElementById('hero-container'),
+    t,
+    modes: MODES,
+    onModeHover:  (id) => log(`onModeHover: ${id ?? 'null'}`),
+    onModeSelect: (id) => log(`onModeSelect: ${id}`),
+    reducedMotion: _reducedMotion,
+  });
+  newHero.show();
+  // 暂时把 newHero 赋给全局（简化演示）
+  window.__hero = newHero;
+};
+
+// 默认 live 数据
+hero.setLive(LIVE_FULL);
+
+// ── 断点切换 ───────────────────────────────────────────────────────────
+
+window.setBp = (bp) => {
+  document.body.classList.toggle('sim-narrow', bp === 'narrow');
+  document.querySelectorAll('#bp-toggle button').forEach(b => {
+    b.classList.toggle('on', b.dataset.bp === bp);
+  });
+};
+</script>
+</body>
+</html>

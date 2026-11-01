@@ -364,3 +364,16 @@ describe('LANGS 导出', () => {
     assert.ok(LANGS.includes('en'));
   });
 });
+
+test('首页 README 词条与模式说明在中英文中完整同步', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const zh = (await import('./zh.js')).default, en = (await import('./en.js')).default;
+  const readme = await readFile(new URL('../ui/home/README.md', import.meta.url), 'utf8');
+  for (const key of new Set(readme.match(/home\.\w+/g))) {
+    assert.ok(zh[key], `中文缺少 ${key}`); assert.ok(en[key], `英文缺少 ${key}`);
+  }
+  for (const mode of ['race', 'space', 'room', 'season']) {
+    assert.ok(zh[`mode.${mode}Desc`]); assert.ok(en[`mode.${mode}Desc`]);
+  }
+  assert.equal(zh['home.subtitle'], '推进器超跑 · 从沙漠公路冲上太空');
+});

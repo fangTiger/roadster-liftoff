@@ -1,9 +1,13 @@
 // 独立界面外壳：只管理交互与设置，不接管游戏循环。
 const STORE = 'liftoff.ui.v1';
 import { QUALITY_PRESETS as PRESETS, getDefaultPreset } from '../mobile/perf.js';
-import { t, applyI18n, onLangChange, mountLangToggle } from '../i18n/i18n.js';
+import { t, onLangChange, mountLangToggle } from '../i18n/i18n.js';
 import { mountWalletHub } from '../chain/wallet-hub.js';
 import { roomsEnabled } from '../net/rooms-flag.js';
+import { createHomeHero } from './home/home-hero.js';
+import './home/home-hero.css';
+import { readHomeLive } from '../chain/home-live.js';
+import { RACE_TRACKS } from '../chain/tracks.js';
 // 文字都走多语言词条：L(key) 生成带 data-i18n 的片段，切换语言时由 applyI18n 原地刷新
 const L = key => `<span data-i18n="${key}">${t(key)}</span>`;
 const CONTROLS = [
@@ -13,7 +17,7 @@ const CONTROLS = [
 ];
 const controlsHTML = () => `<dl class="ui-controls">${CONTROLS.map(([key, text]) => `<div><dt><kbd>${key.startsWith('key.') ? L(key) : key}</kbd></dt><dd>${L(text)}</dd></div>`).join('')}</dl>`;
 
-export function createUI({ engine, audio = null, onStart = () => {}, onPauseChange = () => {}, onQualityChange = () => {}, onSummary = null, isOverlayOpen = () => false }) {
+export function createUI({ engine, audio = null, onStart = () => {}, onHomeChange = () => {}, onPauseChange = () => {}, onQualityChange = () => {}, onSummary = null, isOverlayOpen = () => false }) {
   const settings = { quality: getDefaultPreset(), volume: .8, muted: audio?.muted ?? false, shake: true, hints: true };
   try {
     const saved = JSON.parse(localStorage.getItem(STORE));
@@ -28,12 +32,12 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
   root.innerHTML = `
     <section class="ui-overlay ui-loading" aria-labelledby="ui-title" role="dialog" aria-modal="true" tabindex="-1">
       <div class="ui-start-content">
-        <div class="ui-start-lang"></div><div class="ui-eyebrow">${L('start.eyebrow')}</div>
-        <h1 id="ui-title">Mars <span>Roadster</span></h1>
-        <p class="ui-subtitle">${L('start.subtitle')}</p>
+        <div class="ui-start-lang"></div><div class="ui-loading-heading">
+        <div class="ui-eyebrow">${L('home.eyebrow')}</div>
+        <h1 id="ui-title" class="ui-loading-title">Mars <span>Roadster</span></h1>
+        <p class="ui-subtitle">${L('home.subtitle')}</p></div>
         <div class="ui-launch-status">
           <div class="ui-progress-wrap"><div class="ui-progress-label"><span role="status">${t('load.ready')}</span><span class="ui-percent">0%</span></div><div class="ui-progress" role="progressbar" aria-label="${t('load.progress')}" data-i18n-attr="aria-label:load.progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div></div>
-          <div class="ui-start" hidden><button data-mode="race">${L('mode.race')}</button>${roomsEnabled ? `<button data-mode="room">${L('mode.room')}</button>` : ''}<button data-mode="space">${L('mode.space')}</button><button data-mode="season" class="ui-season">${L('mode.season')}</button></div>
         </div>
         <div class="g ui-control-panel"><h2>${L('start.guide')} <span>${L('start.guideSub')}</span></h2>${controlsHTML()}</div>
         <footer>${L('credit.author')} Captain@mycndota · Built with Arc Studio + Claude Code <a href="https://github.com/fangTiger/roadster-liftoff/blob/main/CREDITS.md" target="_blank" rel="noopener noreferrer">${L('start.credits')} ↗</a></footer>
@@ -63,7 +67,38 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
   }
   const $ = selector => root.querySelector(selector);
   const loading = $('.ui-loading'), modal = $('.ui-modal');
-  onLangChange(() => { if (panel) $('#ui-panel-title').textContent = t(panel === 'settings' ? 'menu.settings' : panel === 'help' ? 'menu.help' : 'menu.paused'); });
+  let hero = null, liveRequested = false, liveData = null;
+  const modes = ['race', 'space', ...(roomsEnabled ? ['room'] : []), 'season'].map(id => ({
+    id,
+    get title() { return t('mode.' + id); },
+    get desc() { return t('mode.' + id + 'Desc'); },
+    get badge() { return id === 'season' ? t('home.comingSoon') : ''; },
+    disabled: id === 'season',
+    preview: id === 'space'
+      ? { type: 'video', src: '/assets/nft/loop.mp4', poster: '/assets/nft/base.jpg' }
+      : { type: 'image', src: '/assets/race/previews/easy.webp' },
+  }));
+  function paintLive() {
+    hero?.setLive(liveData ? { ...liveData,
+      tracks: liveData.tracks.map(track => ({ ...track, name: t('race.track' + track.id) })),
+      latest: liveData.latest ? { ...liveData.latest, trackName: t('race.track' + RACE_TRACKS.find(track => track.name === liveData.latest.trackName)?.id) } : null,
+    } : null);
+  }
+  function showHome() {
+    if (!hero) {
+      hero = createHomeHero({ container: $('.ui-start-content'), t, modes, onModeSelect: start });
+      hero.show();
+      $('.hh-title').id = 'ui-home-title';
+    } else hero.show();
+    loading.setAttribute('aria-labelledby', 'ui-home-title');
+    loading.classList.add('ui-home-ready');
+    onHomeChange(true);
+    if (!liveRequested) {
+      liveRequested = true;
+      void readHomeLive().then(data => { liveData = data; paintLive(); });
+    }
+  }
+  onLangChange(() => { hero?.setLang(); paintLive(); if (panel) $('#ui-panel-title').textContent = t(panel === 'settings' ? 'menu.settings' : panel === 'help' ? 'menu.help' : 'menu.paused'); });
   const background = new Map();
   function syncBackground() {
     const blocked = !started || !!panel;
@@ -169,8 +204,14 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
       task.catch(() => toast(t('toast.fullscreenFail')));
     } catch { toast(t('toast.fullscreenFail')); }
   }
-  function start() {
+  function start(mode = 'space') {
     if (!ready || started) return;
+    if (mode === 'season') { toast(t('mode.soon')); return; }
+    hero?.hide(); onHomeChange(false);
+    if (mode === 'race' || mode === 'room') {
+      location.href = mode === 'race' ? '/?race' : '/?race&room'; return;
+    }
+    window.dispatchEvent(new Event('blur'));
     // 解锁必须在用户手势内同步调用，不等待音频 Promise。
     try { audio?.unlock()?.catch(() => toast(t('toast.noAudio'))); } catch { toast(t('toast.noAudio')); }
     started = true; loading.classList.add('ui-leaving'); loading.inert = true;
@@ -180,13 +221,7 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
     if (paused) openPanel('pause');
     onStart();
   }
-  loading.addEventListener('click', e => {
-    const mode = e.target.closest('[data-mode]')?.dataset.mode;
-    if (mode === 'race') { location.href = '/?race'; return; }
-    if (mode === 'room') { location.href = '/?race&room'; return; }
-    if (mode === 'season') { toast(t('mode.soon')); return; }
-    if (mode === 'space' || !e.composedPath().some(node => node.matches?.('a,button,[role="button"]'))) start();
-  });
+  loading.addEventListener('click', e => { if (e.target.closest('.hh-card--disabled')) start('season'); });
   root.addEventListener('click', e => {
     const button = e.target.closest('button'); if (!button) return;
     if (button.dataset.quality) { settings.quality = button.dataset.quality; applyQuality(); persist(); paintSettings(); }
@@ -218,6 +253,7 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
     if (!started) {
       if (e.key === 'Tab') return;
       if (e.target.closest?.('a,button,[role="button"]')) return;
+      if (e.key !== 'Enter' && e.key !== ' ') { e.stopImmediatePropagation(); return; }
       e.preventDefault(); e.stopImmediatePropagation(); if (!e.repeat) start(); return;
     }
     if (isOverlayOpen()) return;                              // 外部面板打开时，按键交给面板自己处理
@@ -244,8 +280,13 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
   document.addEventListener('visibilitychange', () => { if (document.hidden) setPaused(true); });
   // 开始界面同样需要焦点边界，背景 HUD 在加载时不可操作。
   loading.addEventListener('keydown', e => {
+    // 卡片与语言开关处理完毕后，禁止首页按键冒泡到车辆输入。
+    e.stopPropagation();
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('.hh-card--disabled')) {
+      e.preventDefault(); start('season'); return;
+    }
     if (e.key !== 'Tab') return;
-    const items = [...loading.querySelectorAll('a,button')].filter(el => !el.hidden);
+    const items = [...loading.querySelectorAll('a,button,[role="button"]')].filter(el => el.getClientRects().length && el.tabIndex >= 0);
     if ((e.shiftKey && (document.activeElement === items[0] || document.activeElement === loading)) || (!e.shiftKey && document.activeElement === items.at(-1))) {
       e.preventDefault(); (e.shiftKey ? items.at(-1) : items[0]).focus();
     }
@@ -254,12 +295,21 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
   return {
     showLoading(progress0to1, label = t('load.ready')) {
       if (started) return;
-      ready = false; clearTimeout(fadeTimer); loading.hidden = false; $('.ui-start').hidden = true; $('.ui-progress-wrap').hidden = false;
+      ready = false; clearTimeout(fadeTimer); hero?.hide(); onHomeChange(false);
+      loading.hidden = false; loading.inert = false; loading.classList.remove('ui-leaving', 'ui-home-ready');
+      loading.setAttribute('aria-labelledby', 'ui-title');
+      if (hero) { $('.ui-start-content').prepend($('.ui-start-lang')); $('.ui-launch-status').after($('.ui-control-panel'), $('footer')); }
+      $('.ui-progress-wrap').hidden = false;
       const p = Number.isFinite(progress0to1) ? Math.max(0, Math.min(1, progress0to1)) : 0;
       $('.ui-progress i').style.transform = `scaleX(${p})`; $('.ui-progress').setAttribute('aria-valuenow', String(Math.round(p * 100)));
       $('.ui-percent').textContent = `${Math.round(p * 100)}%`; $('.ui-progress-label [role="status"]').textContent = label;
     },
-    hideLoading() { if (started) return; ready = true; $('.ui-progress-wrap').hidden = true; $('.ui-start').hidden = false; },
+    hideLoading() {
+      if (started) return;
+      ready = true; $('.ui-progress-wrap').hidden = true; showHome();
+      $('.hh-main').prepend($('.ui-start-lang'));
+      $('.hh-slot-footer').append($('.ui-control-panel'), $('footer'));
+    },
     get paused() { return paused; }, setPaused, toggleHelp, screenshot,
     get quality() { return settings.quality; }, get shakeEnabled() { return settings.shake; },
   };
