@@ -9,7 +9,7 @@ try {
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
   await page.route('https://rpc.testnet.arc.io/**', route => route.fulfill({ json: { jsonrpc: '2.0', id: 1, result: '0x' + (60000).toString(16).padStart(64, '0') + (10000).toString(16).padStart(64, '0') } }));
   await page.addInitScript(() => localStorage.setItem('liftoff.lang.v1', 'zh'));
-  const base = process.env.URL || 'http://127.0.0.1:8934/';
+  const base = process.env.URL || 'http://127.0.0.1:8932/';
   const openCapture = async suffix => {
     await page.goto(new URL(`/?race&capture&map=easy${suffix}`, base).href);
     await page.waitForFunction(() => document.title === 'ready', { timeout: 60000 });
@@ -38,7 +38,7 @@ try {
   const address = '0x1234567890123456789012345678901234567890', downloads = [];
   await page.route('**/api/ghost?**', route => {
     const url = new URL(route.request().url()); downloads.push(url.search);
-    return route.fulfill({ json: url.searchParams.has('address') ? first.replay : [{ address, bestMs: Math.round(first.record.bestLap * 1000), url: 'https://blob.example/replay.json' }] });
+    return route.fulfill({ json: url.searchParams.has('address') ? first.replay : url.searchParams.get('trackId') !== '1' ? [] : [{ address, bestMs: Math.round(first.record.bestLap * 1000), url: 'https://blob.example/replay.json' }] });
   });
   await page.addInitScript(() => {
     window.__ghostLabels = [];
@@ -48,16 +48,19 @@ try {
   await page.goto(new URL('/?race', base).href);
   await page.locator('#race-loading').waitFor({ state: 'detached', timeout: 60000 });
   const easy = page.locator('[data-ghost-options=easy]');
-  assert.equal(await easy.getByRole('button', { name: /我的最佳/ }).isEnabled(), true);
-  assert.equal(await easy.getByRole('button', { name: /排行榜/ }).isEnabled(), true);
-  assert.equal(await page.locator('[data-ghost-options=normal]').getByRole('button', { name: /我的最佳/ }).isDisabled(), true);
-  await easy.getByRole('button', { name: /我的最佳/ }).click();
-  assert.equal(await easy.getByRole('button', { name: /我的最佳/ }).getAttribute('aria-pressed'), 'true');
+  await easy.getByRole('combobox').click();
+  assert.equal(await easy.getByRole('option', { name: /我的最佳/ }).getAttribute('aria-disabled'), 'false');
+  await easy.getByRole('option', { name: /我的最佳/ }).click();
+  assert.match(await easy.getByRole('combobox').innerText(), /我的最佳/);
   assert.equal(await page.locator('#race-pick').isVisible(), true);
-  await easy.getByRole('button', { name: /排行榜/ }).click();
-  const ranked = easy.getByRole('button', { name: /0x1234…7890/ });
-  await ranked.click(); await page.waitForFunction(() => document.querySelector('.race-ghost-ranked button')?.getAttribute('aria-pressed') === 'true');
-  assert.equal(downloads.length, 2); assert.match(downloads[1], /address=0x1234/);
+  await easy.getByRole('combobox').click();
+  await easy.getByRole('option', { name: /0x1234…7890/ }).click();
+  await page.waitForFunction(() => {
+    const text = document.querySelector('[data-ghost-options=easy] [role=combobox]').textContent;
+    return text.includes('0x1234…7890') && !/下载中|失败/.test(text);
+  });
+  assert.equal(downloads.filter(query => !query.includes('address=')).length, 3);
+  assert.equal(downloads.filter(query => query.includes('address=')).length, 1);
   await page.locator('button[data-k=easy]').click();
   await page.locator('#race-pick').waitFor({ state: 'detached', timeout: 60000 });
   await page.waitForFunction(() => window.__ghostLabels.includes('0x1234…7890'));

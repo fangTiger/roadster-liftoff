@@ -18,7 +18,7 @@ class Node {
 }
 globalThis.document = { createElement: tag => new Node(tag), head: new Node(), body: new Node(), events: {}, addEventListener(key, fn) { this.events[key] = fn; }, removeEventListener(key) { delete this.events[key]; }, querySelectorAll: () => [] };
 const { mountNFTCard } = await import('./nft-card.js');
-const { mountWalletHub, openMyNFT } = await import('./wallet-hub.js');
+const { mountWalletHub, openMyNFT, openProfile } = await import('./wallet-hub.js');
 const { createSuccessToast } = await import('./wallet-toast.js');
 const flush = async () => { for (let i = 0; i < 12; i++) await new Promise(resolve => setImmediate(resolve)); };
 const find = (root, tag) => root.children.flatMap(n => [n, ...find(n, tag)]).filter(n => n.tagName === tag);
@@ -28,7 +28,7 @@ function setup() {
   const wallet = { get state() { return state; }, subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     async connect() { calls.push('connect'); change({ account: '0x1234567890123456789012345678901234567890', chainId: chain.id }); },
     async disconnect() { calls.push('disconnect'); change({ account: null, chainId: null }); }, async switchNetwork() { calls.push('switch'); change({ chainId: chain.id }); },
-    async readRecord() { return record; }, async readBest(addr, id) { calls.push(id); return { bestMs: id === 3 ? 0 : id * 10000, verified: id === 1 }; } };
+    async readLeaderboard() { return []; }, async readRecord() { return record; }, async readBest(addr, id) { calls.push(id); return { bestMs: id === 3 ? 0 : id * 10000, verified: id === 1 }; } };
   function change(next) { state = { ...state, ...next }; listeners.forEach(fn => fn(state)); }
   return { wallet, change, calls, listeners };
 }
@@ -64,21 +64,33 @@ test('切换账户与卸载会丢弃旧读取，错误可重试', async () => {
   env.wallet.readRecord = async () => record; await find(root, 'button')[0].onclick(); await flush(); assert.match(root.text, /#0007/);
   card.destroy(); assert.equal(env.listeners.size, 0);
 });
-test('入口连接同步、菜单、切链、语言与断开', async () => {
+test('入口连接后直接打开资料，切链、语言与断开同步', async () => {
   const env = setup(), root = new Node(), hub = mountWalletHub(root, env);
-  await find(root, 'button')[0].onclick(); assert.match(root.text, /0x1234…7890/); assert.match(root.text, /Arc Testnet/);
-  assert.equal(find(root, 'span').find(node => node.className === 'wh-short').textContent, '0x12…90');
-  await find(root, 'button')[0].onclick(); assert.match(root.text, /我的 NFT/); assert.match(root.text, /断开连接/);
-  assert.ok(find(root, 'a').some(n => n.href.endsWith('/address/' + env.wallet.state.account)));
-  env.change({ chainId: 1 }); assert.match(root.text, /切换到 Arc Testnet/);
-  await find(root, 'button').find(n => n.textContent.includes('切换到')).onclick(); assert.ok(env.calls.includes('switch'));
-  setLang('en'); assert.match(root.text, /My NFT/); setLang('zh');
-  await find(root, 'button').find(n => n.textContent === '断开连接').onclick(); assert.match(root.text, /连接钱包/);
+  await find(root, 'button')[0].onclick(); assert.match(root.text, /0x1234…7890/);
+  find(root, 'button')[0].onclick(); await flush();
+  assert.match(document.body.text, /个人资料/); assert.match(document.body.text, /我的/); assert.match(document.body.text, /排行榜/);
+  assert.ok(find(document.body, 'a').some(n => n.href.endsWith('/address/' + env.wallet.state.account)));
+  env.change({ chainId: 1 }); assert.match(document.body.text, /切换到 Arc Testnet/);
+  await find(document.body, 'button').find(n => n.textContent.includes('切换到')).onclick(); assert.ok(env.calls.includes('switch'));
+  setLang('en'); assert.match(document.body.text, /Profile/); setLang('zh');
+  await find(document.body, 'button').find(n => n.textContent === '断开连接').onclick(); assert.match(root.text, /连接钱包/);
+  find(document.body, 'button').find(n => n.textContent === '×').onclick();
   hub.destroy(); assert.equal(env.listeners.size, 0);
+});
+test('访客可直接打开排行榜，切到我的显示连接；openMyNFT 总是打开我的', async () => {
+  const env = setup(); let reads = 0;
+  env.wallet.readLeaderboard = async () => { reads++; return []; };
+  let modal = openProfile({ ...env, tab: 'leaderboard' }); await flush();
+  assert.equal(reads, 1); assert.match(document.body.text, /暂无/);
+  const tabs = find(document.body, 'button').filter(n => n.attrs.role === 'tab');
+  assert.equal(tabs[1].attrs['aria-selected'], 'true'); tabs[0].onclick();
+  assert.match(document.body.text, /连接钱包/); modal.destroy();
+  modal = openMyNFT({ ...env, tab: 'leaderboard' });
+  assert.equal(find(document.body, 'button').find(n => n.attrs.role === 'tab').attrs['aria-selected'], 'true'); modal.destroy();
 });
 test('我的 NFT 对话框关闭按钮、背景、Esc 与焦点恢复', async () => {
   const env = setup(), focus = new Node(); focus.focus();
-  let modal = openMyNFT(env); assert.match(document.body.text, /我的 NFT/);
+  let modal = openMyNFT(env); assert.match(document.body.text, /个人资料/);
   find(document.body, 'button').find(n => n.textContent === '×').onclick(); assert.equal(document.activeElement, focus); assert.equal(env.listeners.size, 0);
   modal = openMyNFT(env); const event = { key: 'Escape', preventDefault() {}, stopImmediatePropagation() {} }; document.events.keydown(event); assert.equal(env.listeners.size, 0);
   modal = openMyNFT(env); modal.root.onclick({ target: modal.root }); assert.equal(env.listeners.size, 0);
@@ -93,7 +105,7 @@ test('NFT 面板在第三方钱包弹窗打开时让出 Esc 与 Tab', () => {
   const old = document.querySelector; document.querySelector = () => ({});
   const env = setup(), modal = openMyNFT(env);
   document.events.keydown({ key: 'Escape', preventDefault() { assert.fail('应交给第三方弹窗'); }, stopImmediatePropagation() { assert.fail('应交给第三方弹窗'); } });
-  assert.equal(env.listeners.size, 1); modal.destroy(); document.querySelector = old;
+  assert.equal(env.listeners.size, 2); modal.destroy(); document.querySelector = old;
 });
 test('成功提示按成就提示缩放后的实际边界避让', () => {
   const old = document.querySelector; document.querySelector = selector => selector === '#race-hud' ? null : ({ getBoundingClientRect: () => ({ bottom: 158 }) });

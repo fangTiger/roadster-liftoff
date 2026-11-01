@@ -30,11 +30,11 @@ try {
  await page.getByText('Choose a track', { exact: true }).waitFor();
  await page.locator('#race-loading').waitFor({ state: 'detached' });
  await page.screenshot({ path: `${out}/04-track-picker-en.png` });
- await page.locator('[data-board]').click(); await page.getByText('My First Lap NFT', { exact: true }).waitFor();
+ await page.evaluate(async () => (await import('/src/chain/wallet-hub.js')).openMyNFT()); await page.getByText('My First Lap NFT', { exact: true }).waitFor();
  await page.waitForFunction(() => getComputedStyle(document.querySelector('.rc-button')).minHeight === '42px');
  await page.waitForTimeout(350);
  await page.screenshot({ path: `${out}/05-records-en.png` });
- await page.locator('#race-tools .lang-toggle').click();
+ await page.evaluate(async () => (await import('/src/i18n/i18n.js')).setLang('zh'));
  await page.getByText('我的首圈 NFT', { exact: true }).waitFor(); checks.push('链上面板实时语言切换');
  await page.goto('http://127.0.0.1:8932/?race&autopilot&map=easy');
  await page.locator('#race-hud').waitFor({ timeout: 120000 });

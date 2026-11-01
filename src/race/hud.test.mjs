@@ -28,6 +28,7 @@ test('道具槽四种内联 SVG 随轮盘切换，稳定后与道具一致',()=>
 test('进入实赛后 HUD 隐藏规则保留钱包、NFT 与交易反馈入口',()=>fixture((elements,created)=>{
  const hud=createHud(buildTrack(TRACKS[0].def),'',{trackId:1});
  const css=created[0].textContent;
- for(const id of ['wallet-hub-host','wallet-nft-layer','wallet-success-host'])assert.ok(css.includes(`:not(#${id})`),`HUD 必须保留 ${id}`);
+ assert.ok(css.includes(':not(.race-ghost-note)'),'HUD 必须保留发车降级提示');
+ for(const id of ['wallet-hub-host','wallet-profile-layer','wallet-success-host'])assert.ok(css.includes(`:not(#${id})`),`HUD 必须保留 ${id}`);
  hud.destroy();
 }));

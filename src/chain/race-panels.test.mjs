@@ -49,24 +49,15 @@ test('未进资格线提示差距且不发交易，关闭和过快提示', async
     await flush(); assert.match(root.text, text); assert.ok(find(root, 'button')[0].disabled); assert.equal(env.sent.length, 0); panel.destroy();
   }
 });
-test('榜单三图切换、已核实和首圈详情/各赛道最佳成绩', async () => {
+test('访客榜单独立于 NFT，三图切换且最多显示前 50', async () => {
   const env = setup(), root = new Node();
-  env.wallet.readRecord = async () => ({ tokenId: 1, firstTrack: 1, firstLapMs: 50000, achievements: 0xfffffff });
+  env.wallet.readRecord = () => assert.fail('榜单不读取个人 NFT');
+  env.wallet.readLeaderboard = async id => Array.from({ length: 55 }, (_, i) => ({ address: '0x1234567890', bestMs: id * 1000 + i, verified: true }));
   const board = mountRaceBoard(root, env); await flush();
-  assert.match(root.text, /默认仅显示已核实成绩/); assert.match(root.text, /已核实/);
-  await find(root, 'button').find(n => n.textContent === '连接钱包').onclick(); await flush();
-  assert.match(root.text, /28\/28/); assert.match(root.text, /草甸环线/); assert.match(root.text, /首圈/);
+  assert.match(root.text, /前 50/); assert.equal(find(root, 'tbody')[0].children.length, 50);
+  assert.equal(find(root, 'button').some(n => n.textContent === '连接钱包'), false);
   await find(root, 'button').find(n => n.textContent === '湖畔环线').onclick(); await flush();
   assert.match(root.text, /2.00 s/); board.destroy(); assert.equal(env.listeners.size, 0);
-});
-test('连接事件发生后取消切网，榜单仍可再次连接', async () => {
-  const env = setup(), root = new Node();
-  env.wallet.connect = async () => { env.changeState({ account: '0xabc', chainId: 1 }); throw { code: 4001 }; };
-  const board = mountRaceBoard(root, env);
-  await find(root, 'button').find(n => n.textContent === '连接钱包').onclick();
-  assert.match(root.text, /取消/);
-  assert.ok(find(root, 'button').some(n => n.textContent === '连接钱包' && !n.disabled));
-  board.destroy();
 });
 test('读取失败后的重试只刷新，不隐式提交交易', async () => {
   const env = setup(), root = new Node(); await env.wallet.connect();

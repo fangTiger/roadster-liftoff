@@ -1,4 +1,4 @@
-// 先启动 Vite；默认 URL=http://127.0.0.1:8934/。只验证连接界面，不签名或发交易。
+// 先启动 Vite；默认 URL=http://127.0.0.1:8932/。只验证连接界面，不签名或发交易。
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
@@ -13,13 +13,12 @@ try {
     const result = row => ({ jsonrpc: '2.0', id: row.id, result: '0x' + '0'.repeat(64 * 6) });
     await route.fulfill({ json: Array.isArray(request) ? request.map(result) : result(request) });
   });
-  const url = new URL(process.env.URL || 'http://127.0.0.1:8934/'); url.search = '?race';
+  const url = new URL(process.env.URL || 'http://127.0.0.1:8932/'); url.search = '?race';
   await page.goto(url.href, { waitUntil: 'domcontentloaded' });
-  await page.locator('[data-board]').waitFor({ timeout: 60000 });
+  await page.locator('#wallet-hub button').waitFor({ timeout: 60000 });
   await page.locator('#race-loading').waitFor({ state: 'detached', timeout: 60000 });
   assert.equal(await page.evaluate(() => typeof window.ethereum), 'undefined');
   assert.equal(await page.locator('#roadster-wallet').count(), 0);
-  await page.locator('[data-board]').click();
   await page.setViewportSize(viewport);
   await page.getByRole('button', { name: '连接钱包', exact: true }).click();
   const dialog = page.locator('[data-rk] [role="dialog"]');

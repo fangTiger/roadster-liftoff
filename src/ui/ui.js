@@ -68,7 +68,7 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
   function syncBackground() {
     const blocked = !started || !!panel;
     for (const el of document.body.children) {
-      if (el === root || ['wallet-nft-layer', 'wallet-success-host', 'roadster-wallet'].includes(el.id) || el.hasAttribute?.('data-rk') || el.tagName === 'SCRIPT') continue;
+      if (el === root || ['wallet-profile-layer', 'wallet-success-host', 'roadster-wallet'].includes(el.id) || el.hasAttribute?.('data-rk') || el.tagName === 'SCRIPT') continue;
       if (blocked && !background.has(el)) { background.set(el, el.inert); el.inert = true; }
     }
     if (!blocked) { for (const [el, inert] of background) el.inert = inert; background.clear(); }
@@ -213,7 +213,7 @@ export function createUI({ engine, audio = null, onStart = () => {}, onPauseChan
     el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); el.click(); } });
   });
   window.addEventListener('keydown', e => {
-    if (document.querySelector('.wh-layer, .wh-menu:not([hidden]), [data-rk] [role="dialog"]')) return;
+    if (document.querySelector('.wh-layer, [data-rk] [role="dialog"]')) return;
     if (e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
     if (!started) {
       if (e.key === 'Tab') return;

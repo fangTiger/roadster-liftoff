@@ -33,25 +33,18 @@ try {
     await page.locator('#race-pick .track-card').first().waitFor({ timeout: 60000 });
     await page.locator('#race-loading').waitFor({ state: 'detached', timeout: 60000 });
     await check('race-pick'); await shot('race-pick');
-    // 使用公共客户端替身呈现持有 NFT 的榜单，检查整体滚动。
-    await page.locator('[data-board]').click();
+    // 使用公共客户端替身呈现访客榜单，检查资料面板滚动与键盘隔离。
     await page.evaluate(async () => {
-      const { mountRaceBoard } = await import('/src/chain/race-board.js');
-      const { chain } = await import('/src/chain/config.js');
-      const box = document.querySelector('.rc-board-layer>div');
-      mountRaceBoard(box, { wallet: { state: { account: '0xabc', chainId: chain.id }, subscribe: () => () => {},
-        readRecord: async () => ({ tokenId: 7, firstTrack: 1, firstLapMs: 50000, achievements: 7, mintedAt: 1700000000, updatedAt: 1800000000 }),
-        readBest: async () => ({ bestMs: 50000, verified: true }),
-        readLeaderboard: async () => Array.from({ length: 10 }, (_, i) => ({ address: '0x1234567890123456789012345678901234567890', bestMs: 50000 + i, verified: true, updatedAt: 1800000000 })),
+      const { openProfile } = await import('/src/chain/wallet-hub.js');
+      openProfile({ tab: 'leaderboard', wallet: { state: { account: null, chainId: null }, subscribe: () => () => {},
+        readLeaderboard: async () => Array.from({ length: 50 }, (_, i) => ({ address: '0x1234567890123456789012345678901234567890', bestMs: 50000 + i, verified: true, updatedAt: 1800000000 })),
       } });
     });
-    await page.locator('.rc-leaderboard .rc-number').waitFor();
-    assert.equal(await page.locator('#race-pick').evaluate(node => node.inert), true, '榜单打开时背景赛道按钮不可操作');
+    await page.locator('.rc-table tbody tr').first().waitFor();
     await page.keyboard.press('1'); assert.equal(await page.locator('#race-pick').count(), 1);
-    const boardBox = await page.locator('.rc-leaderboard').boundingBox();
-    assert.ok(boardBox.y >= 0 && boardBox.y + boardBox.height <= page.viewportSize().height, '持有 NFT 的榜单在屏内滚动');
-    await shot('leaderboard');
-    await page.locator('.rc-board-layer').click({ position: { x: 2, y: 2 } });
+    const boardBox = await page.locator('.wh-dialog').boundingBox();
+    assert.ok(boardBox.y >= 0 && boardBox.y + boardBox.height <= page.viewportSize().height, '榜单在屏内滚动');
+    await shot('leaderboard'); await page.keyboard.press('Escape');
 
     await page.locator('#race-pick button[data-k=easy]').click();
     await page.locator('#race-hud .rh-map').waitFor({ timeout: 60000 });
@@ -99,7 +92,7 @@ try {
     const success = await page.locator('.wh-toast').boundingBox(), achievement = await page.locator('#ach-toast').boundingBox();
     await shot('mint-success');
     assert.ok(success.y + success.height <= achievement.y || achievement.y + achievement.height <= success.y, `成功提示为成就提示预留独立区域：${JSON.stringify({ success, achievement })}`);
-    await page.locator('#wallet-hub .wh-button').click(); await shot('wallet-menu');
+    await page.locator('#wallet-hub .wh-button').click(); await shot('wallet-profile'); await page.keyboard.press('Escape');
     await page.goto('http://localhost:8932/?race&room', { waitUntil: 'domcontentloaded' });
     await page.locator('.rm-browser-page').waitFor({ timeout: 60000 });
     await page.locator('#race-loading').waitFor({ state: 'detached', timeout: 60000 });

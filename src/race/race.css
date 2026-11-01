@@ -19,18 +19,19 @@
 
 /* 影子选项与地图启动按钮分开，避免嵌套按钮和选择后误发车。 */
 #race-pick .track-card{width:272px}
-#race-pick .race-ghost-options{margin:12px 0 0;padding:8px 10px 10px;border:1px solid #ffffff26;border-radius:10px;display:flex;gap:6px;flex-wrap:wrap}
-#race-pick .race-ghost-options legend{font-size:12px;color:#aab7bd;padding:0 5px}
-#race-pick .cards .race-ghost-options button{box-sizing:border-box;width:auto;max-width:100%;padding:5px 9px;border-radius:6px;font-size:12px;line-height:1.5;text-wrap:pretty}
-#race-pick .cards .race-ghost-options button[aria-pressed=true]{border-color:#4bc8e5;color:#a5dcfa}
-#race-pick .cards .race-ghost-options button:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;border-color:#ffffff26}
+#race-pick .race-ghost-options{position:relative;margin:10px 0 0}
+#race-pick .cards .race-ghost-trigger{display:block;box-sizing:border-box;width:100%;padding:10px 12px;min-height:44px;border-radius:8px;font-size:12px;line-height:1.5;text-wrap:pretty}
+#race-pick .cards .race-ghost-trigger[aria-expanded=true]{border-color:#4bc8e5;background:#17232a}
+#race-pick .race-ghost-list{position:absolute;z-index:4;top:calc(100% + 6px);left:0;right:0;max-height:260px;overflow-y:auto;overscroll-behavior:contain;border:1px solid #4bc8e580;border-radius:8px;background:#101a20;box-shadow:0 16px 36px #0008;padding:5px}
+#race-pick .race-ghost-list[hidden],#race-pick .race-ghost-options [hidden]{display:none}
+#race-pick .race-ghost-list [role=option]{cursor:pointer;padding:10px 8px;min-height:22px;border:1px solid transparent;border-radius:5px;font-size:12px;line-height:1.7}
+#race-pick .race-ghost-list [role=option]:hover,#race-pick .race-ghost-list [data-active=true]{background:#ffffff0d;border-color:#ffffff26}
+#race-pick .race-ghost-list [aria-selected=true]{color:#a5dcfa;background:#4bc8e526}
+#race-pick .race-ghost-list [aria-disabled=true]{opacity:.4;cursor:default}
+#race-pick .race-ghost-options p{font-size:11px;line-height:1.5;margin:6px 0 0;color:#aab7bd}
 #race-pick .cards button:focus-visible{outline:2px solid #4bc8e5;outline-offset:3px}
-#race-pick{overflow-y:auto;padding:24px 0;box-sizing:border-box;align-items:safe center}
-#race-pick .race-ghost-ranked{display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;width:100%}
-#race-pick .race-ghost-ranked[hidden]{display:none}
-#race-pick .cards .race-ghost-ranked button{width:100%}
-#race-pick .race-ghost-options p{font-size:12px;line-height:1.5;margin:0;color:#aab7bd;text-wrap:pretty}
-#race-pick .race-ghost-options p:empty{display:none}
+#race-pick{overflow-y:auto;padding:76px 0 40px;box-sizing:border-box;align-items:safe center}
+.race-ghost-note{position:fixed;bottom:96px;left:50%;transform:translateX(-50%);z-index:10021;padding:12px 18px;max-width:calc(100vw - 48px);width:max-content;box-sizing:border-box;border:1px solid #f8d28d55;border-radius:8px;background:#101a20ed;color:#f8d28d;font:13px/1.6 'Helvetica Neue','PingFang SC',sans-serif;pointer-events:none}
 /* 右上角第一行留给钱包，地图和房间控件从第二行开始。 */
 body:has(#wallet-hub) #race-hud .rh-map{top:78px}
 body:has(#wallet-hub) .grg-layout [data-rm-lobby].rm-overlay{top:78px}

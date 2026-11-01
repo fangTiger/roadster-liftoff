@@ -38,8 +38,7 @@ import { createBoostFx } from './scene/boostfx.js';
 import { createStartGate } from './scene/startgate.js';
 import { createCelebration } from './scene/celebration.js';
 import { mountRaceChain } from '../chain/race-panel.js';
-import { mountRaceBoard } from '../chain/race-board.js';
-import { mountRaceMenu, mountGhostOptions } from './menu.js';
+import { mountRaceMenu, mountGhostOptions, createGhostSource } from './menu.js';
 import { createGhost, checkpointCount, checkpointDelta, timeDelta } from './ghost.js';
 import { readBestGhost, saveBestGhost } from './ghost-store.js';
 import { prepareGhostCar } from './ghost-car.js';
@@ -54,7 +53,7 @@ const loading = document.createElement('div'); loading.id = 'race-loading'; load
 Object.assign(loading.style, { position: 'fixed', inset: '0', zIndex: '50', display: 'grid', placeItems: 'center', background: '#0b0f14', color: '#cfd8e3', font: '500 15px/1 system-ui,sans-serif', letterSpacing: '.2em', transition: 'opacity .6s' });
 document.body.append(loading);
 // 竞速模式不用第一版的界面：一开始就藏起来（HUD 要等选完地图才创建）
-const hideOld = document.createElement('style'); hideOld.textContent = 'body> :not(canvas):not(#race-hud):not(#race-pick):not(#race-loading):not(#race-tools):not(.rm-root):not(.rb-modal-backdrop):not(#ach-toast):not(#ach-panel-wrap):not(.rc-board-layer):not(#wallet-hub-host):not(#wallet-nft-layer):not(#wallet-success-host):not(#roadster-wallet):not(w3m-modal):not(:has([data-rk])):not(script):not(style){display:none!important}'; document.head.append(hideOld);
+const hideOld = document.createElement('style'); hideOld.textContent = 'body> :not(canvas):not(#race-hud):not(#race-pick):not(#race-loading):not(#race-tools):not(.rm-root):not(.rb-modal-backdrop):not(#ach-toast):not(#ach-panel-wrap):not(.race-ghost-note):not(#wallet-hub-host):not(#wallet-profile-layer):not(#wallet-success-host):not(#roadster-wallet):not(w3m-modal):not(:has([data-rk])):not(script):not(style){display:none!important}'; document.head.append(hideOld);
 mountWalletHub(document.body);
 // 与第一版共用存储和音量总线，大厅曲目只在进入房间后加载。
 const audio = createAudio({ music: false, urls: { lobby: '/assets/music/lobby-rock.m4a' } }), raceAudio = createRaceAudio(audio), achievements = createAchievements();
@@ -134,7 +133,7 @@ async function setup(difficulty, replay = null, ghostName = '', roomStart = null
         if (paused) saveAudio();
         audio.setMuted(paused || muteInput.checked);
       },
-      isOverlayOpen: () => !!document.querySelector('.wh-layer, .wh-menu:not([hidden]), .ach-panel-visible, [data-rk] [role="dialog"], w3m-modal.open'),
+      isOverlayOpen: () => !!document.querySelector('.wh-layer, .ach-panel-visible, [data-rk] [role="dialog"], w3m-modal.open'),
     });
   }
 }
@@ -221,39 +220,22 @@ if (roomMode) {
   const thumb = d => { const t = buildTrack(d); let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity; const pts = []; for (let i = 0; i < t.samples.length; i += 7 * 8) { const x = -t.samples[i], z = t.samples[i + 1]; pts.push([x, z]); x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); } const k = 104 / Math.max(x1 - x0, z1 - z0); return { len: t.length, d: 'M' + pts.map(([x, z]) => `${(8 + (x - x0) * k + (104 - (x1 - x0) * k) / 2).toFixed(1)},${(8 + (z1 - z) * k + (104 - (z1 - z0) * k) / 2).toFixed(1)}`).join('L') + 'Z' }; };
   const pick = document.createElement('div'); pick.id = 'race-pick';
   pick.innerHTML = `<style>#race-pick{position:fixed;inset:0;z-index:40;display:grid;place-items:center;background:#0b0f14b0;backdrop-filter:blur(4px);font:15px 'Helvetica Neue','PingFang SC',sans-serif;color:#f4eee1}#race-pick h2{text-align:center;font-weight:600;letter-spacing:.2em;margin:0 0 22px}#race-pick .cards{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;padding:0 16px}#race-pick .cards button{all:unset;cursor:pointer;width:230px;padding:18px 20px;border-radius:12px;background:#17232ae6;border:1px solid #ffffff26;line-height:1.6}#race-pick .cards button:hover,#race-pick .cards button.on{border-color:#4bc8e5;box-shadow:0 0 0 2px #4bc8e555}#race-pick b{display:block;font-size:22px}#race-pick i{font-style:normal;color:#f8d28d;font-size:13px}#race-pick small{color:#aab7bd;display:block;min-height:48px}#race-pick kbd{float:right;color:#4bc8e5}#race-pick svg{display:block;margin:10px auto}#race-pick .skies{display:flex;gap:8px;justify-content:center;margin-top:22px;flex-wrap:wrap}#race-pick .skies span{color:#aab7bd;align-self:center;margin-right:4px}#race-pick .skies a{all:unset;cursor:pointer;padding:6px 14px;border-radius:999px;background:#17232ae6;border:1px solid #ffffff26;font-size:14px}#race-pick .skies a.on{border-color:#f8d28d;color:#f8d28d}</style>
-<div><h2 data-i18n="race.pick">${t('race.pick')}</h2><div class="cards">${TRACKS.map((entry, i) => { const th = thumb(entry.def); return `<section class="track-card"><button data-k="${entry.difficulty}" class="${entry.difficulty === DEFAULT_DIFFICULTY ? 'on' : ''}"><kbd>${i + 1}</kbd><b><span data-i18n="race.${entry.difficulty}">${t('race.' + entry.difficulty)}</span></b><i><span data-i18n="race.track${entry.def.id}">${t('race.track' + entry.def.id)}</span> · ${(th.len / 1000).toFixed(1)} <span data-i18n="race.km">${t('race.km')}</span></i><svg width="120" height="120" viewBox="0 0 120 120"><path d="${th.d}" fill="none" stroke="#e8e2d4" stroke-width="3" stroke-linejoin="round"/></svg><small><span data-i18n="race.desc.${entry.difficulty}">${t('race.desc.' + entry.difficulty)}</span></small></button><div data-ghost-options="${entry.difficulty}"></div></section>`; }).join('')}</div><div class="skies"><a href="/" data-home data-i18n="race.home">${t('race.home')}</a><a data-board data-i18n="race.chain.title">${t('race.chain.title')}</a><span style="margin-left:14px" data-i18n="race.background">${t('race.background')}</span>${Object.entries(SKIES).map(([k, s]) => `<a data-sky="${k}" class="${k === skyKey ? 'on' : ''}"><span data-i18n="race.${k}">${t('race.' + k)}</span></a>`).join('')}</div></div>`;
+<div><h2 data-i18n="race.pick">${t('race.pick')}</h2><div class="cards">${TRACKS.map((entry, i) => { const th = thumb(entry.def); return `<section class="track-card"><button data-k="${entry.difficulty}" class="${entry.difficulty === DEFAULT_DIFFICULTY ? 'on' : ''}"><kbd>${i + 1}</kbd><b><span data-i18n="race.${entry.difficulty}">${t('race.' + entry.difficulty)}</span></b><i><span data-i18n="race.track${entry.def.id}">${t('race.track' + entry.def.id)}</span> · ${(th.len / 1000).toFixed(1)} <span data-i18n="race.km">${t('race.km')}</span></i><svg width="120" height="120" viewBox="0 0 120 120"><path d="${th.d}" fill="none" stroke="#e8e2d4" stroke-width="3" stroke-linejoin="round"/></svg><small><span data-i18n="race.desc.${entry.difficulty}">${t('race.desc.' + entry.difficulty)}</span></small></button><div data-ghost-options="${entry.difficulty}"></div></section>`; }).join('')}</div><div class="skies"><a href="/" data-home data-i18n="race.home">${t('race.home')}</a><span style="margin-left:14px" data-i18n="race.background">${t('race.background')}</span>${Object.entries(SKIES).map(([k, s]) => `<a data-sky="${k}" class="${k === skyKey ? 'on' : ''}"><span data-i18n="race.${k}">${t('race.' + k)}</span></a>`).join('')}</div></div>`;
   document.body.append(pick);
-  const ghostOptions = new Map(TRACKS.map(entry => [entry.difficulty, mountGhostOptions(pick.querySelector(`[data-ghost-options="${entry.difficulty}"]`), entry.def)]));
+  const ghostSource = createGhostSource();
+  const ghostOptions = new Map(TRACKS.map(entry => [entry.difficulty, mountGhostOptions(pick.querySelector(`[data-ghost-options="${entry.difficulty}"]`), entry.def, { source: ghostSource })]));
   let chosen = false;
   const choose = async k => {
-    if (chosen || document.querySelector('.rc-board-layer')) return; unlockAudio(); chosen = true; removeEventListener('keydown', onPick);
+    if (chosen || document.querySelector('.wh-layer, [data-rk] [role="dialog"], w3m-modal.open')) return; unlockAudio(); chosen = true; removeEventListener('keydown', onPick);
     pick.querySelector('h2').textContent = t('race.generating'); await new Promise(r => setTimeout(r, 30));
-    const options = ghostOptions.get(k); await options?.ready;
-    await setup(k, options?.replay, options?.name); ghostOptions.forEach(options => options.destroy()); pick.remove(); requestAnimationFrame(frame);
+    const options = ghostOptions.get(k), replay = options?.takeReplay(), skipped = options?.loading;
+    await setup(k, replay, options?.name);
+    if (skipped) { const note = document.createElement('p'); note.className = 'race-ghost-note'; note.setAttribute('role', 'status'); note.textContent = t('race.ghost.skipped'); document.body.append(note); setTimeout(() => note.remove(), 5000); }
+    ghostOptions.forEach(options => options.destroy()); pick.remove(); requestAnimationFrame(frame);
   };
-  const onPick = e => { if (document.querySelector('.rc-board-layer')) return; const k = TRACKS[Number(e.key) - 1]?.difficulty; if (k) choose(k); else if (e.key === 'Enter' && !e.target.closest?.('button,a,input,select')) choose(DEFAULT_DIFFICULTY); };
+  const onPick = e => { if (e.defaultPrevented || e.target.closest?.('.race-ghost-options')) return; if (document.querySelector('.wh-layer, [data-rk] [role="dialog"], w3m-modal.open')) return; const k = TRACKS[Number(e.key) - 1]?.difficulty; if (k) choose(k); else if (e.key === 'Enter' && !e.target.closest?.('button,a,input,select')) choose(DEFAULT_DIFFICULTY); };
   addEventListener('keydown', onPick); pick.querySelectorAll('button[data-k]').forEach(b => b.addEventListener('click', () => choose(b.dataset.k)));
   // 换背景：记住选择后带着 sky 参数重新加载
-  // 链上记录：在选图界面上叠一层排行榜，点空白处关闭
-  pick.querySelector('[data-board]').addEventListener('click', e => {
-    e.stopPropagation(); const layer = document.createElement('div'); layer.className = 'rc-board-layer';
-    Object.assign(layer.style, { position: 'fixed', inset: '0', zIndex: '225', display: 'grid', placeItems: 'center', background: '#0b0f14cc', padding: '24px', boxSizing: 'border-box' });
-    const box = document.createElement('div'); box.style.width = 'min(560px, 94vw)'; box.addEventListener('click', ev => ev.stopPropagation()); layer.append(box);
-    // 选图页有毛玻璃与滚动，会改变 fixed 的包含块；榜单直接挂在 body。
-    const restoreFocus = document.activeElement; pick.inert = true;
-    const close = () => { board.destroy(); layer.remove(); pick.inert = false; document.removeEventListener('keydown', onKey, true); restoreFocus?.focus?.({ preventScroll: true }); };
-    const onKey = event => {
-      if (document.querySelector('.wh-layer, [data-rk] [role="dialog"], w3m-modal.open')) return;
-      if (event.key === 'Escape') { event.preventDefault(); close(); }
-      if (event.key === 'Tab') {
-        const items = [...box.querySelectorAll('button,a')].filter(node => !node.disabled && !node.closest('[hidden]')), first = items[0], last = items.at(-1);
-        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-      }
-      event.stopImmediatePropagation();
-    };
-    layer.addEventListener('click', close); document.addEventListener('keydown', onKey, true); document.body.append(layer); const board = mountRaceBoard(box); box.querySelector('button')?.focus({ preventScroll: true });
-  });
   pick.querySelectorAll('.skies a[data-sky]').forEach(a => a.addEventListener('click', () => { if (a.dataset.sky === skyKey) return; try { localStorage.setItem('race.sky', a.dataset.sky); } catch {} const q = new URLSearchParams(location.search); q.set('sky', a.dataset.sky); location.search = q.toString(); }));
   let accumulator = 0, lastTime;
   const auto = params.has('autopilot');   // ?race&autopilot&map=…：机器人开完全程（测试网端到端脚本用）

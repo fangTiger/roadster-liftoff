@@ -103,12 +103,10 @@ export async function runGhostE2e({ account, publicClient, walletClient, address
       assert.equal(Number(track.qualifyMs), 58000); assert.equal(Number(track.minLapMs), 15000);
       assert.notEqual(verifier.toLowerCase(), zeroAddress);
       step('连接注入的测试钱包');
-      await page.locator('[data-board]').click();
-      await page.locator('.rc-mine').getByRole('button', { name: '连接钱包', exact: true }).click();
+      await page.locator('#wallet-hub button').click();
       await page.getByRole('button', { name: 'MetaMask', exact: true }).click({ timeout: 60000 });
       await waitForGhostWallet(page, account.address);
       await page.locator('[data-rk][role="dialog"]').waitFor({ state: 'hidden', timeout: 60000 });
-      await page.locator('.rc-board-layer').click({ position: { x: 5, y: 5 } });
       log(`钱包已连接：${account.address}`);
     }
     step('选择草甸资格赛，hard 驾驶器完成正式三圈录像');
@@ -162,14 +160,16 @@ export async function runGhostE2e({ account, publicClient, walletClient, address
     await openRace(guest, url);
     assert.equal(await guest.evaluate(() => typeof window.ethereum), 'undefined');
     const choices = guest.locator('[data-ghost-options="easy"]');
-    await choices.getByRole('button', { name: '排行榜第 N 名', exact: true }).click();
-    const download = guest.waitForResponse(response => {
-      const query = new URL(response.url());
-      return query.pathname === '/api/ghost' && query.searchParams.get('address')?.toLowerCase() === account.address.toLowerCase();
-    }, { timeout: 60000 });
-    const downloaded = await Promise.all([download, choices.locator('.race-ghost-ranked button').filter({ hasText: shortAddr(account.address) }).click({ timeout: 60000 })]).then(([response]) => response);
+    await choices.getByRole('combobox').click();
+    await choices.getByRole('option').filter({ hasText: shortAddr(account.address) }).waitFor({ timeout: 60000 });
+    await choices.getByRole('option').filter({ hasText: shortAddr(account.address) }).click();
+    await guest.waitForFunction(() => {
+      const trigger = document.querySelector('[data-ghost-options="easy"] [role="combobox"]');
+      return trigger && !/下载中|失败|加载中/.test(trigger.textContent);
+    }, null, { timeout: 60000 });
+    assert.ok((await choices.getByRole('combobox').innerText()).includes(shortAddr(account.address)));
+    const downloaded = await guest.request.get(new URL(`/api/ghost?trackId=1&address=${account.address}`, url).href);
     assert.equal(downloaded.status(), 200); assert.equal((await downloaded.json()).trackId, 1);
-    await choices.locator('.race-ghost-ranked button[aria-pressed="true"]').waitFor();
     step('无钱包玩家与下载的影子同场行驶');
     await guest.locator('#race-pick button[data-k="easy"]').click();
     await guest.waitForFunction(() => {
