@@ -67,7 +67,8 @@ export function stepCar(c,bits,{track,hazards,step=0,coins,coinBoost=false,rankF
  const resistance=c.surface===SAND?T.sandResistance:c.surface===GRAVEL?T.gravelResistance:0;
  let cap=c.surface===SAND?T.sandSpeed:T.maxSpeed*topSpeed+(c.boostTime>0?T.boostSpeed:0);
  const coinMultiplier=coinBoost?1+.01*c.coins:1;
- if(coinBoost)cap*=coinMultiplier;
+ const coinDashing=coinBoost&&c.coinDash>0;
+ if(coinBoost)cap=cap*coinMultiplier+(coinDashing?.4*T.boostSpeed:0);
  // 恒功率与平方风阻的平衡速度随倍率同步提高；关闭时保留原风阻运算。
  const drag=coinBoost?T.drag/(coinMultiplier*coinMultiplier*coinMultiplier):T.drag;
  let newFx,newFz;
@@ -87,6 +88,7 @@ export function stepCar(c,bits,{track,hazards,step=0,coins,coinBoost=false,rankF
   let acceleration=-(drag*speed*speed+resistance+T.driftDrag);
   if(bits&THROTTLE)acceleration+=Math.min(T.acceleration,T.power/Math.max(1,speed))*engine*T.driftThrottle;   // 漂移是用速度换转向，油门推力打折
   if(bits&BRAKE)acceleration-=T.brake;
+  if(coinDashing)acceleration+=.4*T.boostAcceleration;
   if(c.boostTime>0){acceleration+=T.boostAcceleration;c.boostTime=Math.max(0,c.boostTime-DT);}
   const next=clamp(speed+acceleration*DT,0,cap),k=speed>1e-6?next/speed:0;c.vx=vx*k;c.vz=vz*k;speed=next;
   const heading=atan2(c.vx,c.vz)+c.driftDir*T.driftSlipAngle*(.7+.5*hold)*(1+T.driftSlipSteer*into)*b;
@@ -106,12 +108,14 @@ export function stepCar(c,bits,{track,hazards,step=0,coins,coinBoost=false,rankF
   if(throttle) acceleration+=Math.min(T.acceleration,T.power/Math.max(1,Math.abs(forward)))*engine;
   if(braking) acceleration+=forward>0?-T.brake*(bits&BRAKE?1:.6):-T.reverseAcceleration;
   acceleration-=Math.sign(forward)*(drag*forward*forward+resistance);
+  if(coinDashing)acceleration+=.4*T.boostAcceleration;
   if(c.boostTime>0){acceleration+=T.boostAcceleration;c.boostTime=Math.max(0,c.boostTime-DT);}
   let next=forward+acceleration*DT;
   if(!throttle&&!braking&&next*forward<0)next=0;
   if(braking&&forward>0&&next<0)next=0;
   forward=clamp(next,-T.reverseSpeed,cap);c.vx=newFx*forward+newFz*lateral;c.vz=newFz*forward-newFx*lateral;
  }
+ if(coinDashing){const next=c.coinDash-DT;c.coinDash=next<1e-12?0:next;}
  const oldY=c.y,oldGrounded=c.grounded;
  // 推进器限高：以路面（含断桥缺口上方的路面高度）为基准，越接近升限推力越小，飞不过墙、也不能一路飞到终点
  const onRoad=Math.abs(n.lateral)<=n.w/2+1,base=onRoad?n.y:track.heightAt(c.x,c.z),apex=c.y-base+(c.vy>0?c.vy*c.vy/(2*T.gravity):0),lift=T.jetAcceleration*clamp((T.jetCeiling-apex)/T.jetFade,0,1);   // 按惯性还能冲到的高度减推力，不会冲过升限
@@ -158,7 +162,7 @@ export function stepCar(c,bits,{track,hazards,step=0,coins,coinBoost=false,rankF
    if(c.cones[key]!==c.lap&&dx*dx+dz*dz<2.25){c.cones[key]=c.lap;c.vx*=T.coneRetention;c.vz*=T.coneRetention;events.push({type:'cone',id:key});}
   }
  }
- for(const coin of coins||coinPositions(track))if(c.picked[coin.id]!==c.lap){const dx=c.x-coin.x,dy=c.y+T.height/2-coin.y,dz=c.z-coin.z;if(dx*dx+dy*dy+dz*dz<=T.coinRadius*T.coinRadius){c.picked[coin.id]=c.lap;c.fuel=Math.min(T.fuelMax,c.fuel+(coinBoost?T.coinFuel*(1+rankFraction):T.coinFuel));if(coinBoost){const gained=c.coins<10?1:0;c.coins=Math.min(10,c.coins+1);events.push({type:'coin',id:coin.id,gained});}else events.push({type:'coin',id:coin.id});}}
+ for(const coin of coins||coinPositions(track))if(c.picked[coin.id]!==c.lap){const dx=c.x-coin.x,dy=c.y+T.height/2-coin.y,dz=c.z-coin.z;if(dx*dx+dy*dy+dz*dz<=T.coinRadius*T.coinRadius){c.picked[coin.id]=c.lap;c.fuel=Math.min(T.fuelMax,c.fuel+(coinBoost?T.coinFuel*(1+rankFraction):T.coinFuel));if(coinBoost){c.coinDash=Math.max(c.coinDash||0,.4);const gained=c.coins<10?1:0;c.coins=Math.min(10,c.coins+1);events.push({type:'coin',id:coin.id,gained});}else events.push({type:'coin',id:coin.id});}}
  for(const rock of hazards?.positions(step)||[]){
   if(step-(c.rockHits[rock.id]??-100000)<T.rockCooldown/DT||Math.abs(c.y-rock.y)>T.height+rock.radius)continue;
   const h=T.length/2-T.width/2,q=closest({x:c.x-newFx*h,z:c.z-newFz*h},{x:c.x+newFx*h,z:c.z+newFz*h},rock,rock),dx=q.x-rock.x,dz=q.z-rock.z,r=effectiveHalfWidth(c)+rock.radius;

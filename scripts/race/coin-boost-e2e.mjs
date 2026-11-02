@@ -33,12 +33,16 @@ try{
  const host=await pageFor('金币主车'),peer=await pageFor('金币对手'),code=await createRoom(host);await open(peer,`room=${code}`);
  await peer.locator('[data-rm-ready]').click();await host.locator('[data-rm-ready]').click();await Promise.all([started(host),started(peer)]);
  const id=await host.evaluate(()=>window.__raceDebug.room().id);assert.equal(await host.evaluate(()=>window.__raceDebug.music().playing),false);check('默认自动化环境不播放比赛音乐');
- const coins=await host.evaluate(()=>window.__raceDebug.pickup());assert.ok(coins>0);await host.waitForFunction(n=>document.querySelector('.rh-coins b')?.textContent===`${n}/10`,coins);
+ const pickup=await host.evaluate(()=>{const coins=window.__raceDebug.pickup(),s=window.__raceDebug.snapshot();return {coins,dash:s.car.coinDash,boost:s.car.boostTime,bonus:document.querySelector('.rh-speed-bonus').textContent,glow:!document.querySelector('.rh-coin-glow').hidden};});
+ const coins=pickup.coins;assert.ok(coins>0);assert.equal(pickup.dash,.4);assert.equal(pickup.boost,0);assert.equal(pickup.bonus,`+${coins}%`);assert.equal(pickup.glow,true);
+ await host.screenshot({path:`${out}/pickup-dash.png`});check('拾取立即刷新 0.4 秒独立冲刺，速度旁金色加成与边缘辉光可见');await host.waitForFunction(n=>document.querySelector('.rh-coins b')?.textContent===`${n}/10`,coins);
  await peer.waitForFunction(n=>window.__raceDebug.trails().some(t=>!t.self&&t.coins===n&&t.visible&&t.length>0),coins);
- assert.ok(peers.some(m=>m.viewer==='金币对手'&&m.id===id&&m.coins===coins));check(`双浏览器道具赛真实拾取：HUD ${coins}/10，服务端 coins 转发及对方流光同步`);
+ assert.ok(peers.some(m=>m.viewer==='金币对手'&&m.id===id&&m.coins===coins));assert.ok(peers.some(m=>m.viewer==='金币对手'&&m.id===id&&m.dash===true));check('小冲刺 dash 经现有房间服务布尔转发');check(`双浏览器道具赛真实拾取：HUD ${coins}/10，服务端 coins 转发及对方流光同步`);
  await host.evaluate(()=>{while(window.__raceDebug.snapshot().car.coins<10)window.__raceDebug.pickup();});
  await host.waitForFunction(()=>document.querySelector('.rh-coins')?.dataset.full==='true');await peer.waitForFunction(()=>window.__raceDebug.trails().some(t=>!t.self&&t.coins===10));
- await host.screenshot({path:`${out}/full-coins.png`});check('满十枚 HUD 发光及对方满层流光');
+ await host.screenshot({path:`${out}/full-coins.png`});assert.equal(await host.locator('.rh-speed-bonus').innerText(),'+10%');check('满十枚 HUD 发光、+10% 加成及对方满层流光');
+ const capped=await host.evaluate(()=>{const coins=window.__raceDebug.pickup();return {coins,dash:window.__raceDebug.snapshot().car.coinDash};});assert.equal(capped.coins,10);assert.equal(capped.dash,.4);check('满层继续拾取仍刷新小冲刺');
+ await host.emulateMedia({reducedMotion:'reduce'});const reduced=await host.evaluate(()=>{window.__raceDebug.pickup();return {display:getComputedStyle(document.querySelector('.rh-coin-glow')).display,bonus:document.querySelector('.rh-speed-bonus').textContent,animation:getComputedStyle(document.querySelector('.rh-coin-pop')).animationName};});assert.deepEqual(reduced,{display:'none',bonus:'+10%',animation:'none'});await host.emulateMedia({reducedMotion:'no-preference'});check('减少动态偏好隐藏辉光与金币动画，保留 HUD 加成');
  await host.waitForFunction(()=>window.__raceDebug.snapshot().step/120>5);
  await peer.evaluate(target=>{const s=window.__raceDebug.snapshot();window.__raceDebug.send({type:'item',kind:'missile',itemId:`${window.__raceDebug.room().id}-9001`,target,x:s.car.x,z:s.car.z,yaw:s.car.yaw,firedAt:s.step/120-1.5});},id);
  await host.waitForFunction(()=>window.__raceDebug.snapshot().car.coins===5);await peer.waitForFunction(()=>window.__raceDebug.trails().some(t=>!t.self&&t.coins===5));
@@ -59,6 +63,7 @@ try{
  await browsers.at(-1).close();
  const musicHost=await pageFor('多人音乐主车',{musicProbe:true}),musicPeer=await pageFor('多人音乐对手',{musicProbe:true}),musicCode=await createRoom(musicHost);await open(musicPeer,`room=${musicCode}`);
  await musicPeer.locator('[data-rm-ready]').click();await musicHost.locator('[data-rm-ready]').click();await Promise.all([started(musicHost),started(musicPeer)]);await musicHost.keyboard.press('ArrowUp');await musicHost.waitForFunction(()=>window.__raceDebug.music().playing);check('多人道具赛发车音乐播放');
+ const duck=await musicHost.evaluate(()=>{window.__raceDebug.pickup();return window.__raceDebug.music().ducking;});assert.equal(duck,true);check('道具赛金币小冲刺触发比赛音乐避让');
  // 离开旧房间后创建竞速房，避免等候完整三圈。
  const speedCode=await createRoom(musicHost);await musicHost.locator('[data-rm-mode=speed]').click();await open(musicPeer,`room=${speedCode}`);await musicPeer.locator('[data-rm-ready]').click();await musicHost.locator('[data-rm-ready]').click();await Promise.all([started(musicHost),started(musicPeer)]);await musicHost.keyboard.press('ArrowUp');await musicHost.waitForFunction(()=>window.__raceDebug.music().playing);assert.equal(await musicHost.evaluate(()=>window.__raceDebug.snapshot().car.coins),undefined);check('多人竞速赛发车音乐播放且金币增益关闭');
  assert.deepEqual(errors,[]);console.log(JSON.stringify({result:'通过',checks,errors},null,2));

@@ -94,7 +94,7 @@ export function createItemFx(scene,items,track) {
     cars.set(id,g);
    }
    const g=cars.get(id);g.visible=!state.stale;g.position.set(state.x,state.y+.8,state.z);g.rotation.y=state.yaw;
-   const [shell,bubble,jet,daze]=g.children;shell.visible=!!state.shield;bubble.visible=!!state.trapped;bubble.rotation.z=Math.sin(time*8)*.04;bubbles(bubble,time);jet.visible=!!state.boost;jet.scale.z=1+Math.sin(time*61)*.12;daze.visible=!!state.spinning;daze.rotation.y=time*4;daze.rotation.z=Math.sin(time*7)*.12;
+   const [shell,bubble,jet,daze]=g.children;shell.visible=!!state.shield;bubble.visible=!!state.trapped;bubble.rotation.z=Math.sin(time*8)*.04;bubbles(bubble,time);jet.visible=!!state.boost||!!state.dash;const thrust=state.boost?1:.5;jet.scale.set(thrust,thrust,thrust*(1+Math.sin(time*61)*.12));daze.visible=!!state.spinning;daze.rotation.y=time*4;daze.rotation.z=Math.sin(time*7)*.12;
    if(jet.visible&&g.visible)emitTrail(g,time,'sparks',3,3.6);
   }
   for(const g of [...bursts.children])animateBurst(g,time);particles.update(time);

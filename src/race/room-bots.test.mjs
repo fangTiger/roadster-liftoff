@@ -26,3 +26,8 @@ test('机器人只在道具房间启用金币，状态白名单保留可选 coin
  const {carState}=await import('./room-bots.js'),track=buildTrack(meadow),players=[{id:'bot',seat:0,bot:true,ownerId:'host',difficulty:'normal',connected:true}];
  for(const mode of ['items','speed',undefined]){const bot=createRoomBots({track,players,ownerId:'host',laps:3,mode,contacts:()=>[]}).get('bot');assert.equal(bot.session.car.coins,mode==='items'?0:undefined);if(mode==='items')bot.session.car.coins=8;assert.equal(carState(bot.session.car,bot.session.race).coins,mode==='items'?8:undefined);}
 });
+
+test('真人与机器人共用状态只在启用金币时发可选 dash，冲刺结束回 false',async()=>{
+ const {carState}=await import('./room-bots.js'),race={lap:1},car={near:{s:0}};assert.equal('dash' in carState(car,race),false);
+ for(const coinDash of [0,.4]){car.coins=10;car.coinDash=coinDash;assert.equal(carState(car,race).dash,coinDash>0);}
+});

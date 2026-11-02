@@ -55,3 +55,11 @@ test('比赛音乐从冻结到发车及结算切换，每帧按四类车辆状�
 test('倒计时暂停仍不播放背景音乐，发车后暂停才进入压低阶段',()=>{
  const phases=[],a=createRaceAudio({event(){},update(){},setRacePhase:p=>phases.push(p)}),s={car:{vx:0,vz:0,yaw:0},race:{frozen:true},events:[]};a.update(s,0,0,{paused:true});assert.equal(phases.at(-1),'countdown');s.race.frozen=false;a.update(s,0,0,{paused:true});assert.equal(phases.at(-1),'paused');
 });
+
+test('金币冲刺参与音乐避让与半强度推力声，每次拾取含满层播放一次短音',()=>{
+ const sounds=[],ducks=[],frames=[],a=createRaceAudio({event:(name,opts)=>sounds.push({name,...opts}),update:(_,s)=>frames.push(s),setRaceDucking:v=>ducks.push(v)}),s={car:{vx:0,vz:0,yaw:0,coinDash:.4},race:{frozen:false},events:[{type:'coin',gained:0,step:1}]};
+ a.update(s,0,.01);a.update(s,0,.01);assert.equal(ducks.at(-1),true);assert.equal(frames.at(-1).boost,.5);assert.deepEqual(sounds,[{name:'coin'},{name:'raceCoinDash'}]);
+ s.events.push({type:'coin',gained:1,step:2});a.update(s,0,.01);assert.equal(sounds.filter(s=>s.name==='raceCoinDash').length,2);
+ s.car.boostTime=1;a.update(s,0,.01);assert.equal(frames.at(-1).boost,1);s.car.boostTime=0;s.car.coinDash=0;a.update(s,0,.01);assert.equal(ducks.at(-1),false);
+ s.car.coinDash=.4;s.race.frozen=true;a.update(s,0,.01);assert.equal(ducks.at(-1),false);
+});

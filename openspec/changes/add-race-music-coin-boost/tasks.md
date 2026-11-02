@@ -11,7 +11,20 @@
 
 ## 3. 验收与上线
 - [x] 3.1 自动化部分：本地双 Chrome 道具赛拾取、HUD 与流光同步、导弹命中掉落；单人计时、真实影子、多人竞速与道具赛发车音乐；共享音频模块的均衡、循环包络与四类状态避让测试
-  - 浏览器脚本：`node scripts/race/coin-boost-e2e.mjs`；9 项通过、零页面错误，结果与截图在 `output/playwright/coin-boost/`。
-  - 兼容与物理：三图逐步快照、原有 golden / 录像重放、SIM_VERSION 不变；普通直道实际终速每枚 +1%。
+  - 浏览器脚本：`node scripts/race/coin-boost-e2e.mjs`；14 项通过、零页面错误，结果与截图在 `output/playwright/coin-boost/`。
+  - 兼容与物理：三图逐步快照、原有 golden / 录像重放、SIM_VERSION 不变；普通直道实际终速每枚 +1%；短冲刺 48 步、额外推力和限速、满层刷新与关闭隔离均通过。
   - 待人工复核：真实扬声器上的音量、音色与循环衔接听感，以及联机手操平衡；自动化未代替这些判断。
 - [ ] 3.2 用户确认后更新 AWS 房间服务与 Vercel 生产环境
+
+## 4. 试玩反馈：即时冲刺与可见反馈
+- [x] 4.1 测试先行：0.4 秒独立冲刺、极速与推力、满层刷新、关闭兼容与 golden
+- [x] 4.2 实现 coinDash 与 dash 状态校验转发，直行和漂移均生效
+- [x] 4.3 半强度尾焰、速度线、FOV、短音与音乐避让；增强首枚至满层流光
+- [x] 4.4 速度旁金币加成、0.3 秒边缘辉光与减少动态偏好，保留计数及加减提示
+- [x] 4.5 更新并运行双浏览器 e2e，保存拾取瞬间及满层截图
+- [x] 4.6 核对规范、严格验证、全量测试、构建与审查，单次中文提交（不上线）
+
+  - 本轮验证：`npm test` 800/800；`npm run build` 成功（保留现有分包体积提示）；`openspec validate add-race-music-coin-boost --strict` 通过；`git diff --check` 通过。
+  - e2e：仅连接已运行的 Vite 8932 / 房间服务 8933，14 项通过、零页面错误；拾取冲刺、HUD +1% / +10%、满层继续触发、dash 服务端转发、减少动态及金币冲刺音乐避让均通过。
+  - 截图：`output/playwright/coin-boost/pickup-dash.png`、`output/playwright/coin-boost/full-coins.png`，已目视核对；结构化结果在同目录 `result.json`。
+  - 交叉审查：独立只读代码与截图审查未发现阻断或重要问题；上线任务 3.2 保持未执行。

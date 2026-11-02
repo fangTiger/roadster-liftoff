@@ -144,7 +144,7 @@ export function mountRoomRace({engine,params,setup,clear,simulate,render,getStat
    while(getState().step<target){const snap=getState(),bits=isPaused()?0:params.has('autopilot')&&!snap.race.finished?autopilot(snap,track):getBits();simulate(bits);for(const bot of bots.values()){bot.session.step(bot.driver({race:bot.session.race,car:bot.session.car},track));bot.step++;}stepItems();}
    const snap=getState(),c=snap.car,r=snap.race;
    if(active&&now>=round.startAt&&now-lastSend>=1000/15){
-    lastSend=now;client.send({type:'state',...(c.coins===undefined?{}:{coins:c.coins}),seq:sequence++,step:snap.step,x:c.x,y:c.y,z:c.z,yaw:c.yaw,pitch:c.pitch,vx:c.vx,vz:c.vz,steer:c.steer,drifting:!!c.drifting,boost:c.boostTime>0,ghost:!!getGhost(),spinning:c.spinTime>0,finished:r.finished,shield:c.shieldTime>0,trapped:c.trapTime>0,air:!c.grounded,lap:r.lap,s:c.near.s});
+    lastSend=now;client.send({type:'state',...(c.coins===undefined?{}:{coins:c.coins,dash:c.coinDash>0}),seq:sequence++,step:snap.step,x:c.x,y:c.y,z:c.z,yaw:c.yaw,pitch:c.pitch,vx:c.vx,vz:c.vz,steer:c.steer,drifting:!!c.drifting,boost:c.boostTime>0,ghost:!!getGhost(),spinning:c.spinTime>0,finished:r.finished,shield:c.shieldTime>0,trapped:c.trapTime>0,air:!c.grounded,lap:r.lap,s:c.near.s});
    }
    // 完赛消息可重复接收：重连或短暂发送失败后，每秒补发直到收到统一结算。
    if(active&&r.finished&&now-lastFinish>=1000){lastFinish=now;client.send({type:'finish',elapsed:r.elapsed,bestLap:r.bestLap,lapTimes:r.lapTimes});}

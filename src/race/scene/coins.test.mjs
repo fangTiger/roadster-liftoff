@@ -56,3 +56,9 @@ test('金币流光长度亮度线性增强，满层粒子、损失四散约八�
  fx.update({coins:5},.1);const burst=fx.root.children.find(c=>c.name==='coin-loss');assert.equal(burst.count,5);assert.equal(burst.visible,true);fx.update({coins:5},.81);assert.equal(burst.visible,false);
  fx.dispose();assert.equal(root.children.length,0);
 });
+
+test('首枚流光有不受草地亮度影响的金色线芯与深色边缘，逐枚加粗加亮',()=>{
+ const fx=coinsModule.createCoinTrail(new THREE.Group());let width=0,brightness=0;
+ for(let coins=1;coins<=10;coins++){fx.update({coins},.01);const ribbon=fx.root.children[0];assert.ok(ribbon.scale.x>width);assert.ok(ribbon.material.opacity>brightness);assert.equal(ribbon.material.blending,THREE.NormalBlending);assert.ok(ribbon.material.uniforms.strength.value>=.7);assert.match(ribbon.material.fragmentShader,/mix\(/);width=ribbon.scale.x;brightness=ribbon.material.opacity;}
+ fx.dispose();
+});

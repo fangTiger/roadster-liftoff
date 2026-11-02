@@ -67,3 +67,11 @@ test('道具赛金币计数、满层发光与金色加一红色损失提示独�
   s.car.coins=5;s.events.push({type:'coinLoss',count:5,step:s.step});hud.update(s);assert.equal(elements.get('.rh-coins b').textContent,'5/10');assert.equal(elements.get('.rh-coin-pop').textContent,'-5');assert.equal(elements.get('.rh-coin-pop').dataset.loss,'true');s.step+=120;hud.update(s);assert.equal(elements.get('.rh-coin-pop').hidden,true);
  }hud.destroy();
 }));
+
+test('速度旁金币加成从一枚可见，零枚隐藏，拾取边缘辉光三百毫秒含满层刷新',()=>fixture((elements,created)=>{
+ const track=buildTrack(TRACKS[0].def),s=createSession(track,{coinBoost:true}).snapshot,hud=createHud(track,'',{trackId:1,roomMode:true,itemsMode:true});
+ hud.update(s);assert.equal(elements.get('.rh-speed-bonus')?.hidden,true);
+ for(const coins of [1,7,10]){s.car.coins=coins;s.events.push({type:'coin',gained:1,step:s.step});hud.update(s);assert.equal(elements.get('.rh-speed-bonus').textContent,`+${coins}%`);assert.equal(elements.get('.rh-speed-bonus').hidden,false);assert.equal(elements.get('.rh-coin-glow').hidden,false);s.step+=35;hud.update(s);assert.equal(elements.get('.rh-coin-glow').hidden,false);s.step++;hud.update(s);assert.equal(elements.get('.rh-coin-glow').hidden,true);}
+ s.events.push({type:'coin',gained:0,step:s.step});hud.update(s);assert.equal(elements.get('.rh-coin-glow').hidden,false);
+ assert.match(created[0].textContent,/@media\(prefers-reduced-motion:reduce\)\{[^}]*\.rh-coin-glow[^}]*display:none!important/);hud.destroy();
+}));

@@ -6,7 +6,7 @@ const numeric=['seq','step','x','y','z','yaw','pitch','vx','vz','steer','lap','s
 const finite=n=>typeof n==='number'&&Number.isFinite(n)&&Math.abs(n)<=1e9;
 const itemId=id=>typeof id==='string'&&id.length<=64&&/^[a-z0-9]+-[1-9][0-9]*$/.test(id);
 const integer=n=>Number.isSafeInteger(n)&&n>=0;
-const validState=m=>(m.coins===undefined||Number.isInteger(m.coins)&&m.coins>=0&&m.coins<=10)&&numeric.every(k=>finite(m[k]))&&integer(m.seq)&&integer(m.step)&&Number.isInteger(m.lap)&&m.lap>=1&&m.lap<=3&&m.s>=0&&typeof m.drifting==='boolean'&&typeof m.boost==='boolean'&&typeof m.ghost==='boolean'&&typeof m.air==='boolean'&&['shield','trapped','spinning','finished'].every(k=>m[k]===undefined||typeof m[k]==='boolean');
+const validState=m=>(m.coins===undefined||Number.isInteger(m.coins)&&m.coins>=0&&m.coins<=10)&&numeric.every(k=>finite(m[k]))&&integer(m.seq)&&integer(m.step)&&Number.isInteger(m.lap)&&m.lap>=1&&m.lap<=3&&m.s>=0&&typeof m.drifting==='boolean'&&typeof m.boost==='boolean'&&typeof m.ghost==='boolean'&&typeof m.air==='boolean'&&['dash','shield','trapped','spinning','finished'].every(k=>m[k]===undefined||typeof m[k]==='boolean');
 const validFinish=m=>finite(m.elapsed)&&m.elapsed>0&&finite(m.bestLap)&&m.bestLap>0&&Array.isArray(m.lapTimes)&&m.lapTimes.length===3&&m.lapTimes.every(n=>finite(n)&&n>0);
 export function createRooms({now=Date.now,random=Math.random,send,close=()=>{},onRoom=()=>{},directory=createDirectory({now})}={}) {
  const rooms=new Map(),clients=new Map(),tokens=new Map(),subscribers=new Map(),addresses=new Map(),pending=new Set(),disconnected=new WeakSet();let serial=0,botSerial=0,codeSerial=0;
@@ -191,7 +191,7 @@ export function createRooms({now=Date.now,random=Math.random,send,close=()=>{},o
    if(r.phase!=='racing')return;
    const time=now();actor.rate=actor.rate.filter(t=>time-t<1000);if(actor.rate.length>=30)return;actor.rate.push(time);
    if(m.seq<=actor.lastSeq)return;actor.lastSeq=m.seq;
-   const state=Object.fromEntries([...numeric,'coins','drifting','boost','ghost','air','shield','trapped','spinning','finished'].filter(k=>m[k]!==undefined).map(k=>[k,m[k]]));
+   const state=Object.fromEntries([...numeric,'coins','dash','drifting','boost','ghost','air','shield','trapped','spinning','finished'].filter(k=>m[k]!==undefined).map(k=>[k,m[k]]));
    state.serverT=time;actor.state=state;broadcast(r,{type:'peer',id:actor.id,...state},p);return;
   }
   if(m.type==='finish'||m.type==='botFinish'){

@@ -44,11 +44,12 @@ export function createHud(track, title = '', { trackId, roomMode = false, itemsM
 @media(max-width:700px){#race-hud header{left:10px;top:10px;min-width:150px}#race-hud .rh-map{right:10px;top:10px}#race-hud .rh-speed{right:10px;bottom:70px}#race-hud footer{font-size:11px}}`;
   style.textContent+=`#race-hud .rh-missile-warning{position:absolute;inset:0;border:6px solid #ff4055;box-shadow:inset 0 0 70px #ff204055;color:#ff5265;text-align:center;padding-top:135px;font-size:28px;font-weight:700;text-shadow:0 2px 10px #000;box-sizing:border-box}`;
   style.textContent+=`#race-hud .rh-coins{position:absolute;top:22px;left:calc(50% + 94px);padding:12px 16px;color:#ffd36a;text-align:center;min-width:72px}#race-hud .rh-coins img{width:26px;height:26px;border:2px solid #d9a434;border-radius:50%;vertical-align:middle;background:#ac7419;margin-right:7px}#race-hud .rh-coins b{font-size:23px;display:inline-block}#race-hud .rh-coins small{display:block;font-size:11px;margin-top:7px;color:#b9c4c9}#race-hud .rh-coins[data-full=true]{box-shadow:0 0 24px #ffc94a99;border-color:#ffd36a}#race-hud .rh-coins[data-pop=true] b{animation:rh-coin-bump .3s ease-out}#race-hud .rh-coin-pop{position:absolute;top:100%;left:0;right:0;margin-top:8px;font-size:26px;font-weight:700;text-shadow:0 2px 9px #000;animation:rh-coin-float .8s ease-out}#race-hud .rh-coin-pop[data-loss=true]{color:#ff626c}@keyframes rh-coin-bump{50%{transform:scale(1.3)}}@keyframes rh-coin-float{from{transform:translateY(7px)}to{transform:translateY(-12px)}}@media(max-width:700px){#race-hud .rh-item{top:240px;left:10px;transform:none;min-width:72px;padding:8px}#race-hud .rh-coins{top:240px;left:120px;padding:10px;min-width:64px}}@media(prefers-reduced-motion:reduce){#race-hud .rh-coins b,#race-hud .rh-coin-pop{animation:none}}`;
+  style.textContent+=`#race-hud .rh-speed-bonus{color:#ffd34d;font-size:22px;font-weight:700;margin-left:10px;text-shadow:0 1px 3px #241500,0 0 12px #ffbf4b88}#race-hud .rh-coin-glow{position:absolute;inset:0;box-shadow:inset 0 0 65px 12px #ffc93399;border:3px solid #ffdc7377;box-sizing:border-box;animation:rh-coin-glow .3s ease-out both}@keyframes rh-coin-glow{0%{opacity:1}45%{opacity:.7}100%{opacity:0}}@media(prefers-reduced-motion:reduce){#race-hud .rh-coin-glow{display:none!important}}`;
   document.head.append(style);
   const root = document.createElement('div'); root.id = 'race-hud';
   root.innerHTML = `<header class="rh-panel"><small>MARS ROADSTER · ${typeof title === 'function' ? title() : title}</small><div class="rh-lap"><b>1</b>/ 3 ${t('race.laps')}</div><div class="rh-progress"><i></i></div><div class="rh-timing"></div></header>
-<div class="rh-map rh-panel"><canvas></canvas></div><div class="rh-speed rh-panel"><strong>0</strong> km/h${jetEnabled?'<div class="rh-fuel-wrap"><meter class="rh-fuel" min="0" max="1" value="1"></meter><span class="rh-coin" role="status" hidden></span></div>':''}<div class="rh-drift"></div><div class="rh-draft" hidden><span></span><meter min="0" max="1" value="0"></meter></div></div>
-${itemsMode?'<div class="rh-coins rh-panel" role="status"><img src="/assets/props/coin-face.webp" alt=""><b>0/10</b><small></small><span class="rh-coin-pop" hidden></span></div><div class="rh-missile-warning" role="status" hidden></div><div class="rh-item rh-panel"><span class="rh-item-icon"></span><span class="rh-item-label"></span><kbd></kbd><span class="rh-shield-time"></span></div>':''}<div class="rh-delta" hidden></div><div class="rh-notice"></div><div class="rh-flash"></div><div class="rh-result rh-panel" hidden></div>
+<div class="rh-map rh-panel"><canvas></canvas></div><div class="rh-speed rh-panel"><strong>0</strong> km/h${itemsMode?'<span class="rh-speed-bonus" hidden></span>':''}${jetEnabled?'<div class="rh-fuel-wrap"><meter class="rh-fuel" min="0" max="1" value="1"></meter><span class="rh-coin" role="status" hidden></span></div>':''}<div class="rh-drift"></div><div class="rh-draft" hidden><span></span><meter min="0" max="1" value="0"></meter></div></div>
+${itemsMode?'<div class="rh-coin-glow" hidden></div><div class="rh-coins rh-panel" role="status"><img src="/assets/props/coin-face.webp" alt=""><b>0/10</b><small></small><span class="rh-coin-pop" hidden></span></div><div class="rh-missile-warning" role="status" hidden></div><div class="rh-item rh-panel"><span class="rh-item-icon"></span><span class="rh-item-label"></span><kbd></kbd><span class="rh-shield-time"></span></div>':''}<div class="rh-delta" hidden></div><div class="rh-notice"></div><div class="rh-flash"></div><div class="rh-result rh-panel" hidden></div>
 <footer>${controls()}</footer>`;
   document.body.append(root);
   const $ = q => root.querySelector(q);
@@ -69,7 +70,7 @@ ${itemsMode?'<div class="rh-coins rh-panel" role="status"><img src="/assets/prop
     const s = track.checkpointGates.at(-1); g.fillStyle = '#fff'; const [fx, fz] = P(s.x, s.z); g.fillRect(fx - 4 * dpr, fz - 1.5 * dpr, 8 * dpr, 3 * dpr);
   }
   const lapProgress = c => { const n = c.near; if (!n) return 0; if (n.path === 'main') return n.s / track.length; const b = track.branches.find(b => b.id === n.path); return (b.from + (b.to - b.from) * n.s / b.length) / track.length; };
-  let flashEvent = null, flashUntil = 0, draftUntil = 0, coinUntil = 0, seen = 0, shownItem, coinPopUntil = 0, coinPopText = '', coinPopLoss = false;
+  let flashEvent = null, flashUntil = 0, draftUntil = 0, coinUntil = 0, seen = 0, shownItem, coinPopUntil = 0, coinPopText = '', coinPopLoss = false, coinGlowUntil = 0;
   function update(s, { delta = null, deltaStep = 0, totalDelta = null, itemSlot = null, missileLocked = false, rivals = [], waiting = null } = {}) {
     const comparison = $('.rh-delta');
     comparison.hidden = delta === null || s.step >= deltaStep + Math.ceil(2 / DT);
@@ -77,6 +78,7 @@ ${itemsMode?'<div class="rh-coins rh-panel" role="status"><img src="/assets/prop
     comparison.dataset.tone = delta < 0 ? 'ahead' : 'behind';
     const r = s.race, c = s.car;
     if(itemsMode){
+      const bonus=$('.rh-speed-bonus');bonus.textContent=`+${c.coins??0}%`;bonus.hidden=!(c.coins>0);
       $('.rh-coins b').textContent=`${c.coins??0}/10`;$('.rh-coins').dataset.full=String(c.coins===10);$('.rh-coins small').textContent=t('race.coins.speed',{n:c.coins??0});
       $('.rh-missile-warning').hidden=!missileLocked;$('.rh-missile-warning').textContent=t('race.item.warning');
       const rolling=!!itemSlot?.kind&&s.step*DT<itemSlot.readyAt,kind=rolling?Object.keys(ITEM_ICONS)[Math.floor(s.step*DT*12)%4]:itemSlot?.kind;
@@ -101,8 +103,8 @@ ${itemsMode?'<div class="rh-coins rh-panel" role="status"><img src="/assets/prop
     ctx.beginPath(); ctx.moveTo(0, -8 * dpr); ctx.lineTo(5 * dpr, 6 * dpr); ctx.lineTo(-5 * dpr, 6 * dpr); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
     // 事件提示
     for (; seen < s.events.length; seen++) { const e = s.events[seen], t = EVENT_TEXT[e.type]?.(e); if(itemsMode&&(e.type==='coinLoss'||e.type==='coin'&&e.gained)){coinPopText=e.type==='coinLoss'?`-${e.count}`:'+1';coinPopLoss=e.type==='coinLoss';coinPopUntil=e.step+Math.ceil(.8/DT);$('.rh-coins').dataset.pop='false';}
-    if (e.type === 'coin') { coinUntil = s.step + Math.ceil(.65 / DT); continue; } if (e.type === 'draft') draftUntil = e.step + Math.ceil(.3 / DT); if (t) { flashEvent = e; flashUntil = s.step + 100; } }
-    if(itemsMode){const pop=$('.rh-coin-pop');pop.textContent=coinPopText;pop.hidden=s.step>=coinPopUntil;pop.dataset.loss=String(coinPopLoss);$('.rh-coins').dataset.pop=String(!pop.hidden);}
+    if (e.type === 'coin') { if(itemsMode){coinGlowUntil=e.step+Math.ceil(.3/DT);const glow=$('.rh-coin-glow');glow.style.animation='none';void glow.offsetWidth;glow.style.animation='';} coinUntil = s.step + Math.ceil(.65 / DT); continue; } if (e.type === 'draft') draftUntil = e.step + Math.ceil(.3 / DT); if (t) { flashEvent = e; flashUntil = s.step + 100; } }
+    if(itemsMode){$('.rh-coin-glow').hidden=s.step>=coinGlowUntil;const pop=$('.rh-coin-pop');pop.textContent=coinPopText;pop.hidden=s.step>=coinPopUntil;pop.dataset.loss=String(coinPopLoss);$('.rh-coins').dataset.pop=String(!pop.hidden);}
     if (jetEnabled) { const active = s.step < coinUntil, badge = $('.rh-coin'), label = EVENT_TEXT.coin(); if (badge.textContent !== label) badge.textContent = label; badge.hidden = !active; $('.rh-speed').dataset.coin = String(active); }
     const draft = $('.rh-draft'), draftFlash = s.step < draftUntil;
     draft.hidden = !roomMode; draft.dataset.flash = String(draftFlash);

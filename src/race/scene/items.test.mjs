@@ -52,3 +52,10 @@ test('能量舱、导弹组件、共享波纹水体、六边形护盾、双尾�
   const retired=missile.children[0].material;let retiredCount=0;retired.addEventListener('dispose',()=>retiredCount++);items.missiles.clear();items.mines.clear();fx.update('a',5,new Map());fx.dispose();fx.dispose();assert.deepEqual([...counts].filter(([,c])=>c.n!==1).map(([r,c])=>[r.type,c.n]),[]);assert.equal(retiredCount,1);assert.equal(scene.children.length,0);
  }finally{globalThis.document=previous;}
 });
+
+test('远端 dash 显示半尺寸氮气尾焰，与完整 boost 并存时保留完整尺寸',()=>{
+ const previous=globalThis.document;globalThis.document={createElement:()=>({getContext:()=>new Proxy({},{get:()=>()=>{}})})};
+ try{const scene=new THREE.Scene(),fx=module.createItemFx(scene,{boxes:[],mines:new Map(),visible:()=>true},{heightAt:()=>0}),state={x:0,y:0,z:0,yaw:0,dash:true},states=new Map([['b',state]]);
+  fx.update('a',1,states);const jet=scene.getObjectByName('nitro-b');assert.equal(jet.visible,true);const small=jet.scale.z;assert.equal(jet.scale.x,.5);state.boost=true;fx.update('a',1,states);assert.equal(jet.scale.z,small*2);assert.equal(jet.scale.x,1);state.boost=false;state.dash=false;fx.update('a',1,states);assert.equal(jet.visible,false);fx.dispose();
+ }finally{globalThis.document=previous;}
+});

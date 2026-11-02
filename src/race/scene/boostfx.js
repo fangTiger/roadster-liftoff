@@ -28,22 +28,27 @@ export function createBoostFx(scene, car) {
   const ring = new THREE.Mesh(new THREE.RingGeometry(.86, 1, 64), new THREE.MeshBasicMaterial({ color: 0xffc46b, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
   ring.visible = false; scene.add(ring);
   const glow = new THREE.PointLight(0xff8a2a, 0, 9, 2); glow.position.set(0, .45, 3.4); car.body.add(glow);
-  let left = 0, age = 0, k = 0;
+  // 固定速度线池与尾焰共用强度，只在金币提速道具赛打开。
+  const positions=new Float32Array(16*6),lineGeometry=new THREE.BufferGeometry();lineGeometry.setAttribute('position',new THREE.BufferAttribute(positions,3));
+  const lines=new THREE.LineSegments(lineGeometry,new THREE.LineBasicMaterial({color:0xffe5a0,transparent:true,opacity:0,depthWrite:false,toneMapped:false}));lines.name='boost-lines';lines.visible=false;lines.frustumCulled=false;car.body.add(lines);
+  let left = 0, age = 0, k = 0, pulse = 0;
   // 触发：在车尾后方放下冲击波环，面朝车尾方向
-  function trigger(c) {
-    left = DURATION; age = 0;
+  function trigger(c, strength=1) {
+    pulse=Math.max(left>0?pulse:0,strength);left=Math.max(left,DURATION*strength);age=0;
     const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw);
     ring.position.set(c.x - fx * 2.4, c.y + .5, c.z - fz * 2.4); ring.lookAt(c.x - fx * 10, c.y + .6, c.z - fz * 10); ring.visible = true;
   }
   // boosting：车辆当前是否处在加速状态（boostTime > 0）；触发后的 0.7 秒内火焰额外加强
-  function update(dt, t, boosting) {
+  function update(dt, t, boosting, coinBoost=false) {
     if (left > 0) { left = Math.max(0, left - dt); age += dt; }
-    const target = Math.max(boosting ? .85 : 0, left > 0 ? 1 : 0);
+    const target = Math.max(Number(boosting)*.85, left > 0 ? pulse : 0);
     k += (target - k) * Math.min(1, dt * (target > k ? 25 : 6));
     const flick = .85 + .15 * Math.sin(t * 60) * Math.sin(t * 37);
     for (const f of flames) { f.visible = k > .01; f.material.uniforms.k.value = k; f.material.uniforms.t.value = t; f.scale.y = .55 + .45 * k * flick; }
     glow.intensity = k * 9 * flick;
-    const r = Math.min(1, age / .4); ring.scale.setScalar(.8 + r * 2.6); ring.material.opacity = ring.visible ? (1 - r) * (1 - r) * .5 : 0; if (r >= 1) ring.visible = false;
+    lines.visible=coinBoost&&k>.01;lines.material.opacity=k*.55;
+    if(lines.visible){for(let i=0;i<16;i++){const angle=i*Math.PI*2/16,z=((t*28+i*1.7)%14)-7,x=Math.cos(angle)*(3.2+i%3*.5),y=1.8+Math.sin(angle)*1.5;positions.set([x,y,z,x,y,z+1.2+k*2],i*6);}lineGeometry.attributes.position.needsUpdate=true;}
+    const r = Math.min(1, age / .4); ring.scale.setScalar(.8 + r * 2.6); ring.material.opacity = ring.visible ? (1 - r) * (1 - r) * .5 * pulse : 0; if (r >= 1) ring.visible = false;
   }
   return { trigger, update };
 }

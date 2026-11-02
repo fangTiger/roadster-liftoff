@@ -296,3 +296,10 @@ test('still 与 webdriver 环境即使用户解锁也不创建音乐媒体',asyn
  try{for(const [search,webdriver] of [['?still',false],['',true]]){globalThis.location={search};Object.defineProperty(globalThis,'navigator',{configurable:true,value:{webdriver}});const before=media.length,a=module.createAudio({music:false,urls:{race:'rush.m4a',lobby:'lobby.m4a'}});a.setRacePhase('racing');a.setLobbyPhase('lobby');await a.unlock();assert.equal(media.length,before);a.setRacePhase('off');}}
  finally{globalThis.location=location;if(navigator)Object.defineProperty(globalThis,'navigator',navigator);else delete globalThis.navigator;}
 });
+
+test('金币冲刺派生氮气噪声，音量与时长更低且释放节点',async()=>{
+ const a=module.createAudio({music:false});await a.unlock();
+ const play=name=>{const start=nodes.length;a.event(name);return nodes.slice(start);},nitro=play('raceNitro'),dash=play('raceCoinDash');
+ assert.ok(dash.some(n=>n.type==='bufferSource'));const level=graph=>Math.max(...graph.flatMap(n=>n.gain.calls.map(c=>c.value))),duration=graph=>graph.find(n=>n.type==='bandpass').frequency.calls[0].tau;
+ assert.ok(level(dash)<level(nitro));assert.ok(duration(dash)<duration(nitro));assert.ok(dash.filter(n=>n.started).every(n=>n.stopped&&n.disconnected));
+});

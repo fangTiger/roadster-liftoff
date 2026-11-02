@@ -17,14 +17,14 @@ export function createSession(track,{laps=3,spawn,contacts,contactId,botPerforma
  // 发车位在终点线后 12 米：发车时能看见起终点龙门架和发车灯，冲过线开始第一圈
  const startS=track.length-12,start=track.at(startS),race=createRace(track,{laps,dt:DT}),hazards=createHazards(track),coins=coinPositions(track);
  let car=createCarState(spawn||{...start,yaw:atan2(start.tx,start.tz),s:startS}),stepCount=0,previousBits=0,stuck=0,traversal={},stats=lapStats();
- if(coinBoost)car.coins=0;
+ if(coinBoost){car.coins=0;car.coinDash=0;}
  car.near=track.nearest(car.x,car.z);
  const events=[],completedStats=[];
  let resetStep=-Infinity,effects=null,rankFraction=0;
  function setRankFraction(value){rankFraction=Number.isFinite(value)?Math.max(0,Math.min(1,value)):0;}
  function applyEffect(kind,params={}){if(!EFFECT_KINDS.includes(kind))throw new RangeError('未知道具效果');(effects??=[]).push({kind,params:{...params}});}
  const ghost=()=>race.state.finished||(race.state.steps-resetStep)*DT<=T.contactGraceReset;
- function reset(reason){const pose=race.requestReset(),old=car;resetStep=race.state.steps;car=createCarState(pose);car.near=track.nearest(car.x,car.z);car.picked=old.picked;car.cones=old.cones;car.rockHits=old.rockHits;car.lap=old.lap;car.fuel=old.fuel;if(coinBoost)car.coins=old.coins;car.previousBits=previousBits;stats.clean=false;traversal={};stuck=0;events.push({type:'reset',reason,step:stepCount});}
+ function reset(reason){const pose=race.requestReset(),old=car;resetStep=race.state.steps;car=createCarState(pose);car.near=track.nearest(car.x,car.z);car.picked=old.picked;car.cones=old.cones;car.rockHits=old.rockHits;car.lap=old.lap;car.fuel=old.fuel;if(coinBoost){car.coins=old.coins;car.coinDash=0;}car.previousBits=previousBits;stats.clean=false;traversal={};stuck=0;events.push({type:'reset',reason,step:stepCount});}
  function step(bits) {
   if(!Number.isInteger(bits)||bits<0||bits>255)throw new RangeError('输入必须是 0 到 255 的整数');
   // 完赛后车按物理自动刹停（不再接受操作，也不再计时）

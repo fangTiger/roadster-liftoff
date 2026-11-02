@@ -7,9 +7,9 @@ export function createRaceAudio(audio) {
       const { car: c, race: r, events } = snapshot;
       const phase = r.finished ? 'finished' : r.frozen ? 'countdown' : paused ? 'paused' : 'racing';
       if (phase !== musicPhase) { musicPhase = phase; audio.setRacePhase?.(phase); }
-      audio.setRaceDucking?.(!r.frozen && !r.finished && (!!(bits & 16) && c.fuel > 0 || !!c.drifting || c.boostTime > 0 || c.spinTime > 0 || c.trapTime > 0));
+      audio.setRaceDucking?.(!r.frozen && !r.finished && (!!(bits & 16) && c.fuel > 0 || !!c.drifting || c.boostTime > 0 || c.coinDash > 0 || c.spinTime > 0 || c.trapTime > 0));
       const speed = Math.hypot(c.vx, c.vz), lateral = Math.abs(c.vx * Math.cos(c.yaw) - c.vz * Math.sin(c.yaw));
-      audio.update(dt, { speedKmh: speed * 3.6, throttle: !r.frozen && !r.finished && (bits & 1) ? 1 : 0, brake: bits & 2 ? 1 : 0, jet: !!(bits & 16) && c.fuel > 0 && !r.frozen && !r.finished, boost: c.boostTime > 0 ? 1 : 0, tireSlip: c.grounded ? Math.max(c.drifting ? .7 : 0, Math.min(1, lateral / 12)) : 0 });
+      audio.update(dt, { speedKmh: speed * 3.6, throttle: !r.frozen && !r.finished && (bits & 1) ? 1 : 0, brake: bits & 2 ? 1 : 0, jet: !!(bits & 16) && c.fuel > 0 && !r.frozen && !r.finished, boost: c.boostTime > 0 ? 1 : c.coinDash > 0 ? .5 : 0, tireSlip: c.grounded ? Math.max(c.drifting ? .7 : 0, Math.min(1, lateral / 12)) : 0 });
       const count = r.frozen ? Math.ceil(r.countdown) : 0;
       if (count !== countdown) { if (count > 0) audio.event('raceBeep'); else if (countdown > 0) audio.event('raceGo'); countdown = count; }
       for (; seen < events.length; seen++) {
@@ -21,7 +21,7 @@ export function createRaceAudio(audio) {
         if (e.type === 'shieldBreak') audio.event('raceShieldBreak');
         if (e.type === 'draft') audio.event('raceDraft');
         if (e.type === 'lap') audio.event('raceLap');
-        if (e.type === 'coin') audio.event('coin');
+        if (e.type === 'coin') { audio.event('coin'); if(c.coinDash>0) audio.event('raceCoinDash'); }
       }
       if (r.finished && !finished) { audio.event('raceFinish'); finished = true; }
     },

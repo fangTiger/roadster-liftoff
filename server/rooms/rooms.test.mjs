@@ -298,3 +298,11 @@ test('coins 可选整数零到十，真人与机器人原样转发，旧字段�
   for(const coins of [0,7,10,undefined]){f.send(f.a,{...state(++seq),type,...extra,coins});assert.equal(f.last(f.b,'peer').coins,coins);}
  }
 });
+
+test('dash 只接受可选布尔值，真人与机器人转发并兼容缺省',async()=>{
+ const f=await botsRace();f.load();f.advance(1500);let seq=0;
+ for(const type of ['state','botState']){const extra=type==='botState'?{botId:f.bots[0].id}:{};
+  for(const dash of [1,'true',null]){f.send(f.a,{...state(++seq),type,...extra,dash});assert.equal(f.last(f.a,'error')?.code,'BAD_MESSAGE');}
+  for(const dash of [true,false,undefined]){f.send(f.a,{...state(++seq),type,...extra,dash});assert.equal(f.last(f.b,'peer').dash,dash);}
+ }
+});

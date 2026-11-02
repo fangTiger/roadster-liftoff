@@ -39,9 +39,9 @@ export function createRaceCoins(scene, track) {
 // 本地与远端共用流光；粒子固定池，掉落坐标保留在世界空间，不随车身移动。
 export function createCoinTrail(parent) {
  const root=new THREE.Group();root.name='coin-trail';parent.add(root);
- const geometry=new THREE.PlaneGeometry(.16,1),material=new THREE.ShaderMaterial({transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide,toneMapped:false,
-  uniforms:{strength:{value:0}},vertexShader:'varying vec2 vUv;void main(){vUv=uv;vec3 p=position;p.x*=.1+.9*uv.y;gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);}',
-  fragmentShader:'uniform float strength;varying vec2 vUv;void main(){float edge=pow(max(0.,1.-abs(vUv.x-.5)*2.),1.5);float fade=pow(vUv.y,1.4);gl_FragColor=vec4(1.,.72,.22,edge*fade*strength);}'
+ const geometry=new THREE.PlaneGeometry(.24,1),material=new THREE.ShaderMaterial({transparent:true,blending:THREE.NormalBlending,depthWrite:false,side:THREE.DoubleSide,toneMapped:false,
+  uniforms:{strength:{value:0}},vertexShader:'varying vec2 vUv;void main(){vUv=uv;vec3 p=position;p.x*=.65+.35*uv.y;gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);}',
+  fragmentShader:'uniform float strength;varying vec2 vUv;void main(){float edge=pow(max(0.,1.-abs(vUv.x-.5)*2.),1.5);float fade=smoothstep(0.,.18,vUv.y);vec3 gold=mix(vec3(.28,.12,.015),vec3(1.,.78,.18),smoothstep(.1,.65,edge));gl_FragColor=vec4(gold,fade*strength);}'
  });
  const ribbons=[-.65,.65].map(x=>{const mesh=new THREE.Mesh(geometry,material);mesh.rotation.x=-Math.PI/2;mesh.position.set(x,.45,3);root.add(mesh);return mesh;});
  const points=new THREE.BufferGeometry(),positions=new Float32Array(36);points.setAttribute('position',new THREE.BufferAttribute(positions,3));
@@ -54,12 +54,12 @@ export function createCoinTrail(parent) {
   root.updateWorldMatrix(true,false);inverse.copy(root.matrixWorld).invert();
   if(before!==undefined&&coins<before){age=0;burst.count=before-coins;origin.set(0,.7,0).applyMatrix4(root.matrixWorld);burst.visible=true;}before=coins;
   age+=Math.max(0,dt);root.visible=coins>0||age<.8;
-  for(const ribbon of ribbons){ribbon.visible=coins>0;ribbon.scale.y=1+5*k;ribbon.position.z=2.2+ribbon.scale.y/2;}
-  material.opacity=.15+.65*k;material.uniforms.strength.value=material.opacity;sparks.visible=coins===10;
+  for(const ribbon of ribbons){ribbon.visible=coins>0;ribbon.scale.x=.8+1.8*k;ribbon.scale.y=2+5*k;ribbon.position.z=2.2+ribbon.scale.y/2;}
+  material.opacity=.7+.3*k;material.uniforms.strength.value=material.opacity;sparks.visible=coins===10;
   for(let i=0;i<12;i++){const t=(time*2+i/12)%1;positions[i*3]=Math.sin(i*2.4+time)*(.3+t*.7);positions[i*3+1]=.4+Math.cos(i*1.3+time)*.15;positions[i*3+2]=2.3+t*6;}points.attributes.position.needsUpdate=true;
   if(age<.8){for(let i=0;i<burst.count;i++){const angle=i*Math.PI*2/burst.count;dummy.position.copy(origin).add(new THREE.Vector3(Math.cos(angle)*age*4,age*4-age*age*6,Math.sin(angle)*age*4)).applyMatrix4(inverse);dummy.rotation.set(age*9,angle+age*6,age*4);dummy.updateMatrix();burst.setMatrixAt(i,dummy.matrix);}burst.instanceMatrix.needsUpdate=true;lossMaterial.opacity=1-age/.8;}
   else burst.visible=false;
-  root.userData.coins=coins;root.userData.length=coins?1+5*k:0;root.userData.lossCount=burst.visible?burst.count:0;
+  root.userData.coins=coins;root.userData.length=coins?2+5*k:0;root.userData.lossCount=burst.visible?burst.count:0;
  }
  update({},0);
  return {root,update,dispose(){if(disposed)return;disposed=true;root.removeFromParent();burst.dispose();for(const resource of [geometry,material,points,sparkMaterial,lossGeometry,lossMaterial])resource.dispose();}};
