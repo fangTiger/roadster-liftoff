@@ -48,21 +48,13 @@ test('释放两份实例缓冲、几何、材质和金币贴图各一次，并�
  assert.deepEqual(counts.map(c => c.n), resources.map(() => 1)); assert.equal(scene.children.length, 0);
 }));
 
-test('金币流光随金币数增强、随车速伸缩，满层粒子、损失四散约八百毫秒后回收',()=>{
- assert.equal(typeof coinsModule.createCoinTrail,'function');const root=new THREE.Group(),fx=coinsModule.createCoinTrail(root),fast={vx:0,vz:30};
+test('流光只在金币冲刺时显示并随金币数增强，满层粒子、损失四散约八百毫秒后回收',()=>{
+ assert.equal(typeof coinsModule.createCoinTrail,'function');const root=new THREE.Group(),fx=coinsModule.createCoinTrail(root),fast={vx:0,vz:30},ribbon=fx.root.children[0];
  fx.update({coins:0,...fast},.1);assert.equal(fx.root.visible,false);
- fx.update({coins:5,...fast},.1);const half=fx.root.children[0].scale.y,opacity=fx.root.children[0].material.opacity;assert.equal(fx.root.visible,true);
- fx.update({coins:10,...fast},.1);assert.ok(fx.root.children[0].scale.y>half);assert.ok(fx.root.children[0].material.opacity>opacity);assert.ok(fx.root.children.find(c=>c.isPoints).visible);
- fx.update({coins:5,...fast},.1);const burst=fx.root.children.find(c=>c.name==='coin-loss');assert.equal(burst.count,5);assert.equal(burst.visible,true);fx.update({coins:5},.81);assert.equal(burst.visible,false);
+ fx.update({coins:5,...fast},.1);assert.equal(fx.root.visible,false,'有金币但未冲刺时不显示');
+ for(let i=0;i<10;i++)fx.update({coins:5,coinDash:.3,...fast},.02);assert.equal(fx.root.visible,true);assert.ok(ribbon.visible&&ribbon.material.opacity>.8,'冲刺时显示明亮光柱');const half=ribbon.scale.x;
+ for(let i=0;i<10;i++)fx.update({coins:10,dash:true,...fast},.02);assert.ok(ribbon.scale.x>half);assert.ok(fx.root.children.find(c=>c.isPoints).visible);
+ for(let i=0;i<60;i++)fx.update({coins:10,...fast},.02);assert.equal(fx.root.visible,false,'冲刺结束后隐藏');
+ fx.update({coins:5,...fast},.1);const burst=fx.root.children.find(c=>c.name==='coin-loss');assert.equal(burst.count,5);assert.equal(burst.visible,true);assert.equal(fx.root.visible,true);fx.update({coins:5,...fast},.81);assert.equal(burst.visible,false);
  fx.dispose();assert.equal(root.children.length,0);
-});
-
-test('平时为细金线且逐枚加粗加亮，停车隐藏，冲刺时放大成明亮光柱后回落',()=>{
- const fx=coinsModule.createCoinTrail(new THREE.Group()),fast={vx:0,vz:30};let width=0,brightness=0;
- for(let coins=1;coins<=10;coins++){fx.update({coins,...fast},.01);const ribbon=fx.root.children[0];assert.ok(ribbon.scale.x>width);assert.ok(ribbon.material.opacity>brightness);assert.ok(ribbon.material.opacity<.6,'平时不应像加速光柱');assert.equal(ribbon.material.blending,THREE.NormalBlending);assert.match(ribbon.material.fragmentShader,/mix\(/);width=ribbon.scale.x;brightness=ribbon.material.opacity;}
- const ribbon=fx.root.children[0];fx.update({coins:3,vx:0,vz:0},.01);assert.equal(ribbon.visible,false,'停车时不显示流光');
- fx.update({coins:3,...fast},.01);const idleWidth=ribbon.scale.x,idleLength=ribbon.scale.y;
- for(let i=0;i<10;i++)fx.update({coins:3,coinDash:.3,...fast},.02);assert.ok(ribbon.scale.x>idleWidth*2&&ribbon.scale.y>idleLength*2&&ribbon.material.opacity>.8,'冲刺时明显放大');
- for(let i=0;i<60;i++)fx.update({coins:3,coinDash:0,...fast},.02);assert.ok(Math.abs(ribbon.scale.x-idleWidth)<.05,'冲刺结束回到细线');
- fx.dispose();
 });

@@ -53,13 +53,12 @@ export function createCoinTrail(parent) {
   if(disposed)return;const coins=Math.max(0,Math.min(10,state.coins??0)),k=coins/10;time+=Math.max(0,dt);
   root.updateWorldMatrix(true,false);inverse.copy(root.matrixWorld).invert();
   if(before!==undefined&&coins<before){age=0;burst.count=before-coins;origin.set(0,.7,0).applyMatrix4(root.matrixWorld);burst.visible=true;}before=coins;
-  age+=Math.max(0,dt);root.visible=coins>0||age<.8;
-  // 平时只是一道随车速伸缩的细金线，停车即消失；金币冲刺的 0.4 秒内才放大成明亮光柱，避免误以为在加速
+  age+=Math.max(0,dt);
+  // 只在金币冲刺的 0.4 秒内显示明亮光柱，平时不显示任何流光，避免误以为在加速
   const speed=Math.min(1,Math.hypot(state.vx||0,state.vz||0)/30),dashing=state.coinDash>0||!!state.dash;
   glow+=((dashing?1:0)-glow)*Math.min(1,Math.max(0,dt)*(dashing?18:5));
-  const idle=coins>0&&speed>.06;
-  for(const ribbon of ribbons){ribbon.visible=coins>0&&(idle||glow>.02);ribbon.scale.x=(.3+.35*k)*(1-glow)+2.2*glow;ribbon.scale.y=Math.max((1+3*k)*speed*(1-glow)+6*glow,.01);ribbon.position.z=2.2+ribbon.scale.y/2;}
-  material.opacity=(.22+.28*k)*speed*(1-glow)+glow;material.uniforms.strength.value=material.opacity;sparks.visible=coins===10&&(speed>.3||glow>.02);
+  for(const ribbon of ribbons){ribbon.visible=glow>.02;ribbon.scale.x=(1.2+.6*k)*glow;ribbon.scale.y=Math.max((4+2*k)*glow*(.5+.5*speed),.01);ribbon.position.z=2.2+ribbon.scale.y/2;}
+  material.opacity=glow;material.uniforms.strength.value=material.opacity;sparks.visible=coins===10&&glow>.02;root.visible=glow>.02||age<.8;
   for(let i=0;i<12;i++){const t=(time*2+i/12)%1;positions[i*3]=Math.sin(i*2.4+time)*(.3+t*.7);positions[i*3+1]=.4+Math.cos(i*1.3+time)*.15;positions[i*3+2]=2.3+t*6;}points.attributes.position.needsUpdate=true;
   if(age<.8){for(let i=0;i<burst.count;i++){const angle=i*Math.PI*2/burst.count;dummy.position.copy(origin).add(new THREE.Vector3(Math.cos(angle)*age*4,age*4-age*age*6,Math.sin(angle)*age*4)).applyMatrix4(inverse);dummy.rotation.set(age*9,angle+age*6,age*4);dummy.updateMatrix();burst.setMatrixAt(i,dummy.matrix);}burst.instanceMatrix.needsUpdate=true;lossMaterial.opacity=1-age/.8;}
   else burst.visible=false;
