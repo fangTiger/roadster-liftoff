@@ -521,6 +521,7 @@ export default {
   "room.error.BAD_PASSWORD": "Wrong password",
   "room.error.LOCKED_OUT": "Too many attempts, try again in 1 min",
   "room.error.BAD_LOCKED": "Invalid params",
+  "room.error.MAINTENANCE": "Server under maintenance. Please rejoin later.",
   "room.error.CONNECT_FAILED": "Connection timed out, please retry",
   'wallet.success.confirmed': 'First Lap NFT minted. Reading token number…',
   // —— 钱包中心 ——

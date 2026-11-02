@@ -37,7 +37,7 @@
   <img src="docs/screenshots/rooms-race.jpg" width="49%" alt="多人道具赛：同场赛车与实时名次">
 </p>
 
-多人房间需要单独运行 `npm run rooms`。线上默认关闭，构建时设置 `VITE_ROOMS_ENABLED=1` 开启，并提供可访问的房间 WebSocket 服务。
+多人房间需要单独运行 `npm run rooms`。线上默认关闭，构建时设置 `VITE_ROOMS_ENABLED=1` 开启，并提供可访问的房间 WebSocket 服务。`VITE_ROOMS_URL` 指定独立服务地址，未设置时连接同域名 `/rooms`。服务端变量及用途见 [deploy/rooms/README.md](deploy/rooms/README.md)。
 
 ### 飞向太空
 
@@ -125,6 +125,7 @@ npm run dev:api
 | `VITE_ARC_NETWORK` | 选择 Arc 网络，默认测试网 |
 | `VITE_RACING_ADDRESS` | 对应网络的赛道合约地址，主网需显式配置 |
 | `VITE_ROOMS_ENABLED` | 生产构建的多人房间入口开关 |
+| `VITE_ROOMS_URL` | 多人房间 ws/wss 服务地址；未设置时使用同域名 `/rooms` |
 | `GHOST_STORE` | 录像存储后端；文件模式用于本地联调，默认使用 Blob |
 | `BLOB_READ_WRITE_TOKEN` | Blob 存储访问凭据，仅服务端使用 |
 | `API_PORT` | 本地接口监听端口，修改时需同步 Vite 代理 |

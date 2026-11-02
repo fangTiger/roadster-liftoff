@@ -1,0 +1,22 @@
+[Unit]
+Description=Mars Roadster 多人房间服务
+After=network.target
+
+[Service]
+Type=simple
+User=roadster
+WorkingDirectory=/opt/mars-roadster-rooms
+EnvironmentFile=/etc/mars-roadster-rooms.env
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=2
+MemoryMax=256M
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+KillSignal=SIGTERM
+TimeoutStopSec=5
+
+[Install]
+WantedBy=multi-user.target

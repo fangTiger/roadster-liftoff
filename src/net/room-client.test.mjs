@@ -7,9 +7,9 @@ class Socket {
  send(raw){this.sent.push(JSON.parse(raw));}
  open(){this.readyState=1;this.onopen();}
  message(m){this.onmessage({data:JSON.stringify(m)});}
- close(){this.readyState=3;this.onclose?.();}
+ close(code){this.readyState=3;this.onclose?.({code});}
 }
-function fixture(){let time=1000;const jobs=new Map();let id=0;const client=createRoomClient({url:'https://game.example/?race&room',WebSocket:Socket,now:()=>time,setTimeout:fn=>{jobs.set(++id,fn);return id;},clearTimeout:id=>jobs.delete(id),setInterval:fn=>{jobs.set(++id,fn);return id;},clearInterval:id=>jobs.delete(id)});return {client,jobs,advance:ms=>time+=ms,socket:()=>Socket.all.at(-1)};}
+function fixture(options={}){let time=1000;const jobs=new Map();let id=0;const client=createRoomClient({url:'https://game.example/?race&room',WebSocket:Socket,now:()=>time,setTimeout:fn=>{jobs.set(++id,fn);return id;},clearTimeout:id=>jobs.delete(id),setInterval:fn=>{jobs.set(++id,fn);return id;},clearInterval:id=>jobs.delete(id),...options});return {client,jobs,advance:ms=>time+=ms,socket:()=>Socket.all.at(-1)};}
 test('同源 wss、订阅消息、最小 RTT 的最近八次校时，取消订阅',()=>{
  const f=fixture(),seen=[];const off=f.client.on('room',m=>seen.push(m));f.client.connect({name:'甲'});const s=f.socket();assert.equal(s.url,'wss://game.example/rooms');s.open();assert.equal(s.sent[0].type,'hello');
  s.message({type:'room',code:'ABC234'});assert.equal(seen.length,1);off();s.message({type:'room'});assert.equal(seen.length,1);
@@ -40,4 +40,20 @@ test('加入尚未返回时恢复浏览会取消旧连接，迟到 welcome 不�
  f.client.browse();const b=f.socket();assert.notEqual(b,a);assert.equal(a.readyState,3);b.open();
  assert.doesNotThrow(()=>a.message({type:'welcome',id:'旧连接',resumeToken:'旧令牌'}));assert.equal(f.client.id,null);assert.equal(b.sent[0].type,'listRooms');
  f.client.connect({name:'甲',roomCode:'ABC234',password:'2468'});b.message({type:'welcome',id:'新连接',resumeToken:'新令牌'});assert.equal(f.client.id,'新连接');f.client.leave();
+});
+
+test('独立 ws/wss 地址直接使用，同源 HTTP 仍走 /rooms',()=>{
+ for(const roomsUrl of ['wss://rooms.example:8443/rooms?region=tokyo','ws://127.0.0.1:8933/rooms']){
+  const f=fixture({roomsUrl});f.client.browse();assert.equal(f.socket().url,roomsUrl);f.client.leave();
+ }
+ const f=fixture({url:'http://localhost:8932/?room',roomsUrl:''});f.client.connect({name:'甲'});assert.equal(f.socket().url,'ws://localhost:8932/rooms');f.client.leave();
+});
+for(const source of ['message','close'])test(`维护 ${source} 停止重连、清除恢复令牌且只通知一次`,()=>{
+ const f=fixture(),seen=[];f.client.on('maintenance',()=>seen.push('maintenance'));f.client.connect({name:'甲'});const s=f.socket();s.open();s.message({type:'welcome',id:'a',resumeToken:'旧令牌'});
+ if(source==='message'){s.message({type:'maintenance'});s.message({type:'maintenance'});s.close(1012);}else s.close(1012);
+ assert.deepEqual(seen,['maintenance']);assert.equal(f.client.connected,false);assert.equal(f.client.id,null);assert.equal(f.jobs.size,0);
+ f.client.browse();const next=f.socket();next.open();assert.deepEqual(next.sent[0],{type:'listRooms'});f.client.connect({name:'乙'});assert.deepEqual(next.sent.at(-1),{type:'hello',name:'乙'});f.client.leave();
+});
+test('浏览中维护同样停止心跳与重连',()=>{
+ const f=fixture();let notified=0;f.client.on('maintenance',()=>notified++);f.client.browse();const s=f.socket();s.open();s.message({type:'maintenance'});assert.equal(notified,1);assert.equal(f.jobs.size,0);f.client.leave();
 });

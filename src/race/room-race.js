@@ -12,7 +12,7 @@ import { createRoomBots,carState } from './room-bots.js';
 import { DT } from './sim/physics.js';
 import { BRAKE } from './sim/input-bits.js';
 // 房主与所属机器人同步推进；网络远端只用于渲染和本地软碰撞。
-export function mountRoomRace({engine,params,setup,clear,simulate,render,getState,getTrack,getBits,getGhost=()=>false,isPaused=()=>false,client=createRoomClient(),ui,createRemote=createRemoteCar,requestFrame=globalThis.requestAnimationFrame,selfRoot,inputTarget=globalThis,applyEffect=()=>{},random=Math.random,playSound=()=>{},setMusicPhase=()=>{},createItemsFx=createItemFx}) {
+export function mountRoomRace({engine,params,setup,clear,simulate,render,getState,getTrack,getBits,getGhost=()=>false,isPaused=()=>false,client=createRoomClient({roomsUrl:import.meta.env?.VITE_ROOMS_URL}),ui,createRemote=createRemoteCar,requestFrame=globalThis.requestAnimationFrame,selfRoot,inputTarget=globalThis,applyEffect=()=>{},random=Math.random,playSound=()=>{},setMusicPhase=()=>{},createItemsFx=createItemFx}) {
  const buffers=new Map(),remotes=new Map(),emotes=new Map(),departed=new Set();let bots=new Map(),round=null,active=false,loading=false,dead=false,version=0,sequence=0,lastSend=-Infinity,lastFinish=-Infinity,lastRanks=-Infinity,lastFrame,queue=Promise.resolve(),players=[],items=null,itemFx=null,pendingItems=[],lastTick=-1,lastWarning=-Infinity,rivals=[];
  function invalidateTarget(id){items?.invalidate(id);for(const m of pendingItems)if(m.kind==='missile'&&m.target===id)m.invalid=true;}
  function clearItems(){items?.dispose();items=null;itemFx?.dispose();itemFx=null;pendingItems=[];lastWarning=-Infinity;}

@@ -1,0 +1,9 @@
+52-195-18-175.sslip.io {
+ @rooms path /rooms* /healthz
+ handle @rooms {
+  reverse_proxy 127.0.0.1:8933
+ }
+ handle {
+  respond 404
+ }
+}

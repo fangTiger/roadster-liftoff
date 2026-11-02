@@ -64,7 +64,7 @@ export function mountRoomUI({client,roomCode='',password='',browserFactory=creat
  const browser=browserFactory({container:$('[data-rm-browser]'),t,
   onJoin:({code,password})=>join({roomCode:code,password}),
   onCreate:create=>join({create}),
-  onRefresh:()=>{if(busy)return;browser.setStatus('connecting');client.browse?.();},
+  onRefresh:()=>{if(busy)return;error='';browser.setStatus('connecting');client.browse?.();paint();},
  });
  function paintPlayers(){
   $('[data-rm-players]').replaceChildren();
@@ -145,12 +145,12 @@ export function mountRoomUI({client,roomCode='',password='',browserFactory=creat
  for(const button of root.querySelectorAll('[data-rm-track]'))button.onclick=()=>{client.send({type:'pickTrack',trackId:Number(button.dataset.rmTrack)});closeTrackPicker(true);};
  for(const mode of ['items','speed'])$(`[data-rm-mode="${mode}"]`).onclick=()=>client.send({type:'pickMode',mode});
  $('[data-rm-copy]').onclick=async()=>{try{await navigator.clipboard.writeText(invitationURL(room.code,location.href,roomPassword,room.locked));copied=true;paint();}catch{error='COPY_FAILED';paint();}};
- function leave(){clearTimeout(transitionTimer);flash.hidden=true;closeTrackPicker();finishJoin({ok:false,code:'CANCELLED'});client.leave();roomPassword='';room=null;results=null;busy=false;error='';view='lobby';onReturn();client.browse?.();paint();}
+ function leave({maintenance=false}={}){clearTimeout(transitionTimer);flash.hidden=true;closeTrackPicker();finishJoin({ok:false,code:maintenance?'MAINTENANCE':'CANCELLED'});client.leave();roomPassword='';room=null;results=null;lastRanks=[];busy=false;error=maintenance?'MAINTENANCE':'';view='lobby';onReturn();if(maintenance){connection=false;browserRows={rows:[],online:0};browser.close();browser.setStatus('offline');}else client.browse?.();paint();}
  $('[data-rm-leave]').onclick=leave;$('[data-rm-home]').onclick=()=>{setMusicPhase('off');client.leave();};
  function returnToLobby(){results=null;view='lobby';onReturn();paint();}
  $('[data-rm-return]').onclick=returnToLobby;
  $('[data-rm-rematch]').onclick=()=>{returnToLobby();if(room?.hostId!==client.id)client.send({type:'ready',on:true});};
- const unsubs=[client.on('welcome',()=>{busy=false;error='';}),client.on('room',m=>{room=m;busy=false;finishJoin({ok:true});if(globalThis.location?.href){const url=new URL(location.href);if(url.searchParams.has('pw')){url.searchParams.delete('pw');globalThis.history?.replaceState(globalThis.history.state,'',url.href);}}browser.close();paint();}),client.on('connection',m=>{connection=m.connected;if(!room)browser.setStatus(connection?'online':'offline');paint();}),client.on('error',m=>{error=m.code;busy=false;finishJoin({ok:false,code:m.code});if(m.code==='NO_ROOM'){room=null;view='lobby';onReturn();}paint();}),client.on('results',m=>{results=m.results;view='results';paint();}),client.on('rooms',m=>{browserRows={rows:m.rooms,online:m.online};browser.update(browserRows);browser.setStatus('online');}),onLangChange(()=>{browser.refreshLabels?.();paint();})];
+ const unsubs=[client.on('maintenance',()=>leave({maintenance:true})),client.on('welcome',()=>{busy=false;error='';}),client.on('room',m=>{room=m;busy=false;finishJoin({ok:true});if(globalThis.location?.href){const url=new URL(location.href);if(url.searchParams.has('pw')){url.searchParams.delete('pw');globalThis.history?.replaceState(globalThis.history.state,'',url.href);}}browser.close();paint();}),client.on('connection',m=>{connection=m.connected;if(!room)browser.setStatus(connection?'online':'offline');paint();}),client.on('error',m=>{error=m.code;busy=false;finishJoin({ok:false,code:m.code});if(m.code==='NO_ROOM'){room=null;view='lobby';onReturn();}paint();}),client.on('results',m=>{results=m.results;view='results';paint();}),client.on('rooms',m=>{browserRows={rows:m.rooms,online:m.online};browser.update(browserRows);browser.setStatus('online');}),onLangChange(()=>{browser.refreshLabels?.();paint();})];
  paint();browser.setStatus('connecting');if(roomCode)joinCode(roomCode.toUpperCase(),password);else client.browse?.();
  return {
   get room(){return room;},get view(){return view;},

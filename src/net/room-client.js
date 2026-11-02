@@ -1,6 +1,6 @@
 // 仅使用内存保存恢复令牌；离房时清除，网络断开时保留同一局的本地模拟。
-export function createRoomClient({url=globalThis.location.href,WebSocket=globalThis.WebSocket,now=Date.now,setTimeout=globalThis.setTimeout,clearTimeout=globalThis.clearTimeout,setInterval=globalThis.setInterval,clearInterval=globalThis.clearInterval}={}) {
- const endpoint=new URL('/rooms',url);endpoint.protocol=endpoint.protocol==='https:'?'wss:':'ws:';
+export function createRoomClient({url=globalThis.location?.href,roomsUrl,WebSocket=globalThis.WebSocket,now=Date.now,setTimeout=globalThis.setTimeout,clearTimeout=globalThis.clearTimeout,setInterval=globalThis.setInterval,clearInterval=globalThis.clearInterval}={}) {
+ const endpoint=roomsUrl?new URL(roomsUrl):new URL('/rooms',url);if(!roomsUrl)endpoint.protocol=endpoint.protocol==='https:'?'wss:':'ws:';
  const listeners=new Map(),pending=new Map();let mode='joining',socket,hello,id,resumeToken,stopped=true,retry,pulse,attempt=0,offset=0,samples=[];
  const emit=(type,m)=>{for(const fn of listeners.get(type)||[])fn(m);};
  function send(message){if(socket?.readyState!==1)return false;socket.send(JSON.stringify(message));return true;}
@@ -16,6 +16,7 @@ export function createRoomClient({url=globalThis.location.href,WebSocket=globalT
    if(stopped||socket!==active)return;
    let m;try{m=JSON.parse(event.data);}catch{return;}
    if(!m||typeof m.type!=='string')return;
+   if(m.type==='maintenance'){maintenance();return;}
    if(m.type==='welcome'){id=m.id;resumeToken=m.resumeToken;hello={name:hello.name,...(hello.roomCode?{roomCode:hello.roomCode}:{})};send({type:'unlistRooms'});emit('connection',{connected:true});}
    if(m.type==='rooms')emit('connection',{connected:true});
    if(m.type==='error'&&!id&&mode==='joining'){mode='browsing';hello=null;send({type:'listRooms'});}
@@ -26,13 +27,15 @@ export function createRoomClient({url=globalThis.location.href,WebSocket=globalT
    if(m.type==='error'&&m.code==='NO_ROOM'&&resumeToken){resumeToken=null;id=null;stopped=true;clearInterval(pulse);active.close();}
    emit(m.type,m);
   };
-  active.onclose=()=>{
+  active.onclose=event=>{
    if(socket!==active)return;
+   if(event?.code===1012&&!stopped){maintenance();return;}
    clearInterval(pulse);pulse=undefined;pending.clear();emit('connection',{connected:false});
    if(!stopped)retry=setTimeout(()=>{retry=undefined;open();},Math.min(5000,500*2**attempt++));
   };
   active.onerror=()=>{};
  }
+ function maintenance(){if(stopped)return;id=resumeToken=null;stop();emit('maintenance');}
  function stop(){stopped=true;clearTimeout(retry);clearInterval(pulse);retry=pulse=undefined;socket?.close();socket=null;pending.clear();}
  return {
   browse(){

@@ -175,3 +175,21 @@ test('手机可见展厅标题与大厅标题同步显示房名和锁',async()=>
  assert.equal(f.get('[data-rm-garage-title]').textContent,'🔒 好友的房间');
  }finally{ui?.destroy();f.restore();}
 });
+
+test('维护从大厅、比赛或结果回到空列表，中英文提示保留且不自动浏览重连',async()=>{
+ const {mountRoomUI}=await import('./room-ui.js'),{setLang}=await import('../i18n/i18n.js');
+ for(const view of ['lobby','racing','results']){
+  const f=uiFixture();let ui,browsed=0,left=0,returned=0;f.client.browse=()=>browsed++;f.client.leave=()=>left++;
+  try{
+   ui=mountRoomUI({client:f.client,browserFactory:stubBrowser,onReturn:()=>returned++});f.emit('connection',{connected:true});f.emit('room',f.room);
+   if(view==='racing')ui.racing();if(view==='results')f.emit('results',{results:[]});
+   f.emit('maintenance');assert.equal(ui.room,null);assert.equal(ui.view,'lobby');assert.equal(left,1);assert.equal(returned,1);assert.equal(browsed,1);
+   assert.equal(f.get('[data-rm-browser-page]').hidden,false);assert.equal(f.get('[data-rm-standings]').hidden,true);assert.equal(f.get('[data-rm-results]').hidden,true);
+   assert.equal(f.get('[data-rm-browser-error]').textContent,'服务器维护中，请稍后重新进入');setLang('en');assert.equal(f.get('[data-rm-browser-error]').textContent,'Server under maintenance. Please rejoin later.');
+  }finally{ui?.destroy();setLang('zh');f.restore();}
+ }
+});
+test('入房等待中维护会取消超时任务并结算加入，不触发自动浏览',async()=>{
+ const {mountRoomUI}=await import('./room-ui.js'),f=uiFixture();let ui,callbacks,browsed=0;f.client.browse=()=>browsed++;f.client.leave=()=>{};f.client.connect=()=>{};f.get('[data-rm-name]').value='';
+ try{ui=mountRoomUI({client:f.client,browserFactory:options=>{callbacks=options;return stubBrowser();}});const pending=callbacks.onCreate({name:'房间',locked:false});f.emit('maintenance');assert.deepEqual(await pending,{ok:false,code:'MAINTENANCE'});assert.equal(browsed,1);assert.equal(f.get('[data-rm-join]').disabled,false);}finally{ui?.destroy();f.restore();}
+});

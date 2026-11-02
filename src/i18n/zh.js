@@ -520,6 +520,7 @@ export default {
   "room.error.BAD_PASSWORD": "密码错误",
   "room.error.LOCKED_OUT": "错误次数过多，请 1 分钟后再试",
   "room.error.BAD_LOCKED": "参数错误",
+  "room.error.MAINTENANCE": "服务器维护中，请稍后重新进入",
   "room.error.CONNECT_FAILED": "连接超时，请重试",
   'wallet.success.confirmed': '首圈纪念 NFT 已铸造，编号读取中',
   // —— 钱包中心 ——

@@ -193,5 +193,5 @@ export function createRooms({now=Date.now,random=Math.random,send,close=()=>{},o
   error(c,'BAD_MESSAGE');
  }
  function disconnect(c){subscribers.delete(c);addresses.delete(c);disconnected.add(c);const p=clients.get(c);if(!p)return;clients.delete(c);p.connected=false;p.ready=false;p.expires=now()+GRACE;p.connection=null;const r=rooms.get(p.code);abandonBots(r,p.id);invalidateTarget(r,p.id);host(r);publish(r);complete(r);}
- return {connect(c,ip){addresses.set(c,ip);disconnected.delete(c);},receive,disconnect,tick};
+ return {get size(){return rooms.size;},connect(c,ip){addresses.set(c,ip);disconnected.delete(c);},receive,disconnect,tick};
 }

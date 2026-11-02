@@ -1,16 +1,16 @@
 ## 1. 房间服务（代码）
-- [ ] 1.1 新增 `server/rooms/config.js`：解析端口、监听地址、来源白名单、连接上限、是否信任代理，附测试
-- [ ] 1.2 新增 `server/rooms/admission.js`：来源匹配（含通配）、全服与单 IP 计数，附测试
-- [ ] 1.3 `server.js` 改为 HTTP 服务承载 WebSocket：`/healthz`、握手准入、维护停机
-- [ ] 1.4 停机流程测试（维护消息、1012 关闭码、计时器清理）
+- [x] 1.1 新增 `server/rooms/config.js`：解析端口、监听地址、来源白名单、连接上限、是否信任代理，附测试
+- [x] 1.2 新增 `server/rooms/admission.js`：来源匹配（含通配）、全服与单 IP 计数，附测试
+- [x] 1.3 `server.js` 改为 HTTP 服务承载 WebSocket：`/healthz`、握手准入、维护停机
+- [x] 1.4 停机流程测试（维护消息、1012 关闭码、计时器清理）
 
 ## 2. 前端（代码）
-- [ ] 2.1 `room-client.js` 支持 `VITE_ROOMS_URL`，附测试
-- [ ] 2.2 处理维护消息与 1012 关闭码：停止重连，提示后回到房间列表；补中英词条
-- [ ] 2.3 README 环境变量表补充 `VITE_ROOMS_URL` 与服务端变量
+- [x] 2.1 `room-client.js` 支持 `VITE_ROOMS_URL`，附测试
+- [x] 2.2 处理维护消息与 1012 关闭码：停止重连，提示后回到房间列表；补中英词条
+- [x] 2.3 README 环境变量表补充 `VITE_ROOMS_URL` 与服务端变量
 
 ## 3. 部署文件
-- [ ] 3.1 `deploy/rooms/` 下的 systemd 服务、Caddyfile、环境变量示例、`deploy.sh`、中文 README
+- [x] 3.1 `deploy/rooms/` 下的 systemd 服务、Caddyfile、环境变量示例、`deploy.sh`、中文 README
 
 ## 4. 上线（审查者执行，每步先征得用户同意）
 - [ ] 4.1 用户确认安全组已放行 80/443，且实例使用弹性 IP
