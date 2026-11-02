@@ -435,7 +435,7 @@ export function createAudio({ urls, music = true } = {}) {
     for (const deck of raceTracks || []) { deck.el.pause(); smooth(deck.output.gain, 0, .008); }
   }
   function raceMix(fade = false) {
-    smooth(raceLevel.gain, .28 * .6 * (racePhase === 'paused' ? .3 : 1), fade ? 1.5 / 5 : .15 / 5);
+    smooth(raceLevel.gain, .52 * (racePhase === 'paused' ? .3 : 1), fade ? 1.5 / 5 : .15 / 5);
     smooth(raceLowpass.frequency, racePhase === 'paused' ? 1200 : 20000, .15 / 5);
   }
   function fadeRaceIn() {
