@@ -1,9 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import sharp from 'sharp';
 import { readFile } from 'node:fs/promises';
 import { ContractFunctionRevertedError } from 'viem';
 import { createMetadataHandler } from './nft/[id].js';
-import { createImageHandler } from './nft/image/[id].js';
+import * as imageModule from './nft/image/[id].js';
+const { createImageHandler } = imageModule;
 import { createViewHandler } from './nft/view/[id].js';
 import { createTokenReader, getServerConfig, TokenNotFoundError } from './_lib/chain.js';
 
@@ -28,6 +30,7 @@ test('元数据完整、复用格式化、带更新版本及缓存与跨域头',
   for (const text of ['first', 'lap', 'self-reported', 'non-transferable', 'non-commercial', 'Tesla', 'SpaceX']) assert.ok(data.description.includes(text));
   assert.deepEqual(data.attributes, [
     { trait_type: 'Track', value: 'Meadow Loop' },
+    { trait_type: 'Tier', value: 'Silver' },
     { trait_type: 'First lap', value: '50.00 s' },
     { trait_type: 'Best lap', value: '46.83 s' },
     { trait_type: 'Achievements', value: 12, max_value: 28, display_type: 'number' },
@@ -43,13 +46,13 @@ test('更新后的图片地址变化', async () => {
   assert.match((await (await get(request())).json()).image, /\?v=1793060300$/);
 });
 
-test('动态展示页：服务器写入链上数据、视频地址、点亮对应成就格', async () => {
+test('动态展示页：服务器写入链上数据、赛道底图、点亮对应成就格', async () => {
   const res = await createViewHandler({ readToken, siteUrl: 'https://custom.example/', network: 'mainnet' })(request());
   assert.equal(res.status, 200);
   assert.match(res.headers.get('content-type'), /text\/html/);
   assert.equal(res.headers.get('access-control-allow-origin'), '*');
   const html = await res.text();
-  assert.ok(html.includes('src="https://custom.example/assets/nft/loop.mp4"'));
+  assert.ok(html.includes('src="https://custom.example/assets/nft/track-1.jpg"'));
   assert.ok(html.includes('FIRST LAP&nbsp;&nbsp;#0001'));
   assert.ok(html.includes('data-ms="50000">50.00 s'));
   assert.ok(html.includes('12/28'));
@@ -127,3 +130,66 @@ test('超出 Record uint32 编号范围的正整数直接判为不存在', async
   const reader = createTokenReader({ address: owner, readContract: async () => assert.fail('超出编号范围不应读链') });
   await assert.rejects(reader(1n << 256n), TokenNotFoundError);
 });
+
+const palettes = {
+  Gold: ['#f6d27a', '#c8902f'], Silver: ['#e6eef5', '#9fb3c4'], Bronze: ['#e3a77a', '#9a5b34'],
+};
+// 同时检查静态图元素树与真实 PNG，避免仅验证样式配置而漏掉渲染兼容性。
+for (const [trackId, times] of [[1, [43500, 51000, 51001]], [2, [46500, 54600, 54601]], [3, [81000, 95000, 95001]]]) {
+  for (const [index, tier] of ['Gold', 'Silver', 'Bronze'].entries()) {
+    test(`赛道 ${trackId} 的 ${tier} 在三个接口保持一致`, async () => {
+      const token = { owner, record: { ...record, firstTrack: trackId, firstLapMs: times[2] + 1000 }, best: { ...best, bestMs: times[index], verified: true } };
+      const config = { ...token, id: 1n, network: 'mainnet', siteUrl: 'https://custom.example' };
+      const tree = imageModule.renderImage(config), serialized = JSON.stringify(tree);
+      assert.ok(serialized.includes(`/assets/nft/track-${trackId}.jpg`));
+      assert.ok(serialized.includes(tier.toUpperCase()));
+      for (const color of palettes[tier]) assert.ok(serialized.includes(color));
+      assert.ok(serialized.includes('VERIFIED · NON-TRANSFERABLE · ARC'));
+      assert.ok(serialized.includes(`${(times[index] / 1000).toFixed(2)} s`));
+      const read = async () => token;
+      const metadata = await (await createMetadataHandler({ readToken: read })(request())).json();
+      assert.equal(metadata.attributes.find(a => a.trait_type === 'Tier').value, tier);
+      assert.match(metadata.description, /verified by the server/);
+      assert.doesNotMatch(metadata.description, /self-reported/);
+      for (const text of ['non-transferable', 'non-commercial', 'Tesla', 'SpaceX']) assert.ok(metadata.description.includes(text));
+      const html = await (await createViewHandler({ readToken: read })(request())).text();
+      assert.ok(html.includes(`/assets/nft/track-${trackId}.jpg`));
+      assert.ok(html.includes(tier.toUpperCase()));
+      for (const color of palettes[tier]) assert.ok(html.includes(color));
+      assert.match(html, /VERIFIED · NON-TRANSFERABLE/);
+      assert.doesNotMatch(html, /<video|loop\.mp4|ORBIT/);
+      assert.match(html, /@keyframes zoom/);
+      assert.match(html, /prefers-reduced-motion:reduce/);
+      const base = await readFile(new URL('../public/assets/nft/base.jpg', import.meta.url));
+      const res = await createImageHandler({ readToken: read, baseImage: `data:image/jpeg;base64,${base.toString('base64')}` })(request());
+      assert.equal(res.status, 200);
+      const png = Buffer.from(await res.arrayBuffer());
+      assert.equal(png.readUInt32BE(16), 1024);
+      assert.equal(png.readUInt32BE(20), 1024);
+      for (const [position, color] of [[1, palettes[tier][0]], [1022, palettes[tier][1]]]) {
+        const pixel = await sharp(png).extract({ left: position, top: position, width: 1, height: 1 }).removeAlpha().raw().toBuffer();
+        const expected = color.slice(1).match(/../g).map(channel => parseInt(channel, 16));
+        expected.forEach((channel, i) => assert.ok(Math.abs(pixel[i] - channel) <= 5, `外框应显示 ${color}，实际 ${[...pixel]}`));
+      }
+
+    });
+  }
+}
+for (const [firstTrack, firstLapMs, tier, image] of [[2, 46500, 'Gold', 'track-2.jpg'], [99, 1, 'Bronze', 'base.jpg']]) {
+  test(`赛道 ${firstTrack} 无最快圈时使用首圈，未知赛道使用通用图与铜级`, async () => {
+    const token = { owner, record: { ...record, firstTrack, firstLapMs }, best: { ...best, bestMs: 0 } };
+    const read = async () => token;
+    const data = await (await createMetadataHandler({ readToken: read })(request())).json();
+    assert.equal(data.attributes.find(a => a.trait_type === 'Tier').value, tier);
+    assert.equal(data.attributes.find(a => a.trait_type === 'Best lap').value, `${(firstLapMs / 1000).toFixed(2)} s`);
+    assert.match(data.description, /self-reported by the player/);
+    const html = await (await createViewHandler({ readToken: read })(request())).text();
+    const tree = JSON.stringify(imageModule.renderImage({ ...token, id: 1n, siteUrl: 'https://custom.example', network: 'testnet' }));
+    for (const output of [html, tree]) {
+      assert.ok(output.includes(`/assets/nft/${image}`));
+      assert.ok(output.includes(tier.toUpperCase()));
+      assert.ok(output.includes(`${(firstLapMs / 1000).toFixed(2)} s`));
+      assert.ok(output.includes('SELF-REPORTED · NON-TRANSFERABLE'));
+    }
+  });
+}
