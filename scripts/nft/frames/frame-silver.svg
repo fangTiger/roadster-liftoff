@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>SILVER · 原创卷草蓝宝石框</title>
+  <defs>
+    <linearGradient id="silver" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#fbffff"/><stop offset=".23" stop-color="#788fa6"/><stop offset=".47" stop-color="#e8f3ff"/><stop offset=".72" stop-color="#60768b"/><stop offset="1" stop-color="#cbdce9"/>
+    </linearGradient>
+    <linearGradient id="bevel" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#ffffff"/><stop offset=".27" stop-color="#9eafc4"/><stop offset=".49" stop-color="#f2faff"/><stop offset=".7" stop-color="#596f86"/><stop offset="1" stop-color="#283d52"/>
+    </linearGradient>
+    <g id="sapphire">
+      <path d="M-17-24H17L29-5 20 19 0 30-20 19-29-5Z" fill="#152a4a" stroke="#d9edff" stroke-width="4"/>
+      <path d="M-15-21 15-21 9-8-9-8Z" fill="#a8e5ff"/>
+      <path d="M-15-21-9-8-25-4Z" fill="#4d9cfa"/><path d="M15-21 25-4 9-8Z" fill="#dbf7ff"/>
+      <path d="M-25-4-9-8-11 9Z" fill="#72beff"/><path d="M25-4 11 9 9-8Z" fill="#1d4fbb"/>
+      <path d="M-25-4-11 9-18 17Z" fill="#1754ca"/><path d="M25-4 18 17 11 9Z" fill="#528be5"/>
+      <path d="M-18 17-11 9 0 26Z" fill="#092c84"/><path d="M-11 9 11 9 0 26Z" fill="#468ffa"/><path d="M11 9 18 17 0 26Z" fill="#173e9f"/>
+      <path d="M-9-8H9L11 9H-11Z" fill="#2c80ec"/><circle cx="-8" cy="-13" r="3.3" fill="#fff"/>
+    </g>
+    <g id="corner">
+      <path d="M20 128V33Q20 20 33 20H128L106 40H58L40 58V106Z" fill="url(#bevel)" stroke="#455c72" stroke-width="2"/>
+      <path d="M36 105C78 96 100 86 94 65C89 47 66 53 70 68C73 80 88 71 81 65M105 36C96 78 86 100 65 94C47 89 53 66 68 70C80 73 71 88 65 81" fill="none" stroke="#293f56" stroke-width="8"/>
+      <path d="M36 103C78 94 98 84 92 65C87 50 68 54 72 67C74 74 83 71 80 66M103 36C94 78 84 98 65 92C50 87 54 68 67 72C74 74 71 83 66 80" fill="none" stroke="url(#silver)" stroke-width="4"/>
+      <use xlink:href="#sapphire" transform="translate(41 41) scale(.62) rotate(-45)"/>
+    </g>
+    <g id="wing">
+      <path d="M43 512C21 493 11 471 12 443C36 454 58 475 67 497L86 512 67 527C58 549 36 570 12 581C11 553 21 531 43 512Z" fill="url(#bevel)" stroke="#344a60" stroke-width="3"/>
+      <path d="M21 461 60 503 32 485M21 563 60 521 32 539M27 512H76" fill="none" stroke="#e8f7ff" stroke-width="2.5"/>
+      <path d="M34 493 66 512 34 531 49 512Z" fill="#718ca6" stroke="#d3e9fa" stroke-width="1.5"/>
+    </g>
+  </defs>
+  <rect x="38" y="38" width="948" height="948" rx="13" fill="none" stroke="#23384c" stroke-width="44"/>
+  <rect x="38" y="38" width="948" height="948" rx="13" fill="none" stroke="url(#silver)" stroke-width="40"/>
+  <rect x="20" y="20" width="984" height="984" rx="28" fill="none" stroke="#f7fdff" stroke-width="2"/>
+  <rect x="55" y="55" width="914" height="914" fill="none" stroke="#ecf8ff" stroke-width="3"/>
+  <rect x="62" y="62" width="900" height="900" fill="none" stroke="#3f5971" stroke-width="3"/>
+  <rect x="67" y="67" width="890" height="890" fill="none" stroke="#aec8e0" stroke-width="1" stroke-dasharray="2 5"/>
+  <use xlink:href="#corner"/><use xlink:href="#corner" transform="translate(1024 0) scale(-1 1)"/>
+  <use xlink:href="#corner" transform="translate(0 1024) scale(1 -1)"/><use xlink:href="#corner" transform="translate(1024 1024) scale(-1)"/>
+  <use xlink:href="#wing"/><use xlink:href="#wing" transform="translate(1024 0) scale(-1 1)"/>
+  <path d="M435 26 470 35 490 18H534L554 35 589 26 571 68 550 101 512 137 474 101 453 68Z" fill="url(#bevel)" stroke="#263c52" stroke-width="3"/>
+  <path d="M452 39 478 56 487 92 512 118 537 92 546 56 572 39M466 33 477 54M558 33 547 54" fill="none" stroke="#f1fbff" stroke-width="2.5"/>
+  <use xlink:href="#sapphire" transform="translate(512 65) scale(1.5)"/>
+  <path d="M384 958 405 938H619L640 958 616 1006H408Z" fill="url(#bevel)" stroke="#293e54" stroke-width="3"/>
+  <path d="M411 951H613L624 960 608 992H416L400 960Z" fill="#253d55" stroke="#c0d7eb" stroke-width="2"/>
+  <path d="M355 978H393M631 978H669" stroke="#cce4f4" stroke-width="3"/>
+  <text x="515" y="980" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="23" font-weight="700" letter-spacing="5" fill="#ebf6ff">SILVER</text>
+</svg>

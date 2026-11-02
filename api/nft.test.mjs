@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import sharp from 'sharp';
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { ContractFunctionRevertedError } from 'viem';
 import { createMetadataHandler } from './nft/[id].js';
 import * as imageModule from './nft/image/[id].js';
@@ -13,6 +13,7 @@ const owner = '0x81d400000000000000000000000000000000707B';
 const record = { tokenId: 1, firstTrack: 1, firstLapMs: 50000, achievements: 4095, mintedAt: 1793059200n, updatedAt: 1793060200n };
 const best = { bestMs: 46830, updatedAt: 1793060200n, verified: false };
 const readToken = async id => { assert.equal(id, 1n); return { owner, record, best }; };
+const localFrame = async tier => `data:image/png;base64,${(await readFile(new URL(`../public/assets/nft/frame-${tier}.png`, import.meta.url))).toString('base64')}`;
 const request = (id = '1', image = false) => new Request(`https://example.com/api/nft/${image ? 'image/' : ''}${id}`);
 
 test('元数据完整、复用格式化、带更新版本及缓存与跨域头', async () => {
@@ -115,7 +116,7 @@ test('ownerOf revert 为不存在，RPC 故障保留错误', async () => {
 
 test('图片实际渲染为 1024 方形 PNG，返回正确类型与短缓存', async () => {
   const base = await readFile(new URL('../public/assets/nft/base.jpg', import.meta.url));
-  const get = createImageHandler({ readToken, baseImage: `data:image/jpeg;base64,${base.toString('base64')}` });
+  const get = createImageHandler({ readToken, frameImage: await localFrame('bronze'), baseImage: `data:image/jpeg;base64,${base.toString('base64')}` });
   const res = await get(request('1?v=1793060200', true));
   assert.equal(res.status, 200);
   assert.equal(res.headers.get('content-type'), 'image/png');
@@ -142,6 +143,13 @@ for (const [trackId, times] of [[1, [32000, 38000, 38001]], [2, [33000, 40000, 4
       const config = { ...token, id: 1n, network: 'mainnet', siteUrl: 'https://custom.example' };
       const tree = imageModule.renderImage(config), serialized = JSON.stringify(tree);
       assert.ok(serialized.includes(`/assets/nft/track-${trackId}.jpg`));
+      const framePath = `/assets/nft/frame-${tier.toLowerCase()}.png`;
+      const frame = tree.props.children.at(-1);
+      assert.equal(frame.type, 'img');
+      assert.equal(frame.props.src, `https://custom.example${framePath}`);
+      assert.deepEqual([frame.props.width, frame.props.height], [1024, 1024]);
+      assert.equal(frame.props.style.position, 'absolute');
+      assert.ok(tree.props.children.some(child => child.props?.style?.backgroundColor === ({ Gold: 'rgba(225,164,39,0.08)', Silver: 'rgba(126,183,226,0.09)', Bronze: 'rgba(172,78,38,0.10)' })[tier]));
       assert.ok(serialized.includes(tier.toUpperCase()));
       for (const color of palettes[tier]) assert.ok(serialized.includes(color));
       assert.ok(serialized.includes('VERIFIED · NON-TRANSFERABLE · ARC'));
@@ -155,21 +163,30 @@ for (const [trackId, times] of [[1, [32000, 38000, 38001]], [2, [33000, 40000, 4
       const html = await (await createViewHandler({ readToken: read })(request())).text();
       assert.ok(html.includes(`/assets/nft/track-${trackId}.jpg`));
       assert.ok(html.includes(tier.toUpperCase()));
+      assert.ok(html.includes(`class="frame" src="https://mars-roadster.vercel.app${framePath}"`));
+      assert.ok(html.indexOf('class="frame"') > html.indexOf('class="panel in"'));
+      assert.doesNotMatch(html, /class="badge"|border-image:/);
+      assert.match(html, /\.card\{[^}]*position:relative/);
+      assert.doesNotMatch(html, /position:fixed/);
       for (const color of palettes[tier]) assert.ok(html.includes(color));
       assert.match(html, /VERIFIED · NON-TRANSFERABLE/);
       assert.doesNotMatch(html, /<video|loop\.mp4|ORBIT/);
       assert.match(html, /@keyframes zoom/);
       assert.match(html, /prefers-reduced-motion:reduce/);
       const base = await readFile(new URL('../public/assets/nft/base.jpg', import.meta.url));
-      const res = await createImageHandler({ readToken: read, baseImage: `data:image/jpeg;base64,${base.toString('base64')}` })(request());
+      const res = await createImageHandler({ readToken: read, frameImage: await localFrame(tier.toLowerCase()), baseImage: `data:image/jpeg;base64,${base.toString('base64')}` })(request());
       assert.equal(res.status, 200);
       const png = Buffer.from(await res.arrayBuffer());
       assert.equal(png.readUInt32BE(16), 1024);
       assert.equal(png.readUInt32BE(20), 1024);
-      for (const [position, color] of [[1, palettes[tier][0]], [1022, palettes[tier][1]]]) {
-        const pixel = await sharp(png).extract({ left: position, top: position, width: 1, height: 1 }).removeAlpha().raw().toBuffer();
-        const expected = color.slice(1).match(/../g).map(channel => parseInt(channel, 16));
-        expected.forEach((channel, i) => assert.ok(Math.abs(pixel[i] - channel) <= 5, `外框应显示 ${color}，实际 ${[...pixel]}`));
+      // 使用真实装饰资源对比不透明金属像素，验证 Satori 最上层确实渲染了框。
+      const frameFile = await readFile(new URL(`../public/assets/nft/frame-${tier.toLowerCase()}.png`, import.meta.url));
+      for (const [left, top] of [[34, 300], [990, 700]]) {
+        const region = { left, top, width: 1, height: 1 };
+        const expected = await sharp(frameFile).extract(region).ensureAlpha().raw().toBuffer();
+        assert.equal(expected[3], 255, '金属主体应不透明');
+        const actual = await sharp(png).extract(region).ensureAlpha().raw().toBuffer();
+        expected.forEach((channel, i) => assert.ok(Math.abs(actual[i] - channel) <= 3, `装饰框实际像素 ${actual} 应匹配资源 ${expected}`));
       }
 
     });
@@ -193,3 +210,24 @@ for (const [firstTrack, firstLapMs, tier, image] of [[2, 33000, 'Gold', 'track-2
     }
   });
 }
+
+for (const tier of ['gold', 'silver', 'bronze']) {
+  test(`${tier} 边框为 1024 方形透明 PNG，金属主体不透明且体积不超过 400KB`, async () => {
+    const file = new URL(`../public/assets/nft/frame-${tier}.png`, import.meta.url);
+    const buffer = await readFile(file);
+    const metadata = await sharp(buffer).metadata();
+    assert.deepEqual([metadata.width, metadata.height, metadata.hasAlpha], [1024, 1024, true]);
+    assert.ok((await stat(file)).size <= 400 * 1024);
+    const center = await sharp(buffer).extract({ left: 200, top: 200, width: 624, height: 624 }).ensureAlpha().raw().toBuffer();
+    assert.ok(center.every((value, i) => i % 4 !== 3 || value === 0), '中心画面区域必须完全透明');
+    const source = await readFile(new URL(`../scripts/nft/frames/frame-${tier}.svg`, import.meta.url), 'utf8');
+    assert.match(source, new RegExp(tier.toUpperCase()));
+  });
+}
+
+test('金级外圈模糊光晕由 librsvg 实际渲染为半透明像素', async () => {
+  const png = await readFile(new URL('../public/assets/nft/frame-gold.png', import.meta.url));
+  const pixel = await sharp(png).extract({ left: 7, top: 300, width: 1, height: 1 }).ensureAlpha().raw().toBuffer();
+  assert.ok(pixel[3] > 0 && pixel[3] < 128, '框外应有柔和半透明光晕');
+  assert.ok(pixel[0] > pixel[2], '光晕应呈金色');
+});

@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>BRONZE · 原创铆接古铜框</title>
+  <defs>
+    <linearGradient id="bronze" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#f0bf85"/><stop offset=".24" stop-color="#90502d"/><stop offset=".48" stop-color="#d99a61"/><stop offset=".72" stop-color="#643421"/><stop offset="1" stop-color="#b77b4b"/>
+    </linearGradient>
+    <linearGradient id="bevel" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#ffe0ab"/><stop offset=".3" stop-color="#be8555"/><stop offset=".55" stop-color="#74432c"/><stop offset=".8" stop-color="#c8915d"/><stop offset="1" stop-color="#3c241b"/>
+    </linearGradient>
+    <radialGradient id="rivet"><stop stop-color="#f6d0a0"/><stop offset=".4" stop-color="#bf8a58"/><stop offset=".8" stop-color="#6b3a25"/><stop offset="1" stop-color="#2e1c16"/></radialGradient>
+    <g id="corner">
+      <path d="M18 94V26L26 18H94L94 34H37V94Z" fill="url(#bevel)" stroke="#482b1c" stroke-width="2"/>
+      <circle cx="35" cy="35" r="11" fill="url(#rivet)" stroke="#edbb83" stroke-width="1.5"/>
+      <path d="M31 35H39" stroke="#57311f" stroke-width="2"/>
+    </g>
+    <!-- 台面与八片独立三角切面，使用不同亮度模拟琥珀折射。 -->
+    <g id="amber">
+      <path d="M0-27 22-12 22 12 0 29-22 12-22-12Z" fill="#543019" stroke="#f5cc85" stroke-width="4"/>
+      <path d="M0-23 0-9-18-10Z" fill="#ffe3a0"/><path d="M0-23 18-10 0-9Z" fill="#ffbd4c"/>
+      <path d="M18-10 18 10 8 5Z" fill="#b75b10"/><path d="M18-10 8 5 0-9Z" fill="#f5a327"/>
+      <path d="M18 10 0 25 8 5Z" fill="#e38914"/><path d="M0 25-8 5 8 5Z" fill="#ffd16a"/>
+      <path d="M0 25-18 10-8 5Z" fill="#8e410d"/><path d="M-18 10-18-10-8 5Z" fill="#f6b950"/>
+      <path d="M-18-10 0-9-8 5Z" fill="#fff0be"/><path d="M0-9 8 5-8 5Z" fill="#ffcf6c"/>
+      <circle cx="-7" cy="-12" r="3" fill="#fff9df"/>
+    </g>
+  </defs>
+  <!-- 环形描边不会填充中心。主体厚度 34px。 -->
+  <rect x="34" y="34" width="956" height="956" rx="14" fill="none" stroke="#351f17" stroke-width="38"/>
+  <rect x="34" y="34" width="956" height="956" rx="14" fill="none" stroke="url(#bronze)" stroke-width="34"/>
+  <rect x="19" y="19" width="986" height="986" rx="25" fill="none" stroke="#e1b17b" stroke-width="2"/>
+  <rect x="50" y="50" width="924" height="924" rx="3" fill="none" stroke="#f1c592" stroke-width="2"/>
+  <rect x="54" y="54" width="916" height="916" rx="2" fill="none" stroke="#48291d" stroke-width="3"/>
+  <use xlink:href="#corner"/><use xlink:href="#corner" transform="translate(1024 0) scale(-1 1)"/>
+  <use xlink:href="#corner" transform="translate(0 1024) scale(1 -1)"/><use xlink:href="#corner" transform="translate(1024 1024) scale(-1)"/>
+  <path d="M474 20H550L544 62 512 91 480 62Z" fill="url(#bevel)" stroke="#42291c" stroke-width="3"/>
+  <path d="M485 24H539L535 57 512 77 489 57Z" fill="#65381f" stroke="#e8b57a" stroke-width="1.5"/>
+  <use xlink:href="#amber" transform="translate(512 48)"/>
+  <path d="M414 960 428 946H596L610 960 596 1005H428Z" fill="url(#bevel)" stroke="#4b2d1d" stroke-width="3"/>
+  <path d="M435 956H589L596 964 588 992H436L428 964Z" fill="#503123" stroke="#c28c5c" stroke-width="2"/>
+  <text x="514" y="981" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="20" font-weight="700" letter-spacing="4" fill="#f3cea1">BRONZE</text>
+</svg>

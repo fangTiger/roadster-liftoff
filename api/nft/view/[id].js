@@ -14,42 +14,45 @@ export function renderView({ id, owner, record, best, network, siteUrl }) {
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Mars Roadster First Lap #${no}</title>
 <style>
-:root{--u:calc(min(100vw,100vh)/1024);--line:rgba(165,218,255,.42);--dim:#9bb6ca;--accent:${appearance.light};--edge:${appearance.dark}}
+:root{--u:calc(min(100vw,100vh)/1024);--dim:#9bb6ca;--accent:${appearance.light};--edge:${appearance.dark};--tint:${appearance.tint}}
 *{box-sizing:border-box;margin:0}
 html,body{height:100%;background:#030c16;overflow:hidden}
-body{display:grid;place-items:center;color:#edf7ff;font-family:Inter,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-feature-settings:"tnum"}
-.card{position:relative;width:calc(1024*var(--u));height:calc(1024*var(--u));overflow:hidden;border:calc(4*var(--u)) solid var(--accent);border-image:linear-gradient(135deg,var(--accent),var(--edge)) 1}
-.background,.shade{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.art{position:fixed;inset:0;overflow:hidden}
+body{display:grid;place-items:center;color:#edf7ff;font-family:sans-serif;font-feature-settings:"tnum"}
+.card{position:relative;width:calc(1024*var(--u));height:calc(1024*var(--u));overflow:hidden}
+.background,.shade,.tint,.frame{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.art{position:absolute;inset:0;overflow:hidden}
 .background{inset:0;width:100%;height:100%;animation:zoom 24s ease-in-out infinite alternate}
 @keyframes zoom{to{transform:scale(1.09)}}
-.shade{position:fixed;background:linear-gradient(180deg,rgba(1,8,19,.55) 0%,rgba(1,8,19,0) 34%,rgba(1,8,19,0) 62%,rgba(1,8,19,.35) 100%)}
+.tint{background:var(--tint)}
+.frame{pointer-events:none}
+.shade{background:linear-gradient(180deg,rgba(1,8,19,.62) 0%,rgba(1,8,19,0) 38%,rgba(1,8,19,.18) 100%)}
 .in{opacity:0;transform:translateY(calc(10*var(--u)));animation:in .9s cubic-bezier(.2,.7,.2,1) forwards}
 @keyframes in{to{opacity:1;transform:none}}
-.head{position:absolute;top:calc(54*var(--u));left:calc(58*var(--u))}
+.head{position:absolute;top:calc(176*var(--u));left:calc(116*var(--u))}
 .brand{font-size:calc(19*var(--u));letter-spacing:calc(7*var(--u));color:#c7e3f5}
-.title{display:flex;align-items:center;gap:calc(22*var(--u));margin-top:calc(14*var(--u));font-size:calc(30*var(--u));letter-spacing:calc(3*var(--u));font-weight:700}
-.badge{font-size:calc(15*var(--u));letter-spacing:calc(2*var(--u));padding:calc(8*var(--u)) calc(13*var(--u));border:1px solid var(--edge);color:var(--accent);border-radius:calc(4*var(--u));background:#07131f}
-.panel{position:absolute;left:calc(36*var(--u));right:calc(36*var(--u));bottom:calc(36*var(--u));padding:calc(28*var(--u)) calc(30*var(--u)) calc(18*var(--u));border:1px solid var(--line);border-radius:calc(6*var(--u));background:linear-gradient(120deg,rgba(4,17,31,.9),rgba(13,34,52,.78));backdrop-filter:blur(calc(6*var(--u)));overflow:hidden;animation-delay:.25s}
+.title{display:flex;align-items:center;gap:calc(22*var(--u));margin-top:calc(15*var(--u));font-size:calc(30*var(--u));letter-spacing:calc(3*var(--u));font-weight:700}
+.panel{position:absolute;left:calc(108*var(--u));right:calc(108*var(--u));bottom:calc(140*var(--u));padding:calc(26*var(--u)) calc(24*var(--u)) calc(20*var(--u));border:1px solid var(--edge);border-radius:calc(6*var(--u));background:${appearance.panelGradient};backdrop-filter:blur(calc(6*var(--u)));overflow:hidden;animation-delay:.25s}
 .panel::before{content:"";position:absolute;top:0;left:-40%;width:40%;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:sweep 5s linear 1.4s infinite}
 @keyframes sweep{0%{left:-40%}40%,100%{left:100%}}
 .row{display:flex;align-items:center;justify-content:space-between}
 .label{font-size:calc(12*var(--u));letter-spacing:calc(3*var(--u));color:var(--dim)}
-.time{margin-top:calc(4*var(--u));font-size:calc(56*var(--u));font-weight:700;letter-spacing:calc(-2*var(--u));text-shadow:0 0 calc(24*var(--u)) rgba(127,227,255,.35)}
-.cols{display:flex;gap:calc(18*var(--u));padding-left:calc(25*var(--u));border-left:1px solid rgba(165,218,255,.25)}
-.col div:last-child{margin-top:calc(15*var(--u));font-size:calc(21*var(--u))}
+.time{margin-top:calc(4*var(--u));font-size:calc(48*var(--u));font-weight:700;letter-spacing:calc(-2*var(--u));text-shadow:0 0 calc(24*var(--u)) rgba(127,227,255,.35)}
+.cols{display:flex;gap:calc(14*var(--u));padding-left:calc(18*var(--u));border-left:1px solid rgba(165,218,255,.25)}
+.col .label{letter-spacing:calc(2*var(--u))}
+.col div:last-child{margin-top:calc(15*var(--u));font-size:calc(18*var(--u))}
 .track{font-size:calc(19*var(--u));margin-top:calc(14*var(--u));color:#c7e3f5}
-.ticks{display:flex;gap:calc(5*var(--u));margin-top:calc(20*var(--u))}
+.ticks{display:flex;gap:calc(5*var(--u));margin-top:calc(16*var(--u))}
 .ticks i{flex:1;height:calc(5*var(--u));border-radius:1px;background:rgba(165,218,255,.14)}
-.ticks i.on{background:var(--accent);box-shadow:0 0 calc(8*var(--u)) rgba(127,227,255,.6);opacity:0;animation:tick .35s ease-out forwards;animation-delay:calc(.9s + var(--i)*.05s)}
+.ticks i.on{background:var(--accent);box-shadow:0 0 calc(8*var(--u)) var(--accent);opacity:0;animation:tick .35s ease-out forwards;animation-delay:calc(.9s + var(--i)*.05s)}
 @keyframes tick{from{opacity:0;transform:scaleY(2.4)}to{opacity:1;transform:none}}
-.foot{margin-top:calc(16*var(--u));padding-top:calc(13*var(--u));border-top:1px solid rgba(165,218,255,.18);font-size:calc(10*var(--u));letter-spacing:calc(2*var(--u));color:#88a6bb}
+.foot{margin-top:calc(22*var(--u));padding-top:calc(15*var(--u));border-top:1px solid rgba(165,218,255,.18);font-size:calc(10*var(--u));letter-spacing:calc(2*var(--u));color:#88a6bb}
 @media (prefers-reduced-motion:reduce){.in,.ticks i.on{animation:none;opacity:1;transform:none}.panel::before,.background{animation:none}}
 </style></head><body>
-<div class="art"><img class="background" src="${esc(siteUrl + appearance.imagePath)}" alt="${esc(appearance.trackName)}"></div>
-<div class="shade"></div>
 <div class="card">
-<div class="head in"><div class="brand">MARS ROADSTER</div><div class="title">FIRST LAP&nbsp;&nbsp;#${no}<span class="badge">${appearance.label.toUpperCase()}</span></div></div>
+<div class="art"><img class="background" src="${esc(siteUrl + appearance.imagePath)}" alt="${esc(appearance.trackName)}"></div>
+<div class="tint"></div>
+<div class="shade"></div>
+<div class="head in"><div class="brand">MARS ROADSTER</div><div class="title">FIRST LAP&nbsp;&nbsp;#${no}</div></div>
 <div class="panel in">
 <div class="row">
 <div><div class="label">FIRST LAP</div><div class="time" data-ms="${first}">${esc(formatMs(first))}</div></div>
@@ -62,7 +65,9 @@ body{display:grid;place-items:center;color:#edf7ff;font-family:Inter,-apple-syst
 <div class="track">${esc(appearance.trackName)}</div>
 <div class="ticks">${ticks}</div>
 <div class="foot">${appearance.verification} · NON-TRANSFERABLE · ${network === 'mainnet' ? 'ARC' : 'ARC TESTNET'}</div>
-</div></div>
+</div>
+<img class="frame" src="${esc(siteUrl + appearance.framePath)}" alt="${appearance.label.toUpperCase()} ornamental frame">
+</div>
 <script>
 // 成绩和成就数从 0 滚动到链上数值；减少动态效果时直接显示最终值
 if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
