@@ -4,7 +4,7 @@
 - 赛道：`record.firstTrack`（铸造时写入，永不改变）。
 - 等级：`bests(owner, firstTrack).bestMs`；没有最快圈记录时用 `record.firstLapMs`。
 - 等级线：`RACE_TRACKS` 每项新增 `tiers: { goldMs, silverMs }`。`bestMs <= goldMs` 为金，`<= silverMs` 为银，其余为铜（铸造本身已要求进入资格线）。
-- 初始值按资格线比例设定：金 = 资格线 × 0.75，银 = 资格线 × 0.88，即草甸 43.5 / 51.0 秒、湖畔 46.5 / 54.6 秒、阿尔卑斯 81.0 / 95.0 秒。实现时用自动驾驶实测各赛道圈速并报告，由审查者确认后再定。
+- 定稿值以困难机器人圈速为基准：金 = ×1.08，银 = ×1.3，即草甸 32 / 38 秒、湖畔 33 / 40 秒、阿尔卑斯 58 / 70 秒（依据见 tier-calibration.md）。
 - 等级判定写成纯函数 `nftTier(trackId, bestMs)`，元数据、静态图、展示页、个人主页共用。
 
 ## 底图

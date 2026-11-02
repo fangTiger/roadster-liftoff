@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as tracks from './tracks.js';
 
-for (const [id, goldMs, silverMs] of [[1, 43500, 51000], [2, 46500, 54600], [3, 81000, 95000]]) {
+for (const [id, goldMs, silverMs] of [[1, 32000, 38000], [2, 33000, 40000], [3, 58000, 70000]]) {
   test(`赛道 ${id} 使用批准的等级线并包含边界`, () => {
     assert.deepEqual(tracks.RACE_TRACKS.find(track => track.id === id).tiers, { goldMs, silverMs });
     assert.equal(tracks.nftTier(id, goldMs), 'gold');

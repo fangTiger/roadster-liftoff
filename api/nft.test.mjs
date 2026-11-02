@@ -30,7 +30,7 @@ test('元数据完整、复用格式化、带更新版本及缓存与跨域头',
   for (const text of ['first', 'lap', 'self-reported', 'non-transferable', 'non-commercial', 'Tesla', 'SpaceX']) assert.ok(data.description.includes(text));
   assert.deepEqual(data.attributes, [
     { trait_type: 'Track', value: 'Meadow Loop' },
-    { trait_type: 'Tier', value: 'Silver' },
+    { trait_type: 'Tier', value: 'Bronze' },
     { trait_type: 'First lap', value: '50.00 s' },
     { trait_type: 'Best lap', value: '46.83 s' },
     { trait_type: 'Achievements', value: 12, max_value: 28, display_type: 'number' },
@@ -135,7 +135,7 @@ const palettes = {
   Gold: ['#f6d27a', '#c8902f'], Silver: ['#e6eef5', '#9fb3c4'], Bronze: ['#e3a77a', '#9a5b34'],
 };
 // 同时检查静态图元素树与真实 PNG，避免仅验证样式配置而漏掉渲染兼容性。
-for (const [trackId, times] of [[1, [43500, 51000, 51001]], [2, [46500, 54600, 54601]], [3, [81000, 95000, 95001]]]) {
+for (const [trackId, times] of [[1, [32000, 38000, 38001]], [2, [33000, 40000, 40001]], [3, [58000, 70000, 70001]]]) {
   for (const [index, tier] of ['Gold', 'Silver', 'Bronze'].entries()) {
     test(`赛道 ${trackId} 的 ${tier} 在三个接口保持一致`, async () => {
       const token = { owner, record: { ...record, firstTrack: trackId, firstLapMs: times[2] + 1000 }, best: { ...best, bestMs: times[index], verified: true } };
@@ -175,7 +175,7 @@ for (const [trackId, times] of [[1, [43500, 51000, 51001]], [2, [46500, 54600, 5
     });
   }
 }
-for (const [firstTrack, firstLapMs, tier, image] of [[2, 46500, 'Gold', 'track-2.jpg'], [99, 1, 'Bronze', 'base.jpg']]) {
+for (const [firstTrack, firstLapMs, tier, image] of [[2, 33000, 'Gold', 'track-2.jpg'], [99, 1, 'Bronze', 'base.jpg']]) {
   test(`赛道 ${firstTrack} 无最快圈时使用首圈，未知赛道使用通用图与铜级`, async () => {
     const token = { owner, record: { ...record, firstTrack, firstLapMs }, best: { ...best, bestMs: 0 } };
     const read = async () => token;
