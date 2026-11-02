@@ -30,8 +30,8 @@ if [[ ! "$remote_dir" =~ ^/tmp/mars-roadster-rooms\.[a-zA-Z0-9]+$ ]]; then
  echo '远端临时目录无效' >&2
  exit 1
 fi
-printf -v remote_shell '%q ' ssh "${ssh_args[@]}"
-rsync -az --delete -e "$remote_shell" -- "$staging/" "$target:$remote_dir/"
+# 经 ssh 管道传 tar 包，避免 rsync -e 无法解析含非 ASCII 字符的 SSH 参数。
+COPYFILE_DISABLE=1 tar -C "$staging" -czf - . | ssh "${ssh_args[@]}" -- "$target" tar -xzf - -C "$remote_dir"
 ssh "${ssh_args[@]}" -- "$target" bash -s -- "$remote_dir" <<'REMOTE'
 set -euo pipefail
 staging=$1
