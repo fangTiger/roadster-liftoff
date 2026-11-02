@@ -80,7 +80,7 @@
 | `public/assets/music/space-cosmos.mp3` | Cosmos（起飞到太空） | The_Mountain | [Pixabay](https://pixabay.com/music/ambient-cosmos-587577/) | Pixabay Content License |
 | `public/assets/music/oldfriend-reflected-light.mp3` | Reflected Light（与老前辈同框） | SergePavkinMusic | [Pixabay](https://pixabay.com/music/beautiful-plays-reflected-light-147979/) | Pixabay Content License |
 | `public/assets/music/lobby-rock.m4a` | Action Race Rock Music（多人房间大厅，转码为 128 kbps AAC） | magpiemusic | [Pixabay](https://pixabay.com/music/rock-action-race-rock-music-513682/) | Pixabay Content License |
-| `public/assets/music/race-rush.m4a` | Rush（ESCAPE 专辑，比赛背景音乐，转码为 128 kbps AAC） | Of Far Different Nature | [OpenGameArt](https://opengameart.org/content/escape-album-14-tracks-deep-massive) | [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| `public/assets/music/race-detroit.m4a` | Detroit Beat（Driving Game Stylish Retro Beat，比赛背景音乐，转码为 128 kbps AAC） | ISAo | [OpenGameArt](https://opengameart.org/content/driving-game-stylish-retro-beat) | [OGA-BY 3.0](https://static.opengameart.org/OGA-BY-3.0.txt) |
 
 Pixabay Content License 允许免费商用、无需署名；此处署名以示感谢。
 

@@ -1,7 +1,7 @@
 # Design: 比赛背景音乐与道具赛金币提速
 
 ## 背景音乐
-- 素材：OpenGameArt「ESCAPE Album」第 1 首《Rush》，Of Far Different Nature，CC-BY 4.0，时长 2:35，原文件 320 kbps MP3（6.1 MB）。用 macOS `afconvert` 转为 AAC 128 kbps（.m4a，约 2.5 MB），放在 `public/assets/music/race-rush.m4a`，按需懒加载，不阻塞赛道加载。
+- 素材：OpenGameArt「Driving Game Stylish Retro Beat」中的《Detroit Beat》，作者 ISAo，OGA-BY 3.0，时长 1:29。用 macOS `afconvert` 转为 AAC 128 kbps，放在 `public/assets/music/race-detroit.m4a`，按需懒加载，不阻塞赛道加载。（用户试听后由《Rush》改为此曲。）
 - 混音链：媒体元素 → 高架 EQ（2.5 kHz 附近削 4 dB、6 kHz 以上削 3 dB，给漂移尖啸与喷气留空间）→ 避让增益 → 音乐总线（受音乐开关与静音控制）。
 - 基础音量约为大厅音乐的 60%；暂停时降到 30% 并加低通；结算画面 1 秒淡出。
 - 避让：推进器、漂移、氮气、被导弹或水雷击中任一激活时，避让增益在 80 ms 内降到 0.5；全部结束后 600 ms 内恢复到 1。由比赛音频模块每帧根据车辆状态驱动。

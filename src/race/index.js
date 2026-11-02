@@ -57,7 +57,7 @@ document.body.append(loading);
 const hideOld = document.createElement('style'); hideOld.textContent = 'body> :not(canvas):not(#race-hud):not(#race-pick):not(#race-loading):not(#race-tools):not(.rm-root):not(.rb-modal-backdrop):not(#ach-toast):not(#ach-panel-wrap):not(.race-ghost-note):not(#wallet-hub-host):not(#wallet-profile-layer):not(#wallet-success-host):not(#roadster-wallet):not(w3m-modal):not(:has([data-rk])):not(script):not(style){display:none!important}'; document.head.append(hideOld);
 mountWalletHub(document.body);
 // 与第一版共用存储和音量总线，大厅曲目只在进入房间后加载。
-const audio = createAudio({ music: false, urls: { lobby: '/assets/music/lobby-rock.m4a', race: '/assets/music/race-rush.m4a' } }), raceAudio = createRaceAudio(audio), achievements = createAchievements();
+const audio = createAudio({ music: false, urls: { lobby: '/assets/music/lobby-rock.m4a', race: '/assets/music/race-detroit.m4a' } }), raceAudio = createRaceAudio(audio), achievements = createAchievements();
 let audioSettings = {};
 try { audioSettings = JSON.parse(localStorage.getItem('liftoff.ui.v1')) || {}; } catch { /* 无存储时使用音频默认值。 */ }
 if (typeof audioSettings.muted === 'boolean') audio.setMuted(audioSettings.muted);
