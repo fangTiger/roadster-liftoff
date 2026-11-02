@@ -80,3 +80,10 @@
 - 法向只消除「相对」接近速度的一半，不消除绝对法向速度。否则同向跟车只要轻微重叠，后车就会被直接刹停。
 - 掉速按「一次接触」结算：同一辆车在 contactCooldown（0.3 秒）内持续贴身，不重复扣速，也不重复发 contact 事件（音效、震屏）。否则网络延迟让被撞方连续多步看到重叠，会被反复扣速。
 - 掉速比例 = 接近速度 ÷ 车速（上限 1）×（contactLoss .1 + 追尾时再加 rearEndLoss .15）。侧面轻蹭几乎不掉速，正面硬撞掉得多。
+
+## 生产部署（2026-11-02 起）
+- 拓扑：Vercel 前端 → `wss://52-195-18-175.sslip.io/rooms` → Caddy（自动 HTTPS）→ AWS 东京实例本机 `127.0.0.1:8933` 的 Node 房间服务（systemd 单进程，专用用户 `roadster`，内存上限 256MB）。
+- 前端通过构建变量 `VITE_ROOMS_URL` 指定地址，`VITE_ROOMS_ENABLED=1` 打开入口；未设置时连同域名 `/rooms`（本地开发经 Vite 代理）。
+- 服务端握手准入：来源白名单 `ROOMS_ALLOWED_ORIGINS`（`*` 只匹配单个域名标签）→ 全服连接上限 → 单 IP 连接上限；`ROOMS_TRUST_PROXY=true` 且只监听本机，IP 取 Caddy 写入的转发头。
+- `GET /healthz` 只返回房间数与连接数。停机时先发 `maintenance` 消息，500 ms 后以 1012 关闭，3 秒兜底退出；前端停止重连，提示维护并回到房间列表。
+- 状态全在内存，重启会清空房间；部署用 `deploy/rooms/deploy.sh`，避开有人在玩的时段。实例未绑定弹性 IP，不要对实例做停止再启动；换自有域名只需改 Caddyfile 与 `VITE_ROOMS_URL`。
