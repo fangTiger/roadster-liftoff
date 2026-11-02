@@ -2,7 +2,7 @@ import T from './tuning.js';
 import { THROTTLE,LEFT,RIGHT,DRIFT } from './input-bits.js';
 export const EFFECT_KINDS=Object.freeze(['spin','trap','nitro','shield']);
 // 队列按到达顺序消费，只修改目标车辆；参数为后续导弹效果保留。
-export function applyEffects(car,queue) {
+export function applyEffects(car,queue,{coinBoost=false}={}) {
  const events=[];
  car.spinTime??=0;car.trapTime??=0;car.shieldTime??=0;
  for(const {kind} of queue){
@@ -11,6 +11,7 @@ export function applyEffects(car,queue) {
   if(kind==='shield')car.shieldTime=T.shieldTime;
   if(kind==='spin'){car.spinTime=T.spinTime;car.vx*=T.spinKeep;car.vz*=T.spinKeep;}
   if(kind==='trap'){car.trapTime=T.trapTime;car.vx=car.vz=0;}
+  if(coinBoost&&(kind==='spin'||kind==='trap')){const before=car.coins;car.coins=Math.floor(before/2);if(before>car.coins)events.push({type:'coinLoss',count:before-car.coins});}
   events.push({type:'effect',kind});
  }
  return events;

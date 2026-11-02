@@ -1,10 +1,13 @@
 // 音效只消费快照；事件游标防止渲染重复播放，墙声与接触声各限制为每 0.2 秒一次。
 export function createRaceAudio(audio) {
-  let seen = 0, countdown, finished = false, wallStep = -Infinity, contactStep = -Infinity;
+  let seen = 0, countdown, finished = false, wallStep = -Infinity, contactStep = -Infinity, musicPhase;
   return {
-    reset() { seen = 0; countdown = undefined; finished = false; wallStep = contactStep = -Infinity; },
-    update(snapshot, bits, dt) {
+    reset() { seen = 0; countdown = undefined; finished = false; wallStep = contactStep = -Infinity; musicPhase = undefined; audio.setRacePhase?.('off'); },
+    update(snapshot, bits, dt, { paused = false } = {}) {
       const { car: c, race: r, events } = snapshot;
+      const phase = r.finished ? 'finished' : r.frozen ? 'countdown' : paused ? 'paused' : 'racing';
+      if (phase !== musicPhase) { musicPhase = phase; audio.setRacePhase?.(phase); }
+      audio.setRaceDucking?.(!r.frozen && !r.finished && (!!(bits & 16) && c.fuel > 0 || !!c.drifting || c.boostTime > 0 || c.spinTime > 0 || c.trapTime > 0));
       const speed = Math.hypot(c.vx, c.vz), lateral = Math.abs(c.vx * Math.cos(c.yaw) - c.vz * Math.sin(c.yaw));
       audio.update(dt, { speedKmh: speed * 3.6, throttle: !r.frozen && !r.finished && (bits & 1) ? 1 : 0, brake: bits & 2 ? 1 : 0, jet: !!(bits & 16) && c.fuel > 0 && !r.frozen && !r.finished, boost: c.boostTime > 0 ? 1 : 0, tireSlip: c.grounded ? Math.max(c.drifting ? .7 : 0, Math.min(1, lateral / 12)) : 0 });
       const count = r.frozen ? Math.ceil(r.countdown) : 0;

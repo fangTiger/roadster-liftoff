@@ -1,3 +1,4 @@
+import { createCoinTrail } from './scene/coins.js';
 import { spinRotation } from './sim/effects.js';
 import './race.css';
 import './room.css';
@@ -23,7 +24,7 @@ import { createRecorder } from './sim/replay.js';
 import { buildTrack, trackHash } from './track/build.js';
 import { TRACKS, DEFAULT_DIFFICULTY } from './track/data/index.js';
 import { createSession } from './sim/session.js';
-import { DT } from './sim/physics.js';
+import { DT, coinPositions } from './sim/physics.js';
 import { autopilot } from './sim/autopilot.js';
 import * as B from './sim/input-bits.js';
 import { createKeyMap } from './input.js';
@@ -56,7 +57,7 @@ document.body.append(loading);
 const hideOld = document.createElement('style'); hideOld.textContent = 'body> :not(canvas):not(#race-hud):not(#race-pick):not(#race-loading):not(#race-tools):not(.rm-root):not(.rb-modal-backdrop):not(#ach-toast):not(#ach-panel-wrap):not(.race-ghost-note):not(#wallet-hub-host):not(#wallet-profile-layer):not(#wallet-success-host):not(#roadster-wallet):not(w3m-modal):not(:has([data-rk])):not(script):not(style){display:none!important}'; document.head.append(hideOld);
 mountWalletHub(document.body);
 // 与第一版共用存储和音量总线，大厅曲目只在进入房间后加载。
-const audio = createAudio({ music: false, urls: { lobby: '/assets/music/lobby-rock.m4a' } }), raceAudio = createRaceAudio(audio), achievements = createAchievements();
+const audio = createAudio({ music: false, urls: { lobby: '/assets/music/lobby-rock.m4a', race: '/assets/music/race-rush.m4a' } }), raceAudio = createRaceAudio(audio), achievements = createAchievements();
 let audioSettings = {};
 try { audioSettings = JSON.parse(localStorage.getItem('liftoff.ui.v1')) || {}; } catch { /* 无存储时使用音频默认值。 */ }
 if (typeof audioSettings.muted === 'boolean') audio.setMuted(audioSettings.muted);
@@ -89,6 +90,7 @@ const hideLoading = () => { loading.style.opacity = '0'; setTimeout(() => loadin
 
 // 选定地图后才生成赛道、场景、HUD 与会话
 let entry, qualifyMs, track, def, hash, scene, gate, hud, session, recorder, previous, current, raceMenu, seenEvents = 0, lastBits = 0, wheelAngle = 0, celebrated = false;
+let coinTrail;
 let roomRace, raceObjects = [], sceneRestore;
 let ghost, ghostCar, ghostPrevious, ghostCurrent, ghostWheelAngle = 0, ghostDelta = null, ghostDeltaStep = 0;
 async function setup(difficulty, replay = null, ghostName = '', roomStart = null) {
@@ -102,7 +104,8 @@ async function setup(difficulty, replay = null, ghostName = '', roomStart = null
   try { scene = params.has('greybox') ? createGreybox(engine.scene, track, { tint: sky.tint }) : await createAlpine(engine.scene, track, { tint: sky.tint, renderer: engine.renderer }); }
   finally { if (roomMode) raceObjects = engine.scene.children.filter(object => !before.has(object)); }
   gate = createStartGate(engine.scene, track, t('race.track' + def.id)); hud = createHud(track, () => `${t('race.track' + def.id)} · ${t('race.' + entry.difficulty)}`, { trackId: def.id, roomMode, itemsMode: roomStart?.mode === 'items' });
-  session = createSession(track, { laps: roomStart?.laps ?? def.laps, ...(roomStart ? { spawn: gridSpawn(track, roomStart.seat), contacts: roomStart.contacts, contactId: roomStart.contactId } : {}) }); recorder = createRecorder(); previous = current = session.snapshot; raceAudio.reset();
+  coinTrail?.dispose(); coinTrail = roomStart?.mode === 'items' ? createCoinTrail(car.body) : null;
+  session = createSession(track, { coinBoost: roomStart?.mode === 'items', laps: roomStart?.laps ?? def.laps, ...(roomStart ? { spawn: gridSpawn(track, roomStart.seat), contacts: roomStart.contacts, contactId: roomStart.contactId } : {}) }); recorder = createRecorder(); previous = current = session.snapshot; raceAudio.reset();
   if (roomMode) { raceObjects = engine.scene.children.filter(object => !before.has(object)); car.root.visible = true; camera.setMode('follow'); }
   const selectedReplay = roomMode ? null : replay ?? (capture && params.get('ghost') === 'best' ? readBestGhost(def)?.replay : null);
   if (selectedReplay) {
@@ -131,7 +134,8 @@ async function setup(difficulty, replay = null, ghostName = '', roomStart = null
         keys.clear();
         // 与太空模式保持一致：先保存真实偏好，避免暂停退出后把临时静音带到下一页。
         if (paused) saveAudio();
-        audio.setMuted(paused || muteInput.checked);
+        raceAudio.update(current, 0, 0, { paused });
+        audio.update(0, {});
       },
       isOverlayOpen: () => !!document.querySelector('.wh-layer, .ach-panel-visible, [data-rk] [role="dialog"], w3m-modal.open'),
     });
@@ -152,7 +156,7 @@ function simulate(bits) {
     }
   }
   if (!roomMode && current.race.finished && !previous.race.finished) saveBestGhost(def, recorder.encode({ track: hash, trackId: def.id, laps: def.laps }), current.race.bestLap);
-  achievements.reportRace(current, { difficulty: entry.difficulty, qualifyMs }); raceAudio.update(current, bits, DT);
+  achievements.reportRace(current, { difficulty: entry.difficulty, qualifyMs }); raceAudio.update(current, bits, DT, { paused: !!raceMenu?.paused });
   wheelAngle += Math.hypot(current.car.vx, current.car.vz) * DT / .34;
 }
 function render(alpha = 1, dt = 1 / 60) {
@@ -178,6 +182,7 @@ function render(alpha = 1, dt = 1 / 60) {
     if (t === 'counterBoost' || t === 'boost' || t === 'draft' || (t === 'effect' && event.kind === 'nitro')) { boostFx.trigger(c); camera.kick(); }
     if (t === 'contact') camera.kick(Math.min(.2, .06 + event.impact * .005));
   }
+  coinTrail?.update(c, dt);
   boostFx.update(dt, current.step * DT, c.boostTime > 0);
   // 冲线：彩带、烟花、镜头环拍
   if (current.race.finished && !celebrated && !roomMode) {
@@ -195,20 +200,42 @@ function render(alpha = 1, dt = 1 / 60) {
   if (chainSlot) chainSlot.style.top = `${document.querySelector('#race-hud .rh-result').getBoundingClientRect().bottom + 12}px`;
   engine.render();
 }
+// 开发验收接口仍走真实拾取、效果队列与房间协议；生产构建移除此入口。
+if (import.meta.env.DEV && params.get('e2eCoins') === '1') {
+  window.__raceDebug = {
+    snapshot: () => current,
+    ghost: () => ({ visible: !!ghostCar?.root.parent && !!ghostCar.root.visible, step: ghostCurrent?.step ?? 0 }),
+    advance(n = 1, bits = 0) { for (let i = 0; i < Math.min(1200, n); i++) simulate(bits); render(); return current; },
+    music: () => audio.raceMusicState,
+    room: () => ({ id: roomRace?.client.id, room: roomRace?.ui.room }),
+    pickup() {
+      const coin = coinPositions(track).find(p => session.car.picked[p.id] !== session.car.lap);
+      if (!coin || current.race.frozen) throw new Error('当前没有可拾取金币');
+      Object.assign(session.car, { x: coin.x, y: coin.y - .625, z: coin.z, vx: 0, vy: 0, vz: 0 });
+      session.car.near = track.nearest(coin.x, coin.z); simulate(0); render();
+      return current.car.coins;
+    },
+    effect: kind => session.applyEffect(kind),
+    send: message => roomRace?.client.send(message),
+    trails: () => { const list = []; engine.scene.traverse(o => { if (o.name === 'coin-trail') list.push({ ...o.userData, visible: o.visible, self: o === coinTrail?.root }); }); return list; },
+  };
+}
 // 普通游玩也全程录制；控制台可导出本局，便于复盘和服务器核实
+addEventListener('pagehide', () => audio.setRacePhase('off'));
 window.__raceReplay = () => recorder.encode({ track: hash, trackId: def.id, laps: def.laps });
 
 if (roomMode) {
   engine.render(); hideLoading(); car.root.visible = false;
   const clear = () => {
-    raceMenu?.destroy(); raceMenu = null; hud?.destroy(); hud = null; car.root.visible = false;
+    raceMenu?.destroy(); raceMenu = null;
+    raceAudio.reset(); coinTrail?.dispose(); coinTrail = null; hud?.destroy(); hud = null; car.root.visible = false;
     disposeRaceObjects(raceObjects);
     raceObjects = [];
     if (sceneRestore) { engine.scene.environmentIntensity = sceneRestore.environment; if (sceneRestore.sun) sceneRestore.sun.intensity = sceneRestore.intensity; engine.scene.onAfterRender = sceneRestore.afterRender; if (engine.scene.fog && sceneRestore.fog !== undefined) engine.scene.fog.density = sceneRestore.fog; sceneRestore = null; }
     seenEvents = 0; wheelAngle = 0; celebrated = false; keys.clear();
   };
-  roomRace = mountRoomRace({ engine, params, setMusicPhase: phase => audio.setLobbyPhase(phase), selfRoot: car.root, setup: (difficulty, start) => setup(difficulty, null, '', start), clear, simulate, render, applyEffect: (kind, effectParams) => session.applyEffect(kind, effectParams), playSound: name => audio.event(name), getState: () => current, getGhost: () => session.ghost, getTrack: () => track, getBits: () => { let bits = 0; for (const code of keys) bits |= map[code] || 0; return bits; }, isPaused: () => !!raceMenu?.paused });
-  addEventListener('pagehide', () => { audio.setLobbyPhase('off'); roomRace.client.leave(); });
+  roomRace = mountRoomRace({ engine, params, setMusicPhase: phase => audio.setLobbyPhase(phase), onResults: () => audio.setRacePhase('finished'), selfRoot: car.root, setup: (difficulty, start) => setup(difficulty, null, '', start), clear, simulate, render, applyEffect: (kind, effectParams) => session.applyEffect(kind, effectParams), setRankFraction: value => session.setRankFraction(value), playSound: name => audio.event(name), getState: () => current, getGhost: () => session.ghost, getTrack: () => track, getBits: () => { let bits = 0; for (const code of keys) bits |= map[code] || 0; return bits; }, isPaused: () => !!raceMenu?.paused });
+  addEventListener('pagehide', () => { audio.setRacePhase('off'); audio.setLobbyPhase('off'); roomRace.client.leave(); });
 } else if (capture) {
   await setup(params.get('map') || DEFAULT_DIFFICULTY); hideLoading();
   window.__race = { step(bits, n = 1) { for (let i = 0; i < n; i++) simulate(bits); render(1, Math.max(DT, n * DT)); return current; }, auto(n = 1) { for (let i = 0; i < n; i++) simulate(autopilot(current, track)); render(1, Math.max(DT, n * DT)); return current; }, snap: () => session.snapshot, replay: () => recorder.encode({ track: hash, trackId: def.id, laps: def.laps }), cam(mode) { const value = camera.setMode(mode); render(); return value; }, render: () => render() };

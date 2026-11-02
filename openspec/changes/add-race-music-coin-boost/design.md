@@ -1,7 +1,7 @@
 # Design: 比赛背景音乐与道具赛金币提速
 
 ## 背景音乐
-- 素材：OpenGameArt「ESCAPE Album」第 1 首《Rush》，Of Far Different Nature，CC-BY 4.0，时长 2:35，原文件 320 kbps MP3（6.1 MB）。用 macOS `afconvert` 转为 AAC 128 kbps（.m4a，约 2.5 MB），放在 `public/assets/audio/race-rush.m4a`，按需懒加载，不阻塞赛道加载。
+- 素材：OpenGameArt「ESCAPE Album」第 1 首《Rush》，Of Far Different Nature，CC-BY 4.0，时长 2:35，原文件 320 kbps MP3（6.1 MB）。用 macOS `afconvert` 转为 AAC 128 kbps（.m4a，约 2.5 MB），放在 `public/assets/music/race-rush.m4a`，按需懒加载，不阻塞赛道加载。
 - 混音链：媒体元素 → 高架 EQ（2.5 kHz 附近削 4 dB、6 kHz 以上削 3 dB，给漂移尖啸与喷气留空间）→ 避让增益 → 音乐总线（受音乐开关与静音控制）。
 - 基础音量约为大厅音乐的 60%；暂停时降到 30% 并加低通；结算画面 1 秒淡出。
 - 避让：推进器、漂移、氮气、被导弹或水雷击中任一激活时，避让增益在 80 ms 内降到 0.5；全部结束后 600 ms 内恢复到 1。由比赛音频模块每帧根据车辆状态驱动。
@@ -9,7 +9,7 @@
 - 自动化测试与截图模式（`?capture`、`?still`）不播放音乐。
 
 ## 金币提速（仅多人道具赛）
-- 模拟：`createSession` 新增选项 `coinBoost`，仅当房间模式为道具赛时由 `room-race.js` 和机器人传入 `true`。启用时车辆状态多一个 `coins`（0–10）：拾取金币 +1（封顶 10），极速乘以 `1 + 0.01 × coins`；未启用时代码路径与现在完全一致，golden 与 SIM_VERSION 不变。
+- 模拟：`createSession` 新增选项 `coinBoost`，仅当房间模式为道具赛时由 `room-race.js` 和机器人传入 `true`。启用时车辆状态多一个 `coins`（0–10）：拾取金币 +1（封顶 10），极速乘以 `1 + 0.01 × coins`；为使普通直道的恒功率/风阻平衡速度确实达到该极速，启用时将风阻系数除以金币倍率的三次方，低速发动机推力不变；未启用时保留原计算表达式，golden 与 SIM_VERSION 不变。
 - 追赶：拾取时补充的推进剂 = `coinFuel × (1 + rankFraction)`，`rankFraction` 为 0（第一）到 1（最后），由道具系统现有的名次数据提供。
 - 掉落：导弹命中或触发水雷时 `coins = floor(coins / 2)`，并发出 `coinLoss` 事件（含掉落数量）。护盾挡下时不掉。
 - 同步：车辆状态消息新增可选字段 `coins`（0–10 整数）。服务端只做范围校验后转发，旧客户端忽略该字段，兼容。

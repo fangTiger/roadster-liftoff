@@ -20,7 +20,7 @@ class Node {
     this.knee = new Param(); this.ratio = new Param(); this.attack = new Param(); this.release = new Param();
     nodes.push(this);
   }
-  connect(other) { return other; }
+  connect(other) { (this.connections ??= []).push(other); return other; }
   disconnect() { this.disconnected = true; }
   start() { this.started = true; }
   stop() { this.stopped = true; this.onended?.(); }
@@ -251,4 +251,48 @@ test('倒计时中重复解锁保留淡出，快速返回大厅取消旧停止�
  a.setLobbyPhase('lobby');await a.unlock();const track=media.at(-1);a.setLobbyPhase('countdown');t.mock.timers.tick(200);
  await a.unlock();assert.equal(track.paused,false,'手势不应硬停正在淡出的曲目');t.mock.timers.tick(600);assert.equal(track.paused,true);
  a.setLobbyPhase('lobby');await a.unlock();a.setLobbyPhase('countdown');t.mock.timers.tick(100);a.setLobbyPhase('lobby');await a.unlock();t.mock.timers.tick(1000);assert.equal(track.paused,false,'旧倒计时不能暂停重新进入大厅的播放');a.setLobbyPhase('off');storage.clear();
+});
+
+test('比赛音乐懒加载、双媒体循环、均衡、避让与暂停结算包络共用设置',async t=>{
+ storage.clear();t.mock.timers.enable({apis:['setTimeout','setInterval']});
+ const first=nodes.length,before=media.length,a=module.createAudio({music:false,urls:{race:'rush.m4a'}});await a.unlock();assert.equal(media.length,before);
+ assert.equal(typeof a.setRacePhase,'function');a.setRacePhase('countdown');assert.equal(media.length,before);
+ a.setRacePhase('racing');await a.unlock();const decks=media.slice(before);assert.equal(decks.length,2);assert.equal(decks[0].paused,false);assert.ok(decks.every(d=>d.preload==='none'&&!d.loop));
+ const graph=nodes.slice(first);assert.ok(graph.some(n=>n.type==='highshelf'&&n.frequency.value===2500&&n.gain.value===-4));assert.ok(graph.some(n=>n.type==='highshelf'&&n.frequency.value===Math.min(6000,Context.instances.at(-1).sampleRate*.45)&&n.gain.value===-3));
+ assert.ok(graph.some(n=>n.gain.calls.at(-1)?.value===.28*.6&&n.gain.calls.at(-1)?.tau===1.5/5));
+ a.setRaceDucking(true);const duck=graph.find(n=>n.gain.calls.at(-1)?.value===.5);assert.ok(duck);assert.equal(duck.gain.calls.at(-1).tau,.08/5);
+ a.setRaceDucking(false);assert.equal(duck.gain.calls.at(-1).value,1);assert.equal(duck.gain.calls.at(-1).tau,.6/5);
+ a.setRacePhase('paused');assert.ok(graph.some(n=>n.type==='lowpass'&&n.frequency.calls.at(-1)?.value===1200));assert.ok(graph.some(n=>n.gain.calls.at(-1)?.value===.28*.6*.3));
+ a.setRacePhase('racing');await a.unlock();decks[0].duration=155;decks[0].currentTime=154.81;t.mock.timers.tick(25);await Promise.resolve();await Promise.resolve();assert.equal(decks[1].paused,false);t.mock.timers.tick(220);assert.equal(decks[0].paused,true);
+ a.setMusicEnabled(false);assert.ok(decks.every(d=>d.paused));a.setMusicEnabled(true);await a.unlock();assert.ok(decks.some(d=>!d.paused));a.setMuted(true);assert.ok(decks.every(d=>d.paused));a.setMuted(false);await a.unlock();
+ a.setRacePhase('finished');await a.unlock();assert.ok(decks.some(d=>!d.paused));t.mock.timers.tick(1000);assert.ok(decks.every(d=>d.paused));a.setRacePhase('off');
+});
+test('截图与自动化环境不创建比赛音乐媒体，离开后迟到 play 不复活',async t=>{
+ storage.clear();t.mock.timers.enable({apis:['setTimeout','setInterval']});
+ const previous=globalThis.location;globalThis.location={search:'?capture'};
+ const before=media.length,a=module.createAudio({music:false,urls:{race:'rush.m4a'}});a.setRacePhase('racing');await a.unlock();assert.equal(media.length,before);globalThis.location=previous;
+ const b=module.createAudio({music:false,urls:{race:'rush.m4a'}});b.setRacePhase('racing');await b.unlock();const track=media.at(-2);b.setRacePhase('off');let finish;track.play=()=>new Promise(resolve=>{finish=()=>{track.paused=false;resolve();};});b.setRacePhase('racing');b.setRacePhase('off');finish();await Promise.resolve();await Promise.resolve();assert.equal(track.paused,true);
+});
+
+test('离开后快速重入，未完成的 play 不得暂停新一局音乐',async t=>{
+ storage.clear();t.mock.timers.enable({apis:['setTimeout','setInterval']});const a=module.createAudio({music:false,urls:{race:'rush.m4a'}});a.setRacePhase('racing');await a.unlock();const track=media.at(-2);a.setRacePhase('off');
+ let finish;track.play=()=>new Promise(resolve=>{finish=()=>{track.paused=false;resolve();};});a.setRacePhase('racing');a.setRacePhase('off');a.setRacePhase('racing');finish();await Promise.resolve();await Promise.resolve();assert.equal(track.paused,false);a.setRacePhase('off');
+});
+
+test('比赛发车长淡入不被重复手势打断，离开后重播从零淡入',async t=>{
+ storage.clear();t.mock.timers.enable({apis:['setTimeout','setInterval']});const first=nodes.length,a=module.createAudio({music:false,urls:{race:'rush.m4a'}});a.setRacePhase('racing');await a.unlock();
+ const level=nodes.slice(first).find(n=>n.gain.calls.at(-1)?.value===.28*.6),count=level.gain.calls.length;await a.unlock();assert.equal(level.gain.calls.length,count);assert.equal(level.gain.calls.at(-1).tau,1.5/5);
+ Context.instances.at(-1).currentTime+=2;a.setRacePhase('off');a.setRacePhase('racing');await a.unlock();assert.equal(level.gain.calls.at(-1).tau,1.5/5);assert.equal(level.gain.calls.at(-1).from,0);a.setRacePhase('off');
+});
+
+test('推进器只经过一次比赛避让，有效音乐增益为基础音量的一半',async t=>{
+ storage.clear();t.mock.timers.enable({apis:['setTimeout','setInterval']});const first=nodes.length,a=module.createAudio({music:false,urls:{race:'rush.m4a'}});a.setRacePhase('racing');await a.unlock();a.setRaceDucking(true);a.update(.01,{jet:true,fuel:1});
+ let node=nodes.slice(first).find(n=>n.type==='media'),level=1;while(node){if(node.type==='gain')level*=node.gain.value;node=node.connections?.[0];}
+ assert.ok(Math.abs(level-(.28*.6*.5*.65*.8))<1e-10,`实际音乐链路增益 ${level}`);a.setRacePhase('off');
+});
+
+test('still 与 webdriver 环境即使用户解锁也不创建音乐媒体',async()=>{
+ storage.clear();const location=globalThis.location,navigator=Object.getOwnPropertyDescriptor(globalThis,'navigator');
+ try{for(const [search,webdriver] of [['?still',false],['',true]]){globalThis.location={search};Object.defineProperty(globalThis,'navigator',{configurable:true,value:{webdriver}});const before=media.length,a=module.createAudio({music:false,urls:{race:'rush.m4a',lobby:'lobby.m4a'}});a.setRacePhase('racing');a.setLobbyPhase('lobby');await a.unlock();assert.equal(media.length,before);a.setRacePhase('off');}}
+ finally{globalThis.location=location;if(navigator)Object.defineProperty(globalThis,'navigator',navigator);else delete globalThis.navigator;}
 });

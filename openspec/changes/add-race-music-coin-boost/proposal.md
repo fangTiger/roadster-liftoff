@@ -16,5 +16,5 @@
 
 ## Impact
 - Affected specs: circuit-race（比赛背景音乐）、party-race（道具赛金币提速）
-- Affected code: `src/audio/`（比赛音乐与避让）、`src/race/`（HUD、车尾流光、房间状态同步、道具命中）、`src/race/sim/`（仅道具赛启用的金币计数与极速加成）、`public/assets/audio/`、`CREDITS.md`
+- Affected code: `src/audio/`（比赛音乐与避让）、`src/race/`（HUD、车尾流光、房间状态同步、道具命中）、`src/race/sim/`（仅道具赛启用的金币计数与极速加成）、`public/assets/music/`、`CREDITS.md`
 - 上线需同时更新 AWS 房间服务（如协议字段变化）与 Vercel 生产环境，部署前征得用户同意

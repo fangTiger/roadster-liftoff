@@ -42,3 +42,16 @@ test('金币拾取复用现有轻量短音，同一快照不重复播放',()=>{
  audio.update(state,0,.01);audio.update(state,0,.01);assert.deepEqual(sounds,['coin']);
  state.events.push({type:'coin',step:20});audio.update(state,0,.01);assert.deepEqual(sounds,['coin','coin']);
 });
+
+test('比赛音乐从冻结到发车及结算切换，每帧按四类车辆状态避让，重置停止',()=>{
+ const phases=[],ducks=[],a=createRaceAudio({event(){},update(){},setRacePhase:p=>phases.push(p),setRaceDucking:v=>ducks.push(v)});
+ const s={car:{vx:0,vz:0,yaw:0,fuel:1},race:{frozen:true},events:[]};
+ a.update(s,0,.01);s.race.frozen=false;a.update(s,0,.01);
+ for(const [key,bits] of [['fuel',16],['drifting',0],['boostTime',0],['spinTime',0],['trapTime',0]]){s.car[key]=1;a.update(s,bits,.01);assert.equal(ducks.at(-1),true);s.car[key]=0;}
+ a.update(s,0,.01);assert.equal(ducks.at(-1),false);s.race.finished=true;a.update(s,0,.01);a.reset();
+ assert.deepEqual(phases,['countdown','racing','finished','off']);
+});
+
+test('倒计时暂停仍不播放背景音乐，发车后暂停才进入压低阶段',()=>{
+ const phases=[],a=createRaceAudio({event(){},update(){},setRacePhase:p=>phases.push(p)}),s={car:{vx:0,vz:0,yaw:0},race:{frozen:true},events:[]};a.update(s,0,0,{paused:true});assert.equal(phases.at(-1),'countdown');s.race.frozen=false;a.update(s,0,0,{paused:true});assert.equal(phases.at(-1),'paused');
+});

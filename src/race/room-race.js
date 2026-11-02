@@ -12,7 +12,7 @@ import { createRoomBots,carState } from './room-bots.js';
 import { DT } from './sim/physics.js';
 import { BRAKE } from './sim/input-bits.js';
 // 房主与所属机器人同步推进；网络远端只用于渲染和本地软碰撞。
-export function mountRoomRace({engine,params,setup,clear,simulate,render,getState,getTrack,getBits,getGhost=()=>false,isPaused=()=>false,client=createRoomClient({roomsUrl:import.meta.env?.VITE_ROOMS_URL}),ui,createRemote=createRemoteCar,requestFrame=globalThis.requestAnimationFrame,selfRoot,inputTarget=globalThis,applyEffect=()=>{},random=Math.random,playSound=()=>{},setMusicPhase=()=>{},createItemsFx=createItemFx}) {
+export function mountRoomRace({engine,params,setup,clear,simulate,render,getState,getTrack,getBits,getGhost=()=>false,isPaused=()=>false,client=createRoomClient({roomsUrl:import.meta.env?.VITE_ROOMS_URL}),ui,createRemote=createRemoteCar,requestFrame=globalThis.requestAnimationFrame,selfRoot,inputTarget=globalThis,applyEffect=()=>{},setRankFraction=()=>{},random=Math.random,playSound=()=>{},setMusicPhase=()=>{},onResults=()=>{},createItemsFx=createItemFx}) {
  const buffers=new Map(),remotes=new Map(),emotes=new Map(),departed=new Set();let bots=new Map(),round=null,active=false,ready=false,loading=false,progress=null,dead=false,version=0,sequence=0,lastSend=-Infinity,lastFinish=-Infinity,lastRanks=-Infinity,lastFrame,queue=Promise.resolve(),players=[],items=null,itemFx=null,pendingItems=[],lastTick=-1,lastWarning=-Infinity,rivals=[];
  function invalidateTarget(id){items?.invalidate(id);for(const m of pendingItems)if(m.kind==='missile'&&m.target===id)m.invalid=true;}
  function clearItems(){items?.dispose();items=null;itemFx?.dispose();itemFx=null;pendingItems=[];lastWarning=-Infinity;}
@@ -32,7 +32,7 @@ export function mountRoomRace({engine,params,setup,clear,simulate,render,getStat
   client.on('connection',({connected})=>{if(!connected)for(const id of [client.id,...players.filter(p=>p.bot&&p.ownerId===client.id).map(p=>p.id)])invalidateTarget(id);}),
   client.on('room',room=>{for(const p of room.players)if(p.connected===false)invalidateTarget(p.id);players=players.map(p=>({...p,...room.players.find(q=>q.id===p.id)}));for(const [id] of bots){const player=room.players.find(p=>p.id===id);if(room.hostId!==client.id||!player?.connected||player.ownerId!==client.id)bots.delete(id);}}),
   client.on('left',({id})=>{invalidateTarget(id);bots.delete(id);emotes.get(id)?.dispose();emotes.delete(id);departed.add(id);remotes.get(id)?.dispose();remotes.delete(id);buffers.delete(id);}),
-  client.on('results',()=>{clearItems();active=ready=false;round=null;++version;clearEmotes();}),
+  client.on('results',()=>{onResults();clearItems();active=ready=false;round=null;++version;clearEmotes();}),
   client.on('item',m=>{if(round?.mode!=='items')return;if(items)items.receive(m);else pendingItems.push(m);}),
   client.on('hitAt',m=>{if(round?.mode!=='items')return;if(items)items.hit(m);else pendingItems.push(m);}),
   client.on('mineGone',m=>{if(round?.mode!=='items')return;if(items)items.gone(m);else pendingItems.push(m);}),
@@ -69,7 +69,7 @@ export function mountRoomRace({engine,params,setup,clear,simulate,render,getStat
      await setup(TRACKS.find(t=>t.def.id===message.trackId).difficulty,{seat:self.seat,laps:message.laps,contacts:step=>contactsFor(client.id,step),contactId:client.id,mode:message.mode});
      if(generation!==version||dead){clear();return;}
      // 加载期间可能已断线并恢复，必须以最新座位状态判断机器人是否仍有效。
-     if(ui.room?.hostId===client.id)bots=createRoomBots({players:ui.room.players.filter(p=>message.grid.some(q=>q.id===p.id)),ownerId:client.id,track:getTrack(),laps:message.laps,contacts:contactsFor,traffic:contactsFor});
+     if(ui.room?.hostId===client.id)bots=createRoomBots({players:ui.room.players.filter(p=>message.grid.some(q=>q.id===p.id)),ownerId:client.id,track:getTrack(),laps:message.laps,mode:message.mode,contacts:contactsFor,traffic:contactsFor});
      await Promise.all(players.filter(p=>p.id!==client.id&&!departed.has(p.id)).map(async player=>{
       const remote=await createRemote(player);
       if(generation!==version||dead||departed.has(player.id)){remote.dispose();return;}
@@ -113,7 +113,7 @@ export function mountRoomRace({engine,params,setup,clear,simulate,render,getStat
  inputTarget.addEventListener?.('keydown',keydown);
  function localActor(id){
   const bot=bots.get(id),snap=bot?{car:bot.session.car,race:bot.session.race,step:bot.step}:getState();
-  return {id,...snap,time:snap.step*DT,bot:!!bot,back:!bot&&!!(getBits()&BRAKE),difficulty:players.find(p=>p.id===id)?.difficulty,ghost:bot?bot.session.ghost:getGhost(),cars:[...raceStates().values()],rankFraction:0,applyEffect:bot?kind=>bot.session.applyEffect(kind):applyEffect};
+  return {id,...snap,time:snap.step*DT,bot:!!bot,back:!bot&&!!(getBits()&BRAKE),difficulty:players.find(p=>p.id===id)?.difficulty,ghost:bot?bot.session.ghost:getGhost(),cars:[...raceStates().values()],rankFraction:0,setRankFraction:bot?value=>bot.session.setRankFraction(value):setRankFraction,applyEffect:bot?kind=>bot.session.applyEffect(kind):applyEffect};
  }
  function raceStates(display=false){
   const states=new Map(),now=client.serverNow();
@@ -144,7 +144,7 @@ export function mountRoomRace({engine,params,setup,clear,simulate,render,getStat
    while(getState().step<target){const snap=getState(),bits=isPaused()?0:params.has('autopilot')&&!snap.race.finished?autopilot(snap,track):getBits();simulate(bits);for(const bot of bots.values()){bot.session.step(bot.driver({race:bot.session.race,car:bot.session.car},track));bot.step++;}stepItems();}
    const snap=getState(),c=snap.car,r=snap.race;
    if(active&&now>=round.startAt&&now-lastSend>=1000/15){
-    lastSend=now;client.send({type:'state',seq:sequence++,step:snap.step,x:c.x,y:c.y,z:c.z,yaw:c.yaw,pitch:c.pitch,vx:c.vx,vz:c.vz,steer:c.steer,drifting:!!c.drifting,boost:c.boostTime>0,ghost:!!getGhost(),spinning:c.spinTime>0,finished:r.finished,shield:c.shieldTime>0,trapped:c.trapTime>0,air:!c.grounded,lap:r.lap,s:c.near.s});
+    lastSend=now;client.send({type:'state',...(c.coins===undefined?{}:{coins:c.coins}),seq:sequence++,step:snap.step,x:c.x,y:c.y,z:c.z,yaw:c.yaw,pitch:c.pitch,vx:c.vx,vz:c.vz,steer:c.steer,drifting:!!c.drifting,boost:c.boostTime>0,ghost:!!getGhost(),spinning:c.spinTime>0,finished:r.finished,shield:c.shieldTime>0,trapped:c.trapTime>0,air:!c.grounded,lap:r.lap,s:c.near.s});
    }
    // 完赛消息可重复接收：重连或短暂发送失败后，每秒补发直到收到统一结算。
    if(active&&r.finished&&now-lastFinish>=1000){lastFinish=now;client.send({type:'finish',elapsed:r.elapsed,bestLap:r.bestLap,lapTimes:r.lapTimes});}

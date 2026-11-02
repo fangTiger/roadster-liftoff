@@ -47,3 +47,12 @@ test('释放两份实例缓冲、几何、材质和金币贴图各一次，并�
  coins.dispose(); coins.dispose();
  assert.deepEqual(counts.map(c => c.n), resources.map(() => 1)); assert.equal(scene.children.length, 0);
 }));
+
+test('金币流光长度亮度线性增强，满层粒子、损失四散约八百毫秒后回收',()=>{
+ assert.equal(typeof coinsModule.createCoinTrail,'function');const root=new THREE.Group(),fx=coinsModule.createCoinTrail(root);
+ fx.update({coins:0},.1);assert.equal(fx.root.visible,false);
+ fx.update({coins:5},.1);const half=fx.root.children[0].scale.y,opacity=fx.root.children[0].material.opacity;assert.equal(fx.root.visible,true);
+ fx.update({coins:10},.1);assert.ok(fx.root.children[0].scale.y>half);assert.ok(fx.root.children[0].material.opacity>opacity);assert.ok(fx.root.children.find(c=>c.isPoints).visible);
+ fx.update({coins:5},.1);const burst=fx.root.children.find(c=>c.name==='coin-loss');assert.equal(burst.count,5);assert.equal(burst.visible,true);fx.update({coins:5},.81);assert.equal(burst.visible,false);
+ fx.dispose();assert.equal(root.children.length,0);
+});

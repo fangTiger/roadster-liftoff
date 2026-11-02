@@ -289,3 +289,12 @@ test('loading 恢复补发 null 时刻与进度，已放行恢复补发最新 st
 test('loading 全部真人主动离开仍销毁房间，掉线保留宽限期后清理',async()=>{
  for(const leave of [true,false]){const f=fixture(),{a,b}=await f.start();for(const c of [a,b])if(leave)f.send(c,{type:'leave'});else f.rooms.disconnect(c);if(!leave)f.advance(30000);assert.equal(f.rooms.size,0);}
 });
+
+test('coins 可选整数零到十，真人与机器人原样转发，旧字段缺省兼容',async()=>{
+ const f=await botsRace();f.load();f.advance(1500);let seq=0;
+ for(const type of ['state','botState']){
+  const extra=type==='botState'?{botId:f.bots[0].id}:{};
+  for(const coins of [-1,11,.5,'3',null]){f.send(f.a,{...state(++seq),type,...extra,coins});assert.equal(f.last(f.a,'error').code,'BAD_MESSAGE');}
+  for(const coins of [0,7,10,undefined]){f.send(f.a,{...state(++seq),type,...extra,coins});assert.equal(f.last(f.b,'peer').coins,coins);}
+ }
+});

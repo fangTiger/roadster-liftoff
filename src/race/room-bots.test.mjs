@@ -21,3 +21,8 @@ test('房主机器人注入随机源并从实际交通回调读取前车',()=>{
  a.driver({car:a.session.car,race:a.session.race},track);
  assert.deepEqual(calls,[{id:'bot',step:1}]);
 });
+
+test('机器人只在道具房间启用金币，状态白名单保留可选 coins',async()=>{
+ const {carState}=await import('./room-bots.js'),track=buildTrack(meadow),players=[{id:'bot',seat:0,bot:true,ownerId:'host',difficulty:'normal',connected:true}];
+ for(const mode of ['items','speed',undefined]){const bot=createRoomBots({track,players,ownerId:'host',laps:3,mode,contacts:()=>[]}).get('bot');assert.equal(bot.session.car.coins,mode==='items'?0:undefined);if(mode==='items')bot.session.car.coins=8;assert.equal(carState(bot.session.car,bot.session.race).coins,mode==='items'?8:undefined);}
+});

@@ -10,31 +10,33 @@ import { ROCK,SALT,GAP } from '../track/build.js';
 import T from './tuning.js';
 const copy=v=>JSON.parse(JSON.stringify(v));
 const lapStats=()=>({clean:true,driftBoost3:0,driftBoostCounts:{1:0,2:0,3:0},canyonJump:false,slotPass:false,saltTopKmh:0});
-export function createSession(track,{laps=3,spawn,contacts,contactId,botPerformance={}}={}) {
+export function createSession(track,{laps=3,spawn,contacts,contactId,botPerformance={},coinBoost=false}={}) {
  // 显式机器人性能仅保存在本会话；复制后避免调用方修改影响确定性。
  const performance=Object.freeze({engine:1,topSpeed:1,grip:1,...botPerformance});
  for(const key of ['engine','topSpeed','grip'])if(!Number.isFinite(performance[key])||performance[key]<=0)throw new RangeError('机器人性能倍率必须为正有限数');
  // 发车位在终点线后 12 米：发车时能看见起终点龙门架和发车灯，冲过线开始第一圈
  const startS=track.length-12,start=track.at(startS),race=createRace(track,{laps,dt:DT}),hazards=createHazards(track),coins=coinPositions(track);
  let car=createCarState(spawn||{...start,yaw:atan2(start.tx,start.tz),s:startS}),stepCount=0,previousBits=0,stuck=0,traversal={},stats=lapStats();
+ if(coinBoost)car.coins=0;
  car.near=track.nearest(car.x,car.z);
  const events=[],completedStats=[];
- let resetStep=-Infinity,effects=null;
+ let resetStep=-Infinity,effects=null,rankFraction=0;
+ function setRankFraction(value){rankFraction=Number.isFinite(value)?Math.max(0,Math.min(1,value)):0;}
  function applyEffect(kind,params={}){if(!EFFECT_KINDS.includes(kind))throw new RangeError('未知道具效果');(effects??=[]).push({kind,params:{...params}});}
  const ghost=()=>race.state.finished||(race.state.steps-resetStep)*DT<=T.contactGraceReset;
- function reset(reason){const pose=race.requestReset(),old=car;resetStep=race.state.steps;car=createCarState(pose);car.near=track.nearest(car.x,car.z);car.picked=old.picked;car.cones=old.cones;car.rockHits=old.rockHits;car.lap=old.lap;car.fuel=old.fuel;car.previousBits=previousBits;stats.clean=false;traversal={};stuck=0;events.push({type:'reset',reason,step:stepCount});}
+ function reset(reason){const pose=race.requestReset(),old=car;resetStep=race.state.steps;car=createCarState(pose);car.near=track.nearest(car.x,car.z);car.picked=old.picked;car.cones=old.cones;car.rockHits=old.rockHits;car.lap=old.lap;car.fuel=old.fuel;if(coinBoost)car.coins=old.coins;car.previousBits=previousBits;stats.clean=false;traversal={};stuck=0;events.push({type:'reset',reason,step:stepCount});}
  function step(bits) {
   if(!Number.isInteger(bits)||bits<0||bits>255)throw new RangeError('输入必须是 0 到 255 的整数');
   // 完赛后车按物理自动刹停（不再接受操作，也不再计时）
-  if(race.state.finished){if(effects)tickEffects(car,DT);stepCount++;const moving=car.vx*car.vx+car.vz*car.vz>.25;stepCar(car,moving?BRAKE:0,{track,hazards,step:race.state.steps,coins,botPerformance:performance});return;}   // 停稳后松开刹车，否则会倒车
+  if(race.state.finished){if(effects)tickEffects(car,DT);stepCount++;const moving=car.vx*car.vx+car.vz*car.vz>.25;stepCar(car,moving?BRAKE:0,{track,hazards,step:race.state.steps,coins,coinBoost,rankFraction,botPerformance:performance});return;}   // 停稳后松开刹车，否则会倒车
   const rawBits=bits;
-  if(effects){for(const event of applyEffects(car,effects))events.push({...event,step:stepCount+1});effects.length=0;bits=effectInput(car,bits);}
+  if(effects){for(const event of applyEffects(car,effects,{coinBoost}))events.push({...event,step:stepCount+1});effects.length=0;bits=effectInput(car,bits);}
   const edge=bits&~previousBits;previousBits=rawBits;stepCount++;
   if(race.state.frozen){race.step(car,car,car);return;}
   if(edge&RESET){if(effects)tickEffects(car,DT);reset('manual');race.step(car,car,car);return;}
   const trapped=car.trapTime>0,spinning=car.spinTime>0,speedBefore=spinning?Math.sqrt(car.vx*car.vx+car.vz*car.vz):0;
   const prev={x:car.x,z:car.z,grounded:car.grounded,rollTime:car.rollTime},lapBefore=race.state.lapTimes.length;
-  car.lap=race.state.lap;const current=stepCar(car,bits,{track,hazards,step:race.state.steps,coins,botPerformance:performance});
+  car.lap=race.state.lap;const current=stepCar(car,bits,{track,hazards,step:race.state.steps,coins,coinBoost,rankFraction,botPerformance:performance});
   for(const event of current){events.push({...event,step:stepCount});if(event.type==='wall')stats.clean=false;if(event.type==='driftBoost'){stats.driftBoostCounts[event.tier]++;if(event.tier===3)stats.driftBoost3++;}}
   if(trapped){car.x=prev.x;car.z=prev.z;car.vx=car.vz=0;car.near=track.nearest(car.x,car.z,car.near);}
   advanceTraversal(traversal,prev,car,current,track,stats);
@@ -59,7 +61,7 @@ export function createSession(track,{laps=3,spawn,contacts,contactId,botPerforma
   if(race.state.lapTimes.length>lapBefore){completedStats.push(copy(stats));events.push({type:'lap',lap:lapBefore+1,time:race.state.lapTimes[lapBefore],step:stepCount});stats=lapStats();traversal={};}
  }
  // race / car：直接返回内部状态（只读约定，不复制），供影子预演等每步读取；snapshot 会深拷贝整局事件，逐步调用很慢
- return {step,applyEffect,get ghost(){return ghost();},get race(){return race.state;},get car(){return car;},get snapshot(){return {step:stepCount,car:copy(car),race:copy(race.state),events:copy(events),stats:copy(stats),completedStats:copy(completedStats),hazards:hazards.positions(race.state.steps)};}};
+ return {step,applyEffect,setRankFraction,get ghost(){return ghost();},get race(){return race.state;},get car(){return car;},get snapshot(){return {step:stepCount,car:copy(car),race:copy(race.state),events:copy(events),stats:copy(stats),completedStats:copy(completedStats),hazards:hazards.positions(race.state.steps)};}};
 }
 
 // 用有方向的入口/出口穿越记成就，排除触碰缺口后落回原岸或只在槽边翻滚。

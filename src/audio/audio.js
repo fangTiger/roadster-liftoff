@@ -30,6 +30,7 @@ export function createAudio({ urls, music = true } = {}) {
   let buffers, tracks, current = null, pendingCue = null, requestId = 0, ready = false, unlocking;
   let state = { mode: 'drive', landing: 0 };
   let lobbyPhase = 'off', lobbyTrack, lobbyPending, lobbyStopTimer, lobbyFading = false;
+  let racePhase = 'off', raceTracks, raceLevel, raceDuck, raceLowpass, raceIndex = 0, raceGeneration = 0, raceDucking = false, raceCrossing = false, raceLoopTimer, raceStopTimer, raceSeamTimer;
   let landed = false;
   let previousLanding = 0;
   let previousMode = 'drive';
@@ -232,7 +233,7 @@ export function createAudio({ urls, music = true } = {}) {
     if (!ctx) initialize();
     // resume 与所有媒体 play 必须在用户手势调用栈中发起，不能先 await。
     const resumed = ctx.resume();
-    syncLobbyMusic();
+    syncLobbyMusic(); syncRaceMusic();
     if (!music) return resumed.then(() => { ready = true; update(0, state); });
     if (ready) {
       const track = tracks.find(t => t.name === current);
@@ -282,7 +283,7 @@ export function createAudio({ urls, music = true } = {}) {
     const orbit = state.mode === 'orbit', ascent = state.mode === 'ascent', reentry = state.mode === 'reentry';
     const boost = clamp(s.boost), accel = clamp(s.accel);
     const thrust = Math.max(lift, boost * 0.8, s.jet ? Math.max(throttle, 0.35) : 0);
-    const duck = lift > 0.1 || Boolean(s.jet);
+    const duck = (lift > 0.1 || Boolean(s.jet)) && !['racing', 'paused', 'finished'].includes(racePhase);
     if (ascent || orbit || (reentry && previousMode !== 'reentry')) landed = false;
     if (state.landing > 0 && previousLanding === 0) landed = true;
     previousLanding = state.landing; previousMode = state.mode;
@@ -422,8 +423,94 @@ export function createAudio({ urls, music = true } = {}) {
     smooth(hornGain.gain, on ? 0.34 : 0, on ? 0.008 : 0.035);
   }
 
+  // 两个流式媒体交替，在尾部约 200 毫秒交叉淡化；不参与赛道资源等待。
+  const quietMusic = () => {
+    const query = new URLSearchParams(globalThis.location?.search || '');
+    return query.has('capture') || query.has('still') || !!globalThis.navigator?.webdriver;
+  };
+  const wantsRace = () => ['racing', 'paused'].includes(racePhase) && musicEnabled && !muted && !!sources.race && !quietMusic();
+  function stopRaceMusic() {
+    ++raceGeneration; clearInterval(raceLoopTimer); clearTimeout(raceStopTimer); clearTimeout(raceSeamTimer);
+    raceLoopTimer = raceStopTimer = raceSeamTimer = null; raceCrossing = false;
+    for (const deck of raceTracks || []) { deck.el.pause(); smooth(deck.output.gain, 0, .008); }
+  }
+  function raceMix(fade = false) {
+    smooth(raceLevel.gain, .28 * .6 * (racePhase === 'paused' ? .3 : 1), fade ? 1.5 / 5 : .15 / 5);
+    smooth(raceLowpass.frequency, racePhase === 'paused' ? 1200 : 20000, .15 / 5);
+  }
+  function fadeRaceIn() {
+    hold(raceLevel.gain); raceLevel.gain.setValueAtTime(0, ctx.currentTime);
+    automation.set(raceLevel.gain, { time: ctx.currentTime, value: 0, events: [] });
+    raceMix(true);
+  }
+  function startRaceDeck(deck, generation, onPlay) {
+    if (deck.pending) return;
+    deck.pending = play(deck).then(ok => {
+      deck.pending = null;
+      if (!wantsRace()) { deck.el.pause(); return; }
+      if (generation !== raceGeneration) {
+        if (deck !== raceTracks[raceIndex]) deck.el.pause();
+        else { smooth(deck.output.gain, 1, .008); fadeRaceIn(); }
+        return;
+      }
+      if (ok) onPlay();
+    });
+  }
+  function loopRaceMusic() {
+    if (!wantsRace() || raceCrossing) return;
+    const from = raceTracks[raceIndex], to = raceTracks[1 - raceIndex];
+    if (!Number.isFinite(from.el.duration) || from.el.duration - from.el.currentTime > .22) return;
+    raceCrossing = true; const generation = raceGeneration;
+    to.el.currentTime = 0;
+    startRaceDeck(to, generation, () => {
+      raceIndex = 1 - raceIndex;
+      smooth(to.output.gain, 1, .2 / 5); smooth(from.output.gain, 0, .2 / 5);
+      raceSeamTimer = setTimeout(() => { from.el.pause(); raceCrossing = false; }, 200);
+    });
+    // 失败后允许下一帧重试，不让播放策略拒绝卡住循环。
+    void to.pending?.then(() => { if (to.el.paused) raceCrossing = false; });
+  }
+  function syncRaceMusic() {
+    if (racePhase === 'finished' && raceStopTimer && musicEnabled && !muted) return;
+    if (!wantsRace()) { stopRaceMusic(); return; }
+    if (!ctx) return;
+    if (!raceTracks) {
+      raceLevel = gain(0, musicBus); raceDuck = gain(raceDucking ? .5 : 1, raceLevel);
+      raceLowpass = filter('lowpass', 20000, raceDuck);
+      const high = filter('highshelf', 6000, raceLowpass); high.gain.value = -3;
+      const presence = filter('highshelf', 2500, high); presence.gain.value = -4;
+      raceTracks = [0, 1].map(() => {
+        const el = new Audio(); el.preload = 'none'; el.crossOrigin = 'anonymous'; el.loop = false; el.src = sources.race;
+        el.addEventListener('error', () => console.warn('比赛音乐加载失败'));
+        const output = gain(0, presence); ctx.createMediaElementSource(el).connect(output);
+        return { name: 'race', el, output };
+      });
+    }
+    clearTimeout(raceStopTimer); raceStopTimer = null;
+    const deck = raceTracks[raceIndex];
+    if (!deck.el.paused) return;
+    // 在手势调用栈内发起 play，失败由下一次解锁重试。
+    startRaceDeck(deck, raceGeneration, () => { smooth(deck.output.gain, 1, .008); fadeRaceIn(); });
+    if (!raceLoopTimer) { raceLoopTimer = setInterval(loopRaceMusic, 25); raceLoopTimer.unref?.(); }
+  }
+  function setRacePhase(phase) {
+    if (phase === racePhase) return;
+    const previous = racePhase; racePhase = phase;
+    if (raceTracks && wantsRace() && ['racing', 'paused'].includes(previous)) raceMix();
+    if (phase === 'finished' && raceTracks) {
+      clearInterval(raceLoopTimer); raceLoopTimer = null;
+      smooth(raceLevel.gain, 0, 1 / 5);
+      raceStopTimer = setTimeout(stopRaceMusic, 1000); raceStopTimer.unref?.();
+    } else if (wantsRace()) void unlock().catch(() => {});
+    else stopRaceMusic();
+  }
+  function setRaceDucking(active) {
+    raceDucking = Boolean(active);
+    if (raceDuck) smooth(raceDuck.gain, raceDucking ? .5 : 1, (raceDucking ? .08 : .6) / 5);
+  }
+
   // 大厅曲目也接入既有音乐总线，只在需要播放时创建媒体元素。
-  const wantsLobby = () => lobbyPhase === 'lobby' && musicEnabled && !muted && !!sources.lobby;
+  const wantsLobby = () => lobbyPhase === 'lobby' && musicEnabled && !muted && !!sources.lobby && !quietMusic();
   function syncLobbyMusic(fade = false) {
     // 重复手势解锁不重置已在音频时钟上运行的倒计时淡出。
     if (lobbyPhase === 'countdown' && lobbyFading && musicEnabled && !muted) return;
@@ -466,13 +553,15 @@ export function createAudio({ urls, music = true } = {}) {
     musicEnabled = Boolean(value); persist();
     if (ctx) smooth(musicBus.gain, musicEnabled ? MUSIC_LEVEL : 0, .04);
     if (wantsLobby()) void unlock().catch(() => {}); else syncLobbyMusic();
+    syncRaceMusic();
   }
   function setMuted(value) {
     muted = Boolean(value); persist(); if (ctx) smooth(master.gain, muted ? 0 : volume, .025);
     if (wantsLobby()) void unlock().catch(() => {}); else syncLobbyMusic();
+    syncRaceMusic();
   }
   function toggleMuted() { setMuted(!muted); return muted; }
   function setVolume(value) { volume = clamp(value); persist(); if (ctx) smooth(master.gain, muted ? 0 : volume, 0.04); }
 
-  return { unlock, cue, update, event, horn, setMuted, toggleMuted, setVolume, setLobbyPhase, setMusicEnabled, get musicEnabled() { return musicEnabled; }, get muted() { return muted; } };
+  return { unlock, cue, update, event, horn, setMuted, toggleMuted, setVolume, setLobbyPhase, setRacePhase, setRaceDucking, setMusicEnabled, get raceMusicState() { return { phase: racePhase, ducking: raceDucking, playing: !!raceTracks?.some(t => !t.el.paused), time: raceTracks?.[raceIndex].el.currentTime ?? 0, suppressed: quietMusic() }; }, get musicEnabled() { return musicEnabled; }, get muted() { return muted; } };
 }

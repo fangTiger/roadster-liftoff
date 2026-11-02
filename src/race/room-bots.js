@@ -3,13 +3,13 @@ import { createBotDriver,botPerformance } from './bot-driver.js';
 import { gridSpawn } from './grid.js';
 // 与真人上报相同的白名单；本地碰撞与显示也直接读取当前状态。
 export function carState(car,race,ghost=false) {
- return {x:car.x,y:car.y,z:car.z,yaw:car.yaw,pitch:car.pitch,vx:car.vx,vz:car.vz,steer:car.steer,drifting:!!car.drifting,boost:car.boostTime>0,ghost,spinning:car.spinTime>0,finished:race.finished,shield:car.shieldTime>0,trapped:car.trapTime>0,air:!car.grounded,lap:race.lap,s:car.near.s};
+ return {...(car.coins===undefined?{}:{coins:car.coins}),x:car.x,y:car.y,z:car.z,yaw:car.yaw,pitch:car.pitch,vx:car.vx,vz:car.vz,steer:car.steer,drifting:!!car.drifting,boost:car.boostTime>0,ghost,spinning:car.spinTime>0,finished:race.finished,shield:car.shieldTime>0,trapped:car.trapTime>0,air:!car.grounded,lap:race.lap,s:car.near.s};
 }
-export function createRoomBots({players,ownerId,track,laps,contacts,traffic=()=>[],random=Math.random}) {
+export function createRoomBots({players,ownerId,track,laps,contacts,traffic=()=>[],random=Math.random,mode}) {
  const bots=new Map();
  for(const player of players.filter(p=>p.bot&&p.ownerId===ownerId&&p.connected)){
   const performance=botPerformance(player.difficulty,track);
-  const session=createSession(track,{laps,botPerformance:performance,spawn:gridSpawn(track,player.seat),contactId:player.id,contacts:step=>contacts(player.id,step)});
+  const session=createSession(track,{laps,coinBoost:mode==='items',botPerformance:performance,spawn:gridSpawn(track,player.seat),contactId:player.id,contacts:step=>contacts(player.id,step)});
   const bot={session,step:0,sequence:0,lastSend:-Infinity,lastFinish:-Infinity};
   bot.driver=createBotDriver(player.difficulty,{random,performance,id:player.id,cars:()=>traffic(player.id,bot.step+1)});
   bots.set(player.id,bot);

@@ -1,3 +1,4 @@
+import { createCoinTrail } from './scene/coins.js';
 import { spinRotation } from './sim/effects.js';
 import T from './sim/tuning.js';
 import { onLangChange } from '../i18n/i18n.js';
@@ -24,6 +25,7 @@ export function prepareRemoteCar(car,player) {
  // 按实际视角换算屏幕尺寸，文字约 110×20 像素，底部箭头约 7 像素。
  const labelSize=(fov=52)=>{const unit=2*Math.tan(fov*Math.PI/360)/(globalThis.innerHeight||900);label.scale.set(110*unit,27.5*unit,1);};
  label.position.set(0,2.3,0);label.renderOrder=999;labelSize();label.onBeforeRender=(_renderer,_scene,camera)=>{labelSize(camera.fov);label.updateMatrixWorld();};car.root.add(label);
+ const coinTrail=createCoinTrail(car.body||car.root);
  let wheelAngle=0,spinElapsed=0,wasSpinning=false;
  return {...car,
   update(state,dt){
@@ -31,9 +33,10 @@ export function prepareRemoteCar(car,player) {
    car.root.visible=true;
    if(state.spinning){if(!wasSpinning)spinElapsed=0;spinElapsed+=Math.max(0,dt);}else spinElapsed=0;wasSpinning=!!state.spinning;
    car.root.position.set(state.x,state.y,state.z);car.root.rotation.y=state.yaw+Math.PI+(state.spinning?spinRotation(T.spinTime-spinElapsed%T.spinTime):0);car.chassis.rotation.x=state.pitch;car.chassis.rotation.z=-state.steer*Math.min(.06,Math.hypot(state.vx,state.vz)*.001);
+   coinTrail.update(state,dt);
    car.setSteer(state.steer);wheelAngle+=Math.hypot(state.vx,state.vz)*Math.min(.1,dt)/.34;
    for(const wheel of car.wheels){wheel.spin.rotation.x=-wheelAngle;if(wheel.front)wheel.steer.rotation.y=state.steer*.35;}
   },
-  dispose(){unsubscribe();car.root.removeFromParent();for(const m of materials)m.dispose();for(const geometry of geometries)geometry.dispose();for(const map of textures)map.dispose();texture.dispose();labelMaterial.dispose();},
+  dispose(){coinTrail.dispose();unsubscribe();car.root.removeFromParent();for(const m of materials)m.dispose();for(const geometry of geometries)geometry.dispose();for(const map of textures)map.dispose();texture.dispose();labelMaterial.dispose();},
  };
 }

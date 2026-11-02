@@ -43,6 +43,7 @@ export function createRoomItems({track,send,random=Math.random,onEvent=()=>{}}) 
   onEvent({type:'itemUsed',id:actor.id,kind});return true;
  }
  function step(actor){
+  actor.setRankFraction?.(actor.rankFraction);
   const s=slot(actor.id);let shield=actor.car.shieldTime>0||s.shieldQueued;s.shieldQueued=false;
   for(const [id,mine] of mines)if(!mineAlive(mine,actor.time)){mines.delete(id);removed.add(id);}
   // 命中先于拾取和机器人决策，离地、禁锢都不能躲过锁定导弹。

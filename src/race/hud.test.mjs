@@ -59,3 +59,11 @@ test('房间等待加载进度取代倒计时并随中英文更新，放行后�
  setLang('en');hud.update(state,{waiting:{loaded:2,total:3}});assert.equal(elements.get('.rh-notice').textContent,'Waiting for racers 2/3');
  hud.update(state);assert.equal(elements.get('.rh-notice').textContent,3);hud.destroy();
 }));
+
+test('道具赛金币计数、满层发光与金色加一红色损失提示独立且双语完整',()=>fixture((elements,created)=>{
+ const track=buildTrack(TRACKS[0].def),s=createSession(track,{coinBoost:true}).snapshot,hud=createHud(track,'',{trackId:1,roomMode:true,itemsMode:true});
+ assert.match(created.find(e=>e.id==='race-hud').innerHTML,/rh-coins/);
+ for(const lang of ['zh','en']){setLang(lang);s.car.coins=10;s.events.push({type:'coin',gained:1,step:s.step});hud.update(s);assert.equal(elements.get('.rh-coins b').textContent,'10/10');assert.equal(elements.get('.rh-coins').dataset.full,'true');assert.equal(elements.get('.rh-coin-pop').textContent,'+1');
+  s.car.coins=5;s.events.push({type:'coinLoss',count:5,step:s.step});hud.update(s);assert.equal(elements.get('.rh-coins b').textContent,'5/10');assert.equal(elements.get('.rh-coin-pop').textContent,'-5');assert.equal(elements.get('.rh-coin-pop').dataset.loss,'true');s.step+=120;hud.update(s);assert.equal(elements.get('.rh-coin-pop').hidden,true);
+ }hud.destroy();
+}));

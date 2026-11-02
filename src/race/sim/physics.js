@@ -39,7 +39,7 @@ function collide(c,a,b,radius,events,type='wall') {
  const scrape=1-T.wallScrape*DT;c.vx*=scrape;c.vz*=scrape;
  if(vn<-.5) events.push({type,impact:-vn});return true;
 }
-export function stepCar(c,bits,{track,hazards,step=0,coins,botPerformance:{engine=1,topSpeed=1,grip=1}={}}={}) {
+export function stepCar(c,bits,{track,hazards,step=0,coins,coinBoost=false,rankFraction=0,botPerformance:{engine=1,topSpeed=1,grip=1}={}}={}) {
  const events=[],edge=bits&~c.previousBits;c.previousBits=bits;
  // 翻滚只能在空中触发（离地 rollMinHeight 以上），与第一版一致；平地翻滚会让车身插进路面
  if((edge&ROLL)&&c.rollTime<=0&&!c.grounded&&c.y-c.groundY>T.rollMinHeight){c.rollTime=T.rollDuration;c.rollDirection=bits&RIGHT?-1:1;}
@@ -65,7 +65,11 @@ export function stepCar(c,bits,{track,hazards,step=0,coins,botPerformance:{engin
  if(drifting){c.driftTime+=DT;c.driftTier=0;for(const threshold of T.driftThresholds)if(c.driftTime>=threshold)c.driftTier++;}
  c.drifting=drifting;
  const resistance=c.surface===SAND?T.sandResistance:c.surface===GRAVEL?T.gravelResistance:0;
- const cap=c.surface===SAND?T.sandSpeed:T.maxSpeed*topSpeed+(c.boostTime>0?T.boostSpeed:0);
+ let cap=c.surface===SAND?T.sandSpeed:T.maxSpeed*topSpeed+(c.boostTime>0?T.boostSpeed:0);
+ const coinMultiplier=coinBoost?1+.01*c.coins:1;
+ if(coinBoost)cap*=coinMultiplier;
+ // 恒功率与平方风阻的平衡速度随倍率同步提高；关闭时保留原风阻运算。
+ const drag=coinBoost?T.drag/(coinMultiplier*coinMultiplier*coinMultiplier):T.drag;
  let newFx,newFz;
  if(drifting){
   // 卡丁车式漂移：速度方向按下面的角速度转；
@@ -80,7 +84,7 @@ export function stepCar(c,bits,{track,hazards,step=0,coins,botPerformance:{engin
   const steerK=into>=0?T.driftNeutral+(1-T.driftNeutral)*into:T.driftNeutral*(1+into*.5);
   const omega=(T.driftRate0+(T.driftRate1-T.driftRate0)*hold)*steerK*Math.min(1,speed/20);
   const rate=speed*c.steer/gripRadius*(1-b)+c.driftDir*omega*b,turn=rate*DT,cs=cos(turn),sn=sin(turn),vx=c.vx*cs+c.vz*sn,vz=c.vz*cs-c.vx*sn;
-  let acceleration=-(T.drag*speed*speed+resistance+T.driftDrag);
+  let acceleration=-(drag*speed*speed+resistance+T.driftDrag);
   if(bits&THROTTLE)acceleration+=Math.min(T.acceleration,T.power/Math.max(1,speed))*engine*T.driftThrottle;   // 漂移是用速度换转向，油门推力打折
   if(bits&BRAKE)acceleration-=T.brake;
   if(c.boostTime>0){acceleration+=T.boostAcceleration;c.boostTime=Math.max(0,c.boostTime-DT);}
@@ -101,7 +105,7 @@ export function stepCar(c,bits,{track,hazards,step=0,coins,botPerformance:{engin
   let acceleration=0,throttle=!!(bits&THROTTLE),braking=!!(bits&BRAKE);
   if(throttle) acceleration+=Math.min(T.acceleration,T.power/Math.max(1,Math.abs(forward)))*engine;
   if(braking) acceleration+=forward>0?-T.brake*(bits&BRAKE?1:.6):-T.reverseAcceleration;
-  acceleration-=Math.sign(forward)*(T.drag*forward*forward+resistance);
+  acceleration-=Math.sign(forward)*(drag*forward*forward+resistance);
   if(c.boostTime>0){acceleration+=T.boostAcceleration;c.boostTime=Math.max(0,c.boostTime-DT);}
   let next=forward+acceleration*DT;
   if(!throttle&&!braking&&next*forward<0)next=0;
@@ -154,7 +158,7 @@ export function stepCar(c,bits,{track,hazards,step=0,coins,botPerformance:{engin
    if(c.cones[key]!==c.lap&&dx*dx+dz*dz<2.25){c.cones[key]=c.lap;c.vx*=T.coneRetention;c.vz*=T.coneRetention;events.push({type:'cone',id:key});}
   }
  }
- for(const coin of coins||coinPositions(track))if(c.picked[coin.id]!==c.lap){const dx=c.x-coin.x,dy=c.y+T.height/2-coin.y,dz=c.z-coin.z;if(dx*dx+dy*dy+dz*dz<=T.coinRadius*T.coinRadius){c.picked[coin.id]=c.lap;c.fuel=Math.min(T.fuelMax,c.fuel+T.coinFuel);events.push({type:'coin',id:coin.id});}}
+ for(const coin of coins||coinPositions(track))if(c.picked[coin.id]!==c.lap){const dx=c.x-coin.x,dy=c.y+T.height/2-coin.y,dz=c.z-coin.z;if(dx*dx+dy*dy+dz*dz<=T.coinRadius*T.coinRadius){c.picked[coin.id]=c.lap;c.fuel=Math.min(T.fuelMax,c.fuel+(coinBoost?T.coinFuel*(1+rankFraction):T.coinFuel));if(coinBoost){const gained=c.coins<10?1:0;c.coins=Math.min(10,c.coins+1);events.push({type:'coin',id:coin.id,gained});}else events.push({type:'coin',id:coin.id});}}
  for(const rock of hazards?.positions(step)||[]){
   if(step-(c.rockHits[rock.id]??-100000)<T.rockCooldown/DT||Math.abs(c.y-rock.y)>T.height+rock.radius)continue;
   const h=T.length/2-T.width/2,q=closest({x:c.x-newFx*h,z:c.z-newFz*h},{x:c.x+newFx*h,z:c.z+newFz*h},rock,rock),dx=q.x-rock.x,dz=q.z-rock.z,r=effectiveHalfWidth(c)+rock.radius;

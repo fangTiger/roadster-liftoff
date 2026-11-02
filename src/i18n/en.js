@@ -1,6 +1,8 @@
 // 英文词条（目标语言）。键名与 zh.js 完全相同，不可增减。
 // {placeholder} 保持不变；<kbd> 标签与 zh.js 对应条目数量一致。
 export default {
+  'race.coins.speed': 'Coin speed +{n}%',
+
   // —— 按键名 ——
   'key.space': 'Space',
   // —— 操作说明 ——
