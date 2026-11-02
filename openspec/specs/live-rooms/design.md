@@ -2,7 +2,7 @@
 
 ## 总体结构
 - **房间服务**：只负责房间的流程和消息转发，不计算物理。
-  - 房间状态依次为：大厅 → 倒计时 → 比赛中 → 结算 → 回到大厅。
+  - 房间状态依次为：大厅 → 加载中 → 倒计时 → 比赛中 → 结算 → 回到大厅。
   - 每个房间 2–6 人，房间码为 6 位，排除容易看混的字符；也可以用链接 `/?race&room=ABC123` 加入。
 - **客户端**：每人在自己的电脑上，按固定的 120Hz 步长计算自己的车。其他车用收到的状态来画，每人用不同的车漆颜色；正常不透明，重置保护与完赛时半透明。
 
@@ -10,16 +10,19 @@
 - 客户端发给服务：
   - `hello{name, roomCode?, resumeToken?}`、`ready{on}`、`pickTrack{trackId}`（仅房主）；
   - `state{seq, step, x,y,z,yaw,pitch,vx,vz,steer,drifting,boost,lap,s,ghost,air}`，每秒 15 次；ghost、air 均为必填布尔值；
-  - `finish{elapsed, bestLap, lapTimes}`、`ping{t}`、`leave`。
+  - `loaded`（本局赛道和车辆加载完成）、`finish{elapsed, bestLap, lapTimes}`、`ping{t}`、`leave`。
 - 服务发给客户端：
   - `welcome{id, resumeToken}`、`room{code, players[{id,name,seat,ready,connected,color}], hostId, trackId, phase}`；
-  - `start{trackId, laps, startAt, grid[]}`，其中 startAt 是服务器时间；
+  - `start{trackId, mode, laps, startAt, grid[]}`，加载中 startAt 为 null，恢复时补发最新值；
+  - `loading{loaded,total}`（在线真人加载进度）、`go{startAt}`（统一开始模拟倒计时的服务器时刻）；
   - `peer{id, ...state, serverT}`、`left{id}`、`results{results:[{id,name,rank,elapsed,bestLap,dnf}]}`、`pong{t, serverT}`、`error{code}`；所有消息都有 `type`。
 - 服务对 state 消息做限流（超过每秒 30 次就丢弃），每个房间单独转发。
 
 ## 时钟与发车
 - 客户端用多次 ping 往返，估算本机时钟和服务器时钟的偏差。
-- 所有客户端在服务器时间 startAt 那一刻开始倒计时，倒计时结束后同时开始计算物理步，各台电脑的发车误差约等于时钟估算误差（几十毫秒）。
+- 房主开赛后先进入 loading，广播 startAt=null 的 start，并记录 loaded 集合和当前时间加 20 秒的 loadDeadline。所有在线真人 loaded 或 tick 到达期限时，进入 countdown，将 startAt 更新为当前时间加 1000ms，发布房间并广播 go。机器人不计入加载人数；掉线或离开立即重算人数与放行条件，恢复时补发最新 start 和加载进度；loading 与 countdown 一样不可加入。
+- 客户端完成赛道、车辆加载后发送 loaded；等待期间保持 active=false，车停在发车格，机器人不推进，不发送状态或道具，HUD 显示「等待其他车手加载 n/m」或「Waiting for racers n/m」。服务端在 loading 不接收 state、botState、道具和完赛。
+- 所有已加载客户端在服务器时间 startAt 开始推进 session 自带的 3 秒倒计时，倒计时结束同时发车，误差约等于时钟估算误差（几十毫秒）。go 早于本地加载完成时保留时刻，加载后按已有追帧逻辑进入当前进度。同局恢复复用本地会话；错过 go 时通过补发 start 更新时刻，不重置已加载会话。
 
 ## 其他车辆的显示
 - 每辆车的历史状态存在缓冲区里。画面按「当前时间减 100 毫秒」去取历史状态，在相邻两次状态之间插值显示。
@@ -56,7 +59,7 @@
 
 ## 第 1 批实施约定（不含碰撞）
 - 已有 session 的 `spawn` 参数足以支持发车格，不修改 session、race、physics、tuning 的物理与计时。座位 0–5 两列相隔 5 米，沿赛道每排退后 8 米。
-- startAt 为服务当前时间 +1500ms，客户端到时开始推进 session 自带的 3 秒倒计时。按服务器时间算目标步数，单帧最多追 240 步；菜单不暂停联网计时。
+- start 初始 startAt=null；在线真人全部加载完成或等待满 20 秒后，go 的 startAt 为服务当前时间 +1000ms，客户端到时开始推进 session 自带的 3 秒倒计时。按服务器时间算目标步数，单帧最多追 240 步；菜单不暂停联网计时。
 - 每秒发 15 条状态；服务对每个连接用一秒滑动窗口限制最多 30 条，只转发合法字段，补充接收时刻 serverT。服务不执行物理或成绩复算。
 - 每 2 秒 ping，以最近 8 次样本的最小 RTT 校时；远端车显示服务器当前时间减 100ms 的状态，外推上限 250ms，3 秒后淡出。
 - 断线保留席位与恢复令牌 30 秒，但立即向最早加入且在线的玩家移交房主；恢复后继续本机同一局，不重置 session。超时或主动离房的未完赛者在本局参赛名单中保留 DNF。

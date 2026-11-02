@@ -52,7 +52,9 @@ try{
  await b.locator('[data-rm-copy]').click();assert.equal(new URL(await b.evaluate(()=>navigator.clipboard.readText())).searchParams.get('pw'),'2468');
  await b.getByRole('button',{name:'准备',exact:true}).click();await a.getByRole('button',{name:'开始比赛',exact:true}).click();
  await Promise.all(pages.map(page=>page.waitForFunction(()=>document.querySelector('[data-rm-hint]')?.textContent.includes('正在加载赛道'))));
- assert.ok(messages.some(m=>m.type==='room'&&m.phase==='countdown'));assert.ok(messages.some(m=>m.type==='start'));assert.ok(messages.some(m=>m.type==='rooms'&&m.rooms.some(r=>r.code===code)));
+ // 加载提示先于倒计时出现，必须等到加载门放行后再验收开赛。
+ for(let i=0;i<600&&!messages.some(m=>m.type==='go');i++)await new Promise(resolve=>setTimeout(resolve,50));
+ assert.ok(messages.some(m=>m.type==='room'&&m.phase==='loading'));assert.ok(messages.some(m=>m.type==='room'&&m.phase==='countdown'));assert.ok(messages.some(m=>m.type==='start'&&m.startAt===null));assert.ok(messages.some(m=>m.type==='go'&&Number.isFinite(m.startAt)));assert.ok(messages.some(m=>m.type==='rooms'&&m.rooms.some(r=>r.code===code)));
  for(const message of messages)noPasswords(message);
  assert.deepEqual(errors,[]);console.log('通过：双页列表、加锁、错密重试、邀请直入与清理、满员禁用、准备到倒计时、所有消息无密码字段');console.log(`截图：${output}`);
 } catch(error){console.error(error);console.error('页面异常：',errors);for(const [i,page] of pages.entries())try{console.error(`页面 ${i+1}：`,await page.locator('body').innerText({timeout:1000}));}catch{}process.exitCode=1;}

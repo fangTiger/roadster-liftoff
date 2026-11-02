@@ -193,3 +193,10 @@ test('入房等待中维护会取消超时任务并结算加入，不触发自�
  const {mountRoomUI}=await import('./room-ui.js'),f=uiFixture();let ui,callbacks,browsed=0;f.client.browse=()=>browsed++;f.client.leave=()=>{};f.client.connect=()=>{};f.get('[data-rm-name]').value='';
  try{ui=mountRoomUI({client:f.client,browserFactory:options=>{callbacks=options;return stubBrowser();}});const pending=callbacks.onCreate({name:'房间',locked:false});f.emit('maintenance');assert.deepEqual(await pending,{ok:false,code:'MAINTENANCE'});assert.equal(browsed,1);assert.equal(f.get('[data-rm-join]').disabled,false);}finally{ui?.destroy();f.restore();}
 });
+
+test('loading 大厅与 countdown 一样显示加载提示并锁定操作',async()=>{
+ const {mountRoomUI}=await import('./room-ui.js'),f=uiFixture();let ui;
+ try{ui=mountRoomUI({client:f.client,browserFactory:stubBrowser});f.emit('connection',{connected:true});f.emit('room',{...f.room,phase:'loading'});
+ assert.equal(f.get('[data-rm-hint]').textContent,'正在加载赛道，准备统一发车…');assert.equal(f.get('[data-rm-ready]').disabled,true);assert.equal(f.get('[data-rm-add-bot]').disabled,true);assert.equal(f.get('[data-rm-track="1"]').disabled,true);
+ }finally{ui?.destroy();f.restore();}
+});

@@ -69,7 +69,7 @@ ${itemsMode?'<div class="rh-missile-warning" role="status" hidden></div><div cla
   }
   const lapProgress = c => { const n = c.near; if (!n) return 0; if (n.path === 'main') return n.s / track.length; const b = track.branches.find(b => b.id === n.path); return (b.from + (b.to - b.from) * n.s / b.length) / track.length; };
   let flashEvent = null, flashUntil = 0, draftUntil = 0, coinUntil = 0, seen = 0, shownItem;
-  function update(s, { delta = null, deltaStep = 0, totalDelta = null, itemSlot = null, missileLocked = false, rivals = [] } = {}) {
+  function update(s, { delta = null, deltaStep = 0, totalDelta = null, itemSlot = null, missileLocked = false, rivals = [], waiting = null } = {}) {
     const comparison = $('.rh-delta');
     comparison.hidden = delta === null || s.step >= deltaStep + Math.ceil(2 / DT);
     comparison.textContent = delta === null ? '' : formatDelta(delta);
@@ -105,7 +105,7 @@ ${itemsMode?'<div class="rh-missile-warning" role="status" hidden></div><div cla
     if (roomMode) { $('.rh-draft span').textContent = t('race.draft'); $('.rh-draft meter').value = draftFlash ? 1 : Math.max(0, Math.min(1, c.draft ?? 0)); }
     $('.rh-flash').textContent = flashEvent ? EVENT_TEXT[flashEvent.type]?.(flashEvent) : ''; $('.rh-flash').style.opacity = s.step < flashUntil ? 1 : 0;
     const recent = s.events.slice(-8).findLast(e => e.type === 'reset' && s.step - e.step < 240);
-    $('.rh-notice').textContent = r.frozen ? Math.ceil(r.countdown) : r.wrongWay ? t('race.wrongWay') : r.missed !== null ? t('race.missed', { n: r.missed }) : recent ? t('race.reset') : '';
+    $('.rh-notice').textContent = waiting ? t('room.waitLoading',waiting) : r.frozen ? Math.ceil(r.countdown) : r.wrongWay ? t('race.wrongWay') : r.missed !== null ? t('race.missed', { n: r.missed }) : recent ? t('race.reset') : '';
     const result = $('.rh-result'); result.hidden = !r.finished || roomMode;
     if (roomMode && r.finished) $('.rh-notice').textContent = t('room.finished');
     if (r.finished && !roomMode) result.innerHTML = `<h2>${t('race.finish')}</h2><div class="best">${t('race.bestLap')} ${format(r.bestLap)}</div><div class="laps">${r.lapTimes.map((time, i) => `${t('race.nextLap', { n: i + 1 })}　${format(time)}${time === r.bestLap ? '　★' : ''}`).join('<br>')}</div>${totalDelta === null ? '' : `<div data-tone="${totalDelta < 0 ? 'ahead' : 'behind'}">${t('race.ghost.totalDelta')} ${formatDelta(totalDelta)}</div>`}<small style="font-size:14px;color:#aab7bd">${t('race.retry')}</small>`;

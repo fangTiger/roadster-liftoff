@@ -457,6 +457,7 @@ export default {
   "race.item.use": "E 使用",
   "room.track": "选择地图",
   "room.hint": "其他玩家准备好后，由房主点击「开始比赛」。",
+  "room.waitLoading": "等待其他车手加载 {loaded}/{total}",
   "room.loading": "正在加载赛道，准备统一发车…",
   "room.connecting": "连接房间服务…",
   "room.reconnecting": "连接中断，正在重连（座位保留 30 秒）…",

@@ -360,7 +360,7 @@ export function createGarage({container,loadCar,t=k=>k,onAddBot=()=>{},onRemoveB
    return {wallImage:texture?.image?.src,wallOpacity:wallFade,wallSize:{width:texture?.image?.width,height:texture?.image?.height},anisotropy:texture?.anisotropy,mipmaps:texture?.generateMipmaps,colorSpace:texture?.colorSpace,carBoxes,rotations:seats.map(seat=>({yaw:seat.car?.rotation.y,active:seat.rotation.active})),feedback:seats[selfSeat].feedback,headlights:seats[selfSeat].lamps?.map(lamp=>lamp.emissiveIntensity),pixelRatio:renderer.getPixelRatio(),fps:1000/mean,meanMs:mean,p95Ms:[...captureFrames].sort((a,b)=>a-b)[Math.floor(captureFrames.length*.95)],frames:captureFrames.length,heroHeight:carBoxes[selfSeat].bottom-carBoxes[selfSeat].top,calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,gpu:debug?gl.getParameter(debug.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER)};
   }
  };
- function shouldRun() { return !disposed&&!!room&&(room.phase==='lobby'||room.phase==='countdown'||room.phase==='racing')&&visible&&!document.hidden; }
+ function shouldRun() { return !disposed&&!!room&&(room.phase==='lobby'||room.phase==='loading'||room.phase==='countdown'||room.phase==='racing')&&visible&&!document.hidden; }
  function stop() { if(raf) cancelAnimationFrame(raf);raf=0; }
  function render(now) {
   raf=0;if(!shouldRun())return;

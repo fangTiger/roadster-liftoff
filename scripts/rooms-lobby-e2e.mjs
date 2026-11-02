@@ -45,15 +45,17 @@ async function startRace(host,pages,label,count){
  await host.getByRole('button',{name:'开始比赛',exact:true}).click();
  await wait(()=>pages.every(p=>messages.get(p).some(m=>m.type==='room'&&m.phase==='countdown')),`${label} 没有倒计时`);
  await wait(()=>messages.get(host).filter(m=>m.type==='start').length===before+1,`${label} 没有开赛消息`);
- const start=messages.get(host).filter(m=>m.type==='start').at(-1);assert.equal(start.grid.length,count);assert.equal(start.trackId,1);
- for(const p of pages)assert.deepEqual(messages.get(p).find(m=>m.type==='start'),start);
+ const start=messages.get(host).filter(m=>m.type==='start').at(-1);assert.equal(start.startAt,null);assert.equal(start.grid.length,count);assert.equal(start.trackId,1);
+ for(const p of pages){assert.deepEqual(messages.get(p).find(m=>m.type==='start'),start);assert.ok(sent.get(p).some(m=>m.type==='loaded'));}
+ const go=messages.get(host).filter(m=>m.type==='go').at(-1);assert.ok(Number.isFinite(go?.startAt));
+ for(const p of pages)assert.deepEqual(messages.get(p).filter(m=>m.type==='go').at(-1),go);
  await host.locator('[data-rm-lobby]').waitFor({state:'hidden'});
  await host.locator('.grg-transition').waitFor({state:'hidden'});
  // 服务器倒计时已由真实消息确认；截图等待转场结束，避免加载耗时导致错过数字帧。
  await shot(host,`${label}-race`);
  for(const [i,p] of pages.entries()){await p.locator('[data-rm-lobby]').waitFor({state:'hidden'});await shot(p,`${label}-page-${i+1}`);}
  assert.deepEqual(sent.get(host).filter(m=>m.type==='ready'),[],'房主不能通过准备发起比赛');
- checks.push({label,phase:'countdown',entrants:count,startAt:start.startAt});
+ checks.push({label,phase:'countdown',entrants:count,startAt:go.startAt});
 }
 try{
  const host=await page('房主甲');await host.locator('[data-rm-create]').click();await host.locator('[data-rm-room-code]').waitFor({state:'visible'});

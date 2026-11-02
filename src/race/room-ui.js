@@ -113,7 +113,7 @@ export function mountRoomUI({client,roomCode='',password='',browserFactory=creat
    const preview=trackPreview(id);
    button.innerHTML=`<img class="rm-track-photo" src="${preview.image}" alt="${t('race.track'+id)}" width="1280" height="720"><div class="rm-track-content"><div><strong>${t('race.track'+id)}</strong><span>${t('room.trackLength',{length:preview.length})} · ${t('race.'+preview.difficulty)}</span><small>${t(preview.jet?'room.jetOn':'room.jetOff')}</small></div><svg viewBox="0 0 100 100" aria-hidden="true"><path d="${preview.path}" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg></div>`;button.disabled=!connection||room?.hostId!==client.id||room?.phase!=='lobby';button.setAttribute('aria-pressed',String(id===room?.trackId));}
   for(const mode of ['items','speed']){const button=$(`[data-rm-mode="${mode}"]`);button.textContent=t('room.mode.'+mode);button.disabled=!connection||room?.hostId!==client.id||room?.phase!=='lobby';button.setAttribute('aria-pressed',String(mode===(room?.mode||'items')));}
-  $('[data-rm-hint]').textContent=t(room?.phase==='countdown'?'room.loading':'room.hint');
+  $('[data-rm-hint]').textContent=t(['loading','countdown'].includes(room?.phase)?'room.loading':'room.hint');
   $('[data-rm-status]').textContent=error?t('room.error.'+error):busy?t('room.connecting'):room&&!connection?t('room.reconnecting'):'';
   $('[data-rm-browser-error]').textContent=error?t('room.error.'+error):busy?t('room.connecting'):'';
   browser.update(browserRows);

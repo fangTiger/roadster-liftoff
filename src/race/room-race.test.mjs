@@ -136,3 +136,41 @@ test('已入房大厅由展厅负责绘制，后台赛道不重复渲染；未�
  ui.room={phase:'lobby',players:[]};loop.frame(16);loop.frame(32);assert.equal(renders,1);
  ui.view='results';loop.frame(48);assert.equal(renders,2);loop.destroy();
 });
+
+async function loadingFixture({deferred=false}={}){
+ const {buildTrack}=await import('./track/build.js'),{createSession}=await import('./sim/session.js'),{TRACKS}=await import('./track/data/index.js'),{gridSpawn}=await import('./grid.js');
+ const track=buildTrack(TRACKS[0].def),session=createSession(track,{spawn:gridSpawn(track,0)}),handlers=new Map(),sent=[],shown=new Map();let now=1000,finishSetup,setups=0,steps=0;
+ const gate=deferred?new Promise(resolve=>{finishSetup=resolve;}):Promise.resolve();
+ const players=[{id:'a',seat:0,connected:true},{id:'b',seat:1,connected:true},{id:'b1',seat:2,bot:true,ownerId:'a',difficulty:'normal',connected:true}];
+ const client={id:'a',serverNow:()=>now,on(type,fn){handlers.set(type,fn);return ()=>{};},send:m=>{sent.push(m);return true;},leave(){}},ui={view:'lobby',room:{phase:'loading',hostId:'a',players},racing(){this.view='racing';},update(){},destroy(){},fail(){assert.fail('不应加载失败');}};
+ const loop=mountRoomRace({engine:{scene:{add(){}},render(){}},params:new URLSearchParams(),client,ui,requestFrame:()=>{},setup:async()=>{setups++;await gate;},clear(){},simulate(bits){steps++;session.step(bits);},render(){},getState:()=>session.snapshot,getTrack:()=>track,getBits:()=>0,createRemote:async p=>({root:{},update:s=>shown.set(p.id,s),dispose(){}})});
+ const start={type:'start',trackId:1,laps:3,mode:'speed',startAt:null,grid:players.map(({id,seat})=>({id,seat}))};
+ return {loop,sent,shown,session,start,emit:(type,m)=>handlers.get(type)(m),finish:()=>finishSetup(),time:t=>{now=t;},get setups(){return setups;},get steps(){return steps;}};
+}
+test('null 开局加载完发送 loaded，真人与机器人停在发车格，go 后才推进与上报',async()=>{
+ const f=await loadingFixture();try{
+ await f.emit('start',f.start);assert.deepEqual(f.sent,[{type:'loaded'}]);f.emit('loading',{loaded:1,total:2});assert.deepEqual(f.loop.waiting,{loaded:1,total:2});
+ f.time(10000);f.loop.frame(0);f.loop.frame(100);assert.equal(f.steps,0);assert.deepEqual(f.sent,[{type:'loaded'}]);const parked={...f.shown.get('b1')};assert.ok(parked);assert.ok(Math.abs(parked.s-(f.session.snapshot.car.near.s-8))<.001);
+ f.emit('go',{startAt:11000});assert.equal(f.loop.waiting,null);f.loop.frame(200);assert.equal(f.steps,0);f.time(11000);f.loop.frame(300);assert.equal(f.sent.filter(m=>m.type==='state').length,1);
+ f.time(12000);f.loop.frame(400);assert.equal(f.steps,120);assert.equal(f.session.race.frozen,true);assert.ok(f.sent.some(m=>m.type==='botState'));assert.equal(f.shown.get('b1').x,parked.x);assert.equal(f.shown.get('b1').z,parked.z);
+ }finally{f.loop.destroy();}
+});
+test('go 早于 setup 完成（含排队前）保留发车时刻，超时慢玩家加载后按原逻辑追帧',async()=>{
+ for(const beforeSetup of [true,false]){const f=await loadingFixture({deferred:true});try{
+ const pending=f.emit('start',{...f.start});if(!beforeSetup)await Promise.resolve();f.emit('go',{startAt:2000});f.time(9000);f.loop.frame(0);assert.equal(f.steps,0);await Promise.resolve();f.finish();await pending;
+ assert.equal(f.sent.some(m=>m.type==='loaded'),false);f.loop.frame(100);assert.equal(f.steps,240);assert.equal(f.loop.waiting,null);
+ }finally{f.loop.destroy();}}
+});
+test('加载门重连复用 setup 并补发 loaded，错过 go 时由恢复 start 更新时刻',async()=>{
+ const f=await loadingFixture();try{
+ await f.emit('start',{...f.start});await f.emit('start',{...f.start});assert.equal(f.setups,1);assert.equal(f.sent.filter(m=>m.type==='loaded').length,2);
+ await f.emit('start',{...f.start,startAt:2000});assert.equal(f.setups,1);assert.equal(f.loop.waiting,null);f.time(2100);f.loop.frame(0);assert.equal(f.steps,12);
+ await f.emit('start',{...f.start,startAt:2000});assert.equal(f.setups,1);
+ }finally{f.loop.destroy();}
+});
+test('loading 期间忽略 peer，放行后远端时间轴使用 go 的时刻',async()=>{
+ const f=await loadingFixture();try{
+ await f.emit('start',f.start);f.emit('peer',{id:'b',seq:1,step:500,x:999,y:0,z:999,vx:0,vz:0,serverT:1000});f.loop.frame(0);assert.notEqual(f.shown.get('b').x,999);
+ f.emit('go',{startAt:2000});f.emit('peer',{id:'b',seq:1,step:0,x:10,y:0,z:20,yaw:0,pitch:0,steer:0,vx:10,vz:0,serverT:2100});f.time(2200);f.loop.frame(100);assert.equal(f.shown.get('b').x,11);
+ }finally{f.loop.destroy();}
+});

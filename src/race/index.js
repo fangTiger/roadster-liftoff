@@ -189,7 +189,7 @@ function render(alpha = 1, dt = 1 / 60) {
     mountRaceChain(slot, { trackId: def.id, trackName: t('race.track' + def.id), bestLap: current.race.bestLap, bits: achievementsToBits(achievements.list()), replay: recorder.encode({ track: hash, trackId: def.id, laps: def.laps }) });
   }
   celebration.update(dt); gate.update(current);
-  camera.update(c, dt); sky.update(engine.camera, car.root.position); skid.update(c); scene.update(current); hud.update(current, { rivals: roomRace?.rivals, itemSlot: roomRace?.itemSlot, missileLocked: roomRace?.missileLocked, delta: ghostDelta, deltaStep: ghostDeltaStep, totalDelta: current.race.finished && ghost ? timeDelta(current.race.elapsed, ghost.totalTime) : null });
+  camera.update(c, dt); sky.update(engine.camera, car.root.position); skid.update(c); scene.update(current); hud.update(current, { rivals: roomRace?.rivals, waiting: roomRace?.waiting, itemSlot: roomRace?.itemSlot, missileLocked: roomRace?.missileLocked, delta: ghostDelta, deltaStep: ghostDeltaStep, totalDelta: current.race.finished && ghost ? timeDelta(current.race.elapsed, ghost.totalTime) : null });
   // 成绩文字高度随语言变化，上链区块始终排在完整成绩之后。
   const chainSlot = document.getElementById('race-chain-slot');
   if (chainSlot) chainSlot.style.top = `${document.querySelector('#race-hud .rh-result').getBoundingClientRect().bottom + 12}px`;

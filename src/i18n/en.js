@@ -458,6 +458,7 @@ export default {
   "race.item.use": "E Use",
   "room.track": "Choose track",
   "room.hint": "Once the other players are ready, the host starts the race.",
+  "room.waitLoading": "Waiting for racers {loaded}/{total}",
   "room.loading": "Loading the track for a synchronized start…",
   "room.connecting": "Connecting to room server…",
   "room.reconnecting": "Connection lost. Reconnecting (seat held for 30 seconds)…",

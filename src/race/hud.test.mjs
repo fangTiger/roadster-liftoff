@@ -51,3 +51,11 @@ test('金币在燃料条附近显示 tuning 百分比，连续拾取刷新单条
  assert.match(created[0].textContent, /prefers-reduced-motion:\s*reduce/);
  hud.destroy();
 }));
+
+test('房间等待加载进度取代倒计时并随中英文更新，放行后恢复模拟倒计时',()=>fixture(elements=>{
+ const track=buildTrack(TRACKS[0].def),state=createSession(track).snapshot,hud=createHud(track,'',{trackId:1,roomMode:true});
+ hud.update(state,{waiting:{loaded:1,total:3}});assert.equal(elements.get('.rh-notice').textContent,'等待其他车手加载 1/3');
+ hud.update(state,{waiting:{loaded:2,total:3}});assert.equal(elements.get('.rh-notice').textContent,'等待其他车手加载 2/3');
+ setLang('en');hud.update(state,{waiting:{loaded:2,total:3}});assert.equal(elements.get('.rh-notice').textContent,'Waiting for racers 2/3');
+ hud.update(state);assert.equal(elements.get('.rh-notice').textContent,3);hud.destroy();
+}));

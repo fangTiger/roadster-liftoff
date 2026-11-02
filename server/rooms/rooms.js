@@ -33,20 +33,27 @@ export function createRooms({now=Date.now,random=Math.random,send,close=()=>{},o
   publish(r);
  }
  function complete(r){if(r.round&&[...r.round.values()].every(p=>p.finish||p.dnf))settle(r);}
+ function loadingProgress(r){return {type:'loading',loaded:members(r).filter(p=>r.loaded.has(p.id)).length,total:members(r).length};}
+ function release(r){
+  if(r.phase!=='loading')return;
+  if(now()<r.loadDeadline&&!members(r).every(p=>r.loaded.has(p.id)))return;
+  r.start.startAt=now()+1000;r.phase='countdown';publish(r);broadcast(r,{type:'go',startAt:r.start.startAt});
+ }
+ function checkLoaded(r){if(r.phase==='loading'){broadcast(r,loadingProgress(r));release(r);}}
  function remove(r,p){
   abandonBots(r,p.id);invalidateTarget(r,p.id);
   if(p.connected)clients.delete(p.connection);tokens.delete(p.resumeToken);r.players=r.players.filter(q=>q!==p);
   const entrant=r.round?.get(p.id);if(entrant&&!entrant.finish)entrant.dnf=true;
   broadcast(r,{type:'left',id:p.id});host(r);
-  if(!r.players.some(p=>!p.bot)){rooms.delete(r.code);directory.forget(r.code);onRoom(r.code,0);}else{publish(r);complete(r);}
+  if(!r.players.some(p=>!p.bot)){rooms.delete(r.code);directory.forget(r.code);onRoom(r.code,0);}else{publish(r);complete(r);checkLoaded(r);}
  }
  function start(r){
   if(r.phase!=='lobby'||!r.trackId||r.players.length<2||!r.players.every(p=>p.connected&&(p.bot||p.id===r.hostId||p.ready)))return;
-  r.phase='countdown';r.deadline=null;r.lastResults=null;
+  r.phase='loading';r.deadline=null;r.lastResults=null;r.loaded=new Set();r.loadDeadline=now()+20000;
   r.round=new Map(r.players.map(p=>[p.id,{id:p.id,name:p.name,seat:p.seat,bot:!!p.bot,difficulty:p.difficulty,finish:null,dnf:false}]));
   r.items=new Map();
   for(const p of r.players){p.lastItem=-Infinity;p.state=null;p.lastSeq=-1;p.rate=[];}
-  r.start={type:'start',trackId:r.trackId,mode:r.mode,laps:3,startAt:now()+1500,grid:r.players.map(({id,seat})=>({id,seat}))};publish(r);broadcast(r,r.start);
+  r.start={type:'start',trackId:r.trackId,mode:r.mode,laps:3,startAt:null,grid:r.players.map(({id,seat})=>({id,seat}))};publish(r);broadcast(r,r.start);broadcast(r,loadingProgress(r));
  }
  function listMessage(){return {type:'rooms',rooms:directory.list([...rooms.values()]),online:[...rooms.values()].reduce((n,r)=>n+members(r).length,0)};}
  function publishLists(){
@@ -58,6 +65,7 @@ export function createRooms({now=Date.now,random=Math.random,send,close=()=>{},o
   const time=now();
   for(const r of rooms.values()){
    for(const p of [...r.players])if(!p.bot&&!p.connected&&time>=p.expires)remove(r,p);
+   release(r);
    if(r.phase==='countdown'&&time>=r.start.startAt){r.phase='racing';publish(r);}
    if(r.phase==='racing'&&r.deadline!==null&&time>=r.deadline)settle(r);
   }
@@ -73,7 +81,7 @@ export function createRooms({now=Date.now,random=Math.random,send,close=()=>{},o
    if(!r||p.connected)return error(c,'NO_ROOM');
    subscribers.delete(c);p.connection=c;p.connected=true;p.expires=null;p.rate=[];clients.set(c,p);host(r);
    send(c,{type:'welcome',id:p.id,resumeToken:p.resumeToken});publish(r);
-   if(r.start){send(c,r.start);if(r.mode==='items')for(const stored of r.items?.values()||[])if(!stored.invalid&&now()<stored.expires)send(c,stored.gone?(stored.result??{type:'mineGone',itemId:stored.item.itemId,by:stored.by}):stored.item);for(const other of r.players)if(other!==p&&other.state)send(c,{type:'peer',id:other.id,...other.state});}
+   if(r.start){send(c,r.start);if(r.phase==='loading')broadcast(r,loadingProgress(r));if(r.mode==='items')for(const stored of r.items?.values()||[])if(!stored.invalid&&now()<stored.expires)send(c,stored.gone?(stored.result??{type:'mineGone',itemId:stored.item.itemId,by:stored.by}):stored.item);for(const other of r.players)if(other!==p&&other.state)send(c,{type:'peer',id:other.id,...other.state});}
    else if(r.lastResults)send(c,r.lastResults);
    return;
   }
@@ -121,6 +129,7 @@ export function createRooms({now=Date.now,random=Math.random,send,close=()=>{},o
   if((m.type==='pickMode'&&!['items','speed'].includes(m.mode))||(['item','mineHit','hit'].includes(m.type)&&(!itemId(m.itemId)||(m.botId!==undefined&&typeof m.botId!=='string')))||(m.type==='hit'&&m.shielded!==undefined&&typeof m.shielded!=='boolean')||(m.type==='item'&&(!['mine','missile'].includes(m.kind)||!finite(m.x)||!finite(m.z)||(m.kind==='mine'?(!finite(m.placedAt)||m.placedAt<0):(!finite(m.yaw)||!finite(m.firedAt)||m.firedAt<0||(m.target!==null&&typeof m.target!=='string'))))))return error(c,'BAD_MESSAGE');
   const p=clients.get(c),r=p&&rooms.get(p.code);if(!r)return error(c,'NO_ROOM');
   if(m.type==='leave'){remove(r,p);return;}
+  if(m.type==='loaded'){if(r.phase==='loading'&&r.round.has(p.id)){r.loaded.add(p.id);checkLoaded(r);}return;}
   if(m.type==='start'){
    if(p.id!==r.hostId)return error(c,'NOT_HOST');
    if(r.phase!=='lobby')return error(c,'BAD_PHASE');
@@ -192,6 +201,6 @@ export function createRooms({now=Date.now,random=Math.random,send,close=()=>{},o
   }
   error(c,'BAD_MESSAGE');
  }
- function disconnect(c){subscribers.delete(c);addresses.delete(c);disconnected.add(c);const p=clients.get(c);if(!p)return;clients.delete(c);p.connected=false;p.ready=false;p.expires=now()+GRACE;p.connection=null;const r=rooms.get(p.code);abandonBots(r,p.id);invalidateTarget(r,p.id);host(r);publish(r);complete(r);}
+ function disconnect(c){subscribers.delete(c);addresses.delete(c);disconnected.add(c);const p=clients.get(c);if(!p)return;clients.delete(c);p.connected=false;p.ready=false;p.expires=now()+GRACE;p.connection=null;const r=rooms.get(p.code);abandonBots(r,p.id);invalidateTarget(r,p.id);host(r);publish(r);complete(r);checkLoaded(r);}
  return {get size(){return rooms.size;},connect(c,ip){addresses.set(c,ip);disconnected.delete(c);},receive,disconnect,tick};
 }

@@ -83,3 +83,10 @@ test('节流期间刷新没有变化的列表，仍会在一秒后回应一次',
  assert.equal(f.out.get(viewer).length,1);f.advance(999);assert.equal(f.out.get(viewer).length,1);f.advance(1);assert.equal(f.out.get(viewer).length,2);
  f.advance(1000);assert.equal(f.out.get(viewer).length,2);
 });
+
+test('loading 在目录中显示比赛中，拒绝加入，直到 loaded 才倒计时',async()=>{
+ const f=fixture(),a=await f.hello(),code=f.last(a,'room').code,b=await f.hello({roomCode:code}),viewer=f.socket();
+ f.send(b,{type:'ready',on:true});f.send(a,{type:'start'});f.send(viewer,{type:'listRooms'});
+ const row=f.last(viewer,'rooms').rooms[0];assert.equal(row.phase,'loading');assert.equal(row.reason,'RACING');assert.equal(row.joinable,false);
+ const c=await f.hello({roomCode:code});assert.equal(f.last(c,'error').code,'RACING');f.advance(5000);assert.equal(f.last(a,'room').phase,'loading');
+});
